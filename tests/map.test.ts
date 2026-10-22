@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BLOCKING, CRATER, GRASS_ZONES, GUIDE, MAP_H, MAP_W, SIGNS, START, Tile, buildMap } from '../src/game/map';
+import { allChapters } from '../src/content';
+import { BLOCKING, CRATER, GRASS_ZONES, GUIDE, MAP_H, MAP_W, SIGNS, START, Tile, buildMap, seedFor } from '../src/game/map';
 
 /** Cases atteignables à pied depuis le départ. */
 function reachable(tiles: Tile[][]) {
@@ -19,8 +20,11 @@ function reachable(tiles: Tile[][]) {
   return seen;
 }
 
-describe('carte du Volcan', () => {
-  const map = buildMap();
+// Le décor change d'une région à l'autre : chaque graine doit laisser tout atteignable.
+const seeds = [2026, ...Array.from({ length: 40 }, (_, i) => i * 7919 + 1), ...allChapters().map((c) => seedFor(c.id))];
+
+describe.each(seeds)('carte, graine %i', (seed) => {
+  const map = buildMap(seed);
 
   it('le départ est praticable', () => {
     expect(BLOCKING.has(map.tiles[START.y][START.x])).toBe(false);

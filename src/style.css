@@ -134,6 +134,68 @@ input[type='text']:focus {
   height: 100%;
 }
 
+/* Carte de l'île : une carte par région */
+.regions .tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.region-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.region-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  background: #fff;
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-left: 8px solid var(--theme);
+  padding: 8px 10px;
+  font-weight: 400;
+}
+
+.region-card:hover:not(:disabled) {
+  background: #fff4e6;
+}
+
+.region-card.here {
+  border-color: var(--theme);
+  box-shadow: 0 0 0 2px var(--theme) inset;
+}
+
+.region-card .region-art svg {
+  width: 56px;
+  height: 56px;
+  display: block;
+}
+
+.region-card .region-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.region-card small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.region-card strong {
+  font-size: 16px;
+}
+
+.region-card .muted {
+  font-size: 13px;
+}
+
 /* Fenêtre des paramètres */
 .settings .setting {
   display: flex;

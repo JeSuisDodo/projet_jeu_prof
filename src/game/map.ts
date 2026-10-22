@@ -1,7 +1,11 @@
 import type { Level } from '../exercises/types';
 import { Rng } from '../exercises/rng';
 
-/** Carte de la région du Volcan du Second degré, générée de façon déterministe. */
+/**
+ * Carte d'une région, générée de façon déterministe. Toutes les régions partagent le même relief
+ * (rivière, ponts, plateaux, arène du gardien) ; le décor (arbres, rochers, fleurs) dépend de la
+ * graine de la région et les couleurs de son thème.
+ */
 
 export const TILE = 32;
 export const MAP_W = 80;
@@ -25,48 +29,42 @@ export enum Tile {
 
 export const BLOCKING = new Set([Tile.Rock, Tile.Lava, Tile.Tree, Tile.Boulder, Tile.Sign]);
 
-/** Une zone de hautes herbes : ses créatures et leur niveau. */
+/** Une zone de hautes herbes et le niveau de ses créatures. */
 export interface GrassZone {
   cx: number;
   cy: number;
   r: number;
   level: Level;
-  creatures: string[];
 }
 
 export const GRASS_ZONES: GrassZone[] = [
   // Plaine du sud, près du départ : niveau 1.
-  { cx: 17, cy: 49, r: 4.5, level: 1, creatures: ['parabolux', 'deltaire'] },
-  { cx: 29, cy: 54, r: 3.5, level: 1, creatures: ['racinelle', 'parabolux'] },
-  { cx: 45, cy: 50, r: 5, level: 1, creatures: ['deltaire', 'racinelle'] },
-  { cx: 58, cy: 54, r: 3.5, level: 1, creatures: ['parabolux', 'racinelle'] },
+  { cx: 17, cy: 49, r: 4.5, level: 1 },
+  { cx: 29, cy: 54, r: 3.5, level: 1 },
+  { cx: 45, cy: 50, r: 5, level: 1 },
+  { cx: 58, cy: 54, r: 3.5, level: 1 },
   // Terres de l'est, au sud de la rivière : niveau 2.
-  { cx: 71, cy: 40, r: 4.5, level: 2, creatures: ['canonyx', 'deltaire'] },
+  { cx: 71, cy: 40, r: 4.5, level: 2 },
   // Plateaux du nord-ouest, après le premier pont : niveau 2.
-  { cx: 10, cy: 21, r: 4.5, level: 2, creatures: ['canonyx', 'parabolux'] },
-  { cx: 24, cy: 13, r: 4, level: 2, creatures: ['signombre', 'deltaire'] },
-  { cx: 30, cy: 23, r: 3.5, level: 2, creatures: ['racinelle', 'canonyx'] },
+  { cx: 10, cy: 21, r: 4.5, level: 2 },
+  { cx: 24, cy: 13, r: 4, level: 2 },
+  { cx: 30, cy: 23, r: 3.5, level: 2 },
   // Pentes du volcan, au nord-est : niveau 3.
-  { cx: 50, cy: 22, r: 4, level: 3, creatures: ['signombre', 'canonyx'] },
-  { cx: 53, cy: 9, r: 3.5, level: 3, creatures: ['signombre', 'racinelle', 'canonyx'] },
-  { cx: 66, cy: 24, r: 3, level: 3, creatures: ['signombre', 'deltaire', 'canonyx'] },
+  { cx: 50, cy: 22, r: 4, level: 3 },
+  { cx: 53, cy: 9, r: 3.5, level: 3 },
+  { cx: 66, cy: 24, r: 3, level: 3 },
 ];
 
 export const START = { x: 8, y: 54 };
 export const GUIDE = { x: 11, y: 53 };
 export const CRATER = { x: 66, y: 11, r: 5 };
 
-export interface SignPost {
-  x: number;
-  y: number;
-  lines: string[];
-}
-
-export const SIGNS: SignPost[] = [
-  { x: 12, y: 56, lines: ['Village des Racines. Les hautes herbes de la plaine abritent des créatures de niveau 1.'] },
-  { x: 16, y: 34, lines: ['Pont du Discriminant. Au nord, les plateaux et leurs créatures de niveau 2.'] },
-  { x: 44, y: 18, lines: ['Pont du Sommet. Les pentes du volcan sont réservées aux aventuriers aguerris (niveau 3).'] },
-  { x: 58, y: 15, lines: ['Cratère de Trinomax. Le gardien ne combat que ceux qui ont capturé 3 espèces.'] },
+/** Panneaux : près du village, aux deux ponts, devant l'arène. Leur texte dépend de la région. */
+export const SIGNS = [
+  { x: 12, y: 56 },
+  { x: 16, y: 34 },
+  { x: 44, y: 18 },
+  { x: 58, y: 15 },
 ];
 
 /** Rivière de lave principale (est–ouest) et son bras nord (vers le cratère). */
@@ -78,6 +76,13 @@ const BRIDGE_BRANCH = [20, 21, 22];
 export interface RegionMap {
   tiles: Tile[][];
   zoneAt: (x: number, y: number) => GrassZone | null;
+}
+
+/** Graine du décor d'une région, tirée de son identifiant. */
+export function seedFor(regionId: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < regionId.length; i++) h = Math.imul(h ^ regionId.charCodeAt(i), 16777619);
+  return h >>> 0;
 }
 
 export function buildMap(seed = 2026): RegionMap {
@@ -169,7 +174,7 @@ export function buildMap(seed = 2026): RegionMap {
   blob(62, 44, 2.2, Tile.Lava, 0.4);
   blob(26, 33 + 4, 1.5, Tile.Lava, 0.3);
 
-  // Cratère : un cercle de roche ouvert au sud-ouest.
+  // Arène du gardien (le cratère) : un cercle de roche ouvert au sud.
   for (let y = CRATER.y - CRATER.r - 2; y <= CRATER.y + CRATER.r + 2; y++)
     for (let x = CRATER.x - CRATER.r - 2; x <= CRATER.x + CRATER.r + 2; x++) {
       const d = dist(x, y, CRATER.x, CRATER.y);

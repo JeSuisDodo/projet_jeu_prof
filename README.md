@@ -7,16 +7,20 @@ professeur suivra la progression de ses élèves.
 
 ## Ce que contient le prototype
 
-Une seule région jouable : **le Volcan du Second degré (1re spécialité)**.
+Chaque classe est une **île** (Seconde, 1re spécialité, Terminale spécialité) et chaque chapitre
+du programme une **région** de l'île, avec son ambiance (volcan, neige, désert, forêt, nuit…),
+ses créatures et son gardien. La carte de l'île (bouton carte, touche V) permet de changer de
+région. Voir `docs/contenu.md` pour ajouter un chapitre.
 
-- Écran d'accueil : choix de la classe (seule la 1re spécialité est ouverte) et du pseudo.
+- Écran d'accueil : choix de la classe et du pseudo, puis de la région de départ.
 - Carte explorable de 80 × 60 cases, dessinée par le code (aucune image à fournir) :
   rivière de lave et son bras nord, trois ponts, plateaux rocheux, forêt, chemins, panneaux
   à lire. Le décor a du relief : falaises avec leur face éclairée et leur ombre, lave en
   contrebas, buissons et arbres qui débordent sur la case du dessus, angles arrondis.
   Flèches, ZQSD ou WASD au clavier ; doigt maintenu sur l'écran au téléphone.
 - 11 zones de hautes herbes, de niveau 1 (plaine du sud) à 3 (pentes du volcan).
-- 5 créatures et un gardien, Trinomax, qu'on peut défier après avoir capturé 3 espèces.
+- Dans chaque région, 3 à 6 créatures (dessinées par le jeu à partir d'une silhouette, d'une
+  couleur et d'un symbole) et un gardien qu'on peut défier après avoir capturé 3 espèces.
 - Combat = exercice : chaque bonne réponse retire un cœur, une erreur fait fuir la créature
   et affiche la correction pas à pas. Un indice est disponible (moins d'expérience gagnée).
 - 10 modèles d'exercices générés aléatoirement (dossier `src/exercises`) :
@@ -31,7 +35,7 @@ Une seule région jouable : **le Volcan du Second degré (1re spécialité)**.
 - Son : musique d'exploration, de combat et du gardien, bruitages (herbes, rencontre, bonne et
   mauvaise réponse, capture, fuite, panneaux). Tout est synthétisé par le navigateur (Web Audio),
   sans fichier son : compositions originales, aucun droit à gérer.
-- En haut à droite, trois boutons-icônes : couper le son (M), carnet (C), paramètres (P).
+- En haut à droite, des boutons-icônes : couper le son (M), carte de l'île (V), carnet (C), paramètres (P).
   Paramètres : volume de la musique et des effets, couper le son, réduire les animations
   (coché d'office si le système le demande), texte plus grand. Gardés sur l'appareil.
 - Sauvegarde dans le navigateur (`localStorage`). Pas encore de comptes ni d'espace professeur.
@@ -58,6 +62,7 @@ GitHub Actions*.
 | Dossier | Rôle |
 | --- | --- |
 | `src/audio` | Musique et bruitages synthétisés (Web Audio). |
+| `src/content` | Programme : une classe par dossier, un chapitre par fichier (`types.ts` décrit le format). |
 | `src/exercises` | Modèles d'exercices, saisie des réponses (entiers, décimaux, fractions), vérification. |
 | `src/game` | Carte (`map.ts`), décor peint en relief (`terrain.ts`), créatures, sauvegarde, textures animées et scène Phaser de l'exploration. |
 | `src/ui` | Écrans HTML par-dessus le jeu : accueil, combat, carnet, dialogues, paramètres. |
