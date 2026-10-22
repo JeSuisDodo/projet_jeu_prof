@@ -18,7 +18,7 @@ export function showStart(existing: SaveData | null): Promise<StartChoice> {
       ${existing ? `<p>Partie en cours : <strong>${escapeHtml(existing.pseudo || 'sans pseudo')}</strong>, ${existing.xp} points d'expérience.</p>` : ''}
       <h2>Choisis ta classe</h2>`;
     const classes = h('div', 'classes');
-    for (const [stage, title] of [['college', 'Collège'], ['lycee', 'Lycée']] as const) {
+    for (const [stage, title] of [['college', 'Collège'], ['lycee', 'Lycée'], ['universite', 'Université']] as const) {
       const grades = GRADES.filter((g) => g.stage === stage);
       if (!grades.length) continue;
       const group = h('div', 'class-group');

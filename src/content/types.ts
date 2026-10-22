@@ -9,10 +9,10 @@ import type { Skill } from '../exercises/types';
  * liste `chapters` du `GradeDef` de la classe.
  */
 
-export type GradeId = '6e' | '5e' | '4e' | '3e' | '2nde' | '1re-spe' | 'tle-spe';
+export type GradeId = '6e' | '5e' | '4e' | '3e' | '2nde' | '1re-spe' | 'tle-spe' | 'l1' | 'l2' | 'l3';
 
-/** Cycle d'une classe : l'accueil range les îles en « Collège » puis « Lycée ». */
-export type Stage = 'college' | 'lycee';
+/** Cycle d'une classe : l'accueil range les îles en « Collège », « Lycée » puis « Université ». */
+export type Stage = 'college' | 'lycee' | 'universite';
 
 /** Ambiance graphique d'une région : couleurs du sol, de la végétation, du « liquide » et des particules. */
 export type ThemeId =
