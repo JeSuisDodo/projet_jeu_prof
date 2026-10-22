@@ -14,6 +14,7 @@ Chaque classe est une **île**, chaque chapitre du manuel une **région** de l'�
 | Seconde | `src/content/seconde/` (exercices possibles dans `src/exercises/seconde/`) | `SECONDE.chapters` dans `src/content/seconde/index.ts` |
 | 1re spécialité | `src/content/premiere/` | `PREMIERE.chapters` |
 | Terminale spécialité | `src/content/terminale/` (exercices possibles dans `src/exercises/terminale/`) | `TERMINALE.chapters` |
+| Licence 1 | `src/content/licence1/` (exercices dans `src/exercises/licence1/`) | `LICENCE1.chapters` |
 | Licence 3 | `src/content/licence3/` (exercices dans `src/exercises/licence3/`) | `LICENCE3.chapters` |
 
 Un chapitre = un fichier qui exporte un `ChapterDef` :
