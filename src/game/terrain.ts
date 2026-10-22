@@ -1,13 +1,15 @@
 import type Phaser from 'phaser';
-import { MAP_H, MAP_W, TILE, Tile } from './map';
+import { BLOCKING, MAP_H, MAP_W, TILE, Tile } from './map';
+
+const BLOCKS = (t: Tile) => BLOCKING.has(t);
 import { type Theme, shade } from './themes';
 
 /**
  * Peint le décor fixe de la carte dans une seule texture : sol, chemins, falaises en relief,
- * fosses de lave, ponts, cratère. Les angles exposés sont arrondis et chaque élément a ses
- * ombres et ses reflets, pour donner du volume.
+ * fosses de lave, ponts, cratère, plateaux avec leurs escaliers et corniches. Les angles exposés
+ * sont arrondis et chaque élément a ses ombres et ses reflets, pour donner du volume.
  */
-export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme): Phaser.GameObjects.RenderTexture {
+export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, raised?: boolean[][]): Phaser.GameObjects.RenderTexture {
   const g = scene.make.graphics({}, false);
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H ? Tile.Rock : tiles[y][x]);
   const isLavaLike = (t: Tile) => t === Tile.Lava || t === Tile.Bridge;
@@ -62,7 +64,7 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme): Ph
     },
   );
   each(
-    (t) => t === Tile.Ground || t === Tile.Grass || t === Tile.Flowers,
+    (t) => t === Tile.Ground || t === Tile.Grass || t === Tile.Flowers || t === Tile.Ledge,
     (_x, _y, px, py) => {
       g.lineStyle(1, shade(T.ground, 0.3), 0.9);
       for (let i = 0; i < 2; i++) {
@@ -72,6 +74,15 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme): Ph
       }
     },
   );
+
+  // Plateaux : le sol en hauteur reçoit plus de lumière.
+  if (raised)
+    each(
+      () => true,
+      (x, y, px, py) => {
+        if (raised[y][x]) g.fillStyle(0xffffff, 0.09).fillRect(px, py, TILE, TILE);
+      },
+    );
 
   // 2. Sol assombri et lueur autour du liquide et de l'arène.
   each(
@@ -162,11 +173,11 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme): Ph
     }
   });
 
-  // 8. Ombres portées des falaises sur le sol (lumière venant du nord-ouest).
+  // 8. Ombres portées des falaises et des corniches sur le sol (lumière venant du nord-ouest).
   each(
     (t) => !isRock(t),
     (x, y, px, py) => {
-      if (isRock(at(x, y - 1))) g.fillStyle(0x1b1412, 0.3).fillRect(px, py, TILE, 8);
+      if (isRock(at(x, y - 1)) || at(x, y - 1) === Tile.Ledge) g.fillStyle(0x1b1412, 0.3).fillRect(px, py, TILE, 8);
       if (isRock(at(x - 1, y))) g.fillStyle(0x1b1412, 0.22).fillRect(px, py, 7, TILE);
     },
   );
@@ -202,6 +213,36 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme): Ph
       g.lineStyle(1, shade(T.rock, -0.15));
       for (let k = 8; k < TILE; k += 8) g.lineBetween(px + k, top + 4, px + k, top + 10);
     }
+  });
+
+  // 10. Escaliers taillés dans la falaise : marches éclairées sur le dessus, contremarches sombres.
+  const isStairs = (t: Tile) => t === Tile.Stairs;
+  each(Tile.Stairs, (x, y, px, py) => {
+    // Un escalier entre deux cases à gauche et à droite se monte d'est en ouest : marches verticales.
+    const sideways = !BLOCKS(at(x - 1, y)) && !BLOCKS(at(x + 1, y)) && (BLOCKS(at(x, y - 1)) || BLOCKS(at(x, y + 1)));
+    solid(x, y, isStairs, shade(T.rock, -0.55), shade(T.rock, -0.1), 4);
+    for (let k = 0; k < 4; k++) {
+      if (sideways) {
+        g.fillStyle(shade(T.rock, 0.3)).fillRect(px + 2 + k * 8, py + 2, 5, TILE - 4);
+        g.fillStyle(shade(T.rock, -0.4)).fillRect(px + 7 + k * 8, py + 2, 2, TILE - 4);
+      } else {
+        g.fillStyle(shade(T.rock, 0.3)).fillRect(px + 2, py + 2 + k * 8, TILE - 4, 5);
+        g.fillStyle(shade(T.rock, -0.4)).fillRect(px + 2, py + 7 + k * 8, TILE - 4, 2);
+      }
+    }
+  });
+
+  // 11. Corniches : rebord de terre au bas de la case, d'où l'on saute vers le sud.
+  const isLedge = (t: Tile) => t === Tile.Ledge;
+  each(Tile.Ledge, (x, y, px, py) => {
+    const l = isLedge(at(x - 1, y)) ? 0 : 4;
+    const r = isLedge(at(x + 1, y)) ? 0 : 4;
+    const radius = { tl: l ? 4 : 0, tr: r ? 4 : 0, bl: l ? 4 : 0, br: r ? 4 : 0 };
+    g.fillStyle(shade(T.rock, -0.6)).fillRoundedRect(px + l, py + 16, TILE - l - r, 14, radius);
+    g.fillStyle(shade(T.rock, -0.25)).fillRoundedRect(px + l, py + 16, TILE - l - r, 9, radius);
+    g.fillStyle(shade(T.ground, 0.35)).fillRect(px + l + (l ? 2 : 0), py + 15, TILE - l - r - (l ? 2 : 0) - (r ? 2 : 0), 2);
+    // Petite flèche gravée : on descend par ici.
+    g.fillStyle(shade(T.rock, 0.25), 0.8).fillTriangle(px + 12, py + 19, px + 20, py + 19, px + 16, py + 23);
   });
 
   const rt = scene.add.renderTexture(0, 0, MAP_W * TILE, MAP_H * TILE).setOrigin(0);

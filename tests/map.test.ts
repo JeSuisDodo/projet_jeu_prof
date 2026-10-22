@@ -31,6 +31,16 @@ describe.each(cases)('carte %s, graine %i', (_name, seed, terrain) => {
     }
   });
 
+  it('on ne reste jamais coincé au pied d’une corniche', () => {
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        if (map.tiles[y][x] !== Tile.Ledge) continue;
+        // On saute du plateau (au nord) vers une case d'où l'on peut revenir à pied (au sud).
+        expect(map.raised[y - 1][x], `corniche ${x},${y}`).toBe(true);
+        expect(at(x, y - 1) && at(x, y + 1), `corniche ${x},${y}`).toBe(true);
+      }
+  });
+
   it('on peut parler à la gardienne et lire chaque panneau', () => {
     const besideReachable = (x: number, y: number) =>
       [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => at(x + dx, y + dy));
@@ -78,6 +88,14 @@ describe('reliefs', () => {
         const gap = Math.max(...profiles[i].map((v, k) => Math.abs(v - profiles[j][k])));
         expect(gap, `${TERRAINS[i]} / ${TERRAINS[j]}`).toBeGreaterThan(0.03);
       }
+  });
+
+  it('presque tous les reliefs ont des plateaux, avec escaliers et corniches', () => {
+    for (const t of TERRAINS.filter((t) => t !== 'canyon' && t !== 'archipel')) {
+      const tiles = [2026, 1, 7920, 15839].flatMap((seed) => buildMap(seed, t).tiles.flat());
+      expect(tiles.filter((x) => x === Tile.Stairs).length, t).toBeGreaterThan(0);
+      expect(tiles.filter((x) => x === Tile.Ledge).length, t).toBeGreaterThan(0);
+    }
   });
 
   it('les régions d’une même île ne se suivent pas avec le même relief', () => {

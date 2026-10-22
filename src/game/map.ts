@@ -27,9 +27,14 @@ export enum Tile {
   /** Fleurs et cailloux : décor que l'on peut traverser. */
   Flowers,
   Sign,
+  /** Escalier taillé dans la falaise d'un plateau : on y monte et on en descend. */
+  Stairs,
+  /** Corniche au sud d'un plateau : on saute par-dessus vers le bas, on ne la remonte pas. */
+  Ledge,
 }
 
-export const BLOCKING = new Set([Tile.Rock, Tile.Lava, Tile.Tree, Tile.Boulder, Tile.Sign]);
+/** Cases infranchissables. La corniche l'est aussi, sauf en sautant vers le sud (voir WorldScene). */
+export const BLOCKING = new Set([Tile.Rock, Tile.Lava, Tile.Tree, Tile.Boulder, Tile.Sign, Tile.Ledge]);
 
 export interface Point {
   x: number;
@@ -61,6 +66,8 @@ export interface RegionMap {
   arena: Arena;
   /** Panneaux : près du départ, deux le long du chemin, devant l'arène. Leur texte dépend de la région. */
   signs: Point[];
+  /** Cases en hauteur, sur un plateau : le décor y est plus clair. */
+  raised: boolean[][];
   zoneAt: (x: number, y: number) => GrassZone | null;
 }
 

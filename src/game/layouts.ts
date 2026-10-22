@@ -18,6 +18,8 @@ interface Layout {
   roads: [number, number][][];
   /** Densités du décor semé sur le sol nu. */
   decor: { tree: number; cliffTree: number; boulder: number; flowers: number };
+  /** Nombre maximal de plateaux en hauteur (3 par défaut ; aucun dans les grottes). */
+  plateaus?: number;
 }
 
 const START = { x: 8, y: 54 };
@@ -341,6 +343,7 @@ function canyon(c: Canvas): Layout {
     signs: [{ x: 12, y: 57 }, { x: 37, y: 43 }, { x: 51, y: 35 }, { x: 61, y: 19 }],
     roads: [[[START.x, START.y], [22, START.y], [22, 48], [34, 48], [34, 40], [48, 40], [48, 32], [66, 32], [66, 30], [63, 30], entrance(arena)]],
     decor: { tree: 0.01, cliffTree: 0, boulder: 0.05, flowers: 0.04 },
+    plateaus: 0,
   };
 }
 
@@ -425,9 +428,9 @@ export function reachableFrom(tiles: Tile[][], from: Point): boolean[][] {
 /**
  * Relie `target` au reste de la carte par le chemin le moins coûteux : franchir un obstacle coûte
  * plus cher que marcher, les panneaux et la bordure sont interdits. Les obstacles traversés
- * deviennent chemin (ou pont sur le liquide).
+ * deviennent chemin (pont sur le liquide, escalier dans la falaise d'un plateau).
  */
-function connect(c: Canvas, ok: boolean[][], target: Point): void {
+function connect(c: Canvas, ok: boolean[][], target: Point, cliff: Set<number>): void {
   const cost = (t: Tile) => (t === Tile.Sign ? Infinity : BLOCKING.has(t) ? 8 : 1);
   const dist = c.tiles.map((row) => row.map(() => Infinity));
   const prev = new Map<number, number>();
@@ -446,7 +449,7 @@ function connect(c: Canvas, ok: boolean[][], target: Point): void {
         const cx = k % MAP_W;
         const cy = Math.floor(k / MAP_W);
         const t = c.get(cx, cy);
-        if (BLOCKING.has(t)) c.set(cx, cy, t === Tile.Lava ? Tile.Bridge : Tile.Path);
+        if (BLOCKING.has(t)) c.set(cx, cy, t === Tile.Lava ? Tile.Bridge : cliff.has(k) ? Tile.Stairs : Tile.Path);
         k = prev.get(k);
       }
       return;
@@ -465,13 +468,84 @@ function connect(c: Canvas, ok: boolean[][], target: Point): void {
   }
 }
 
-function finish(c: Canvas, L: Layout): void {
+/** Zones d'herbes reculées que l'on hisse sur un plateau, loin du départ, de l'arène et des panneaux. */
+function plateauSites(L: Layout): { zone: GrassZone; R: number }[] {
+  const chosen: { zone: GrassZone; R: number }[] = [];
+  const far = (p: Point, x: number, y: number, d: number) => Math.hypot(p.x - x, p.y - y) > d;
+  for (const zone of [...L.zones].sort((a, b) => b.level - a.level)) {
+    if (chosen.length >= (L.plateaus ?? 3)) break;
+    const R = zone.r + 2;
+    const { cx, cy } = zone;
+    const fits =
+      cx - R > 2 && cy - R > 2 && cx + R < MAP_W - 4 && cy + R < MAP_H - 4 &&
+      far(L.arena, cx, cy, R + L.arena.r + 3) &&
+      far(L.start, cx, cy, R + 5) &&
+      far(L.guide, cx, cy, R + 4) &&
+      L.signs.every((s) => far(s, cx, cy, R + 2)) &&
+      // La falaise ne coupe pas une autre zone d'herbes en deux.
+      L.zones.every((o) => o === zone || Math.abs(Math.hypot(o.cx - cx, o.cy - cy) - R) > o.r + 1.5) &&
+      chosen.every((p) => far({ x: p.zone.cx, y: p.zone.cy }, cx, cy, p.R + R + 4));
+    if (fits) chosen.push({ zone, R });
+  }
+  return chosen;
+}
+
+/**
+ * Hisse une zone sur un plateau aux angles arrondis : une falaise d'une case l'entoure. Là où un
+ * chemin la traverse, on taille un escalier. Le contenu du plateau ne change pas.
+ */
+function raisePlateau(c: Canvas, zone: GrassZone, R: number, raised: boolean[][], cliff: Set<number>): void {
+  const inside = (x: number, y: number) =>
+    Math.cbrt(Math.abs((x - zone.cx) / (R + 1)) ** 3 + Math.abs((y - zone.cy) / R) ** 3) < 1;
+  const walk = (t: Tile) => t === Tile.Path || t === Tile.Stairs;
+  const cells: [number, number][] = [];
+  for (let y = Math.floor(zone.cy - R - 2); y <= zone.cy + R + 2; y++)
+    for (let x = Math.floor(zone.cx - R - 3); x <= zone.cx + R + 3; x++) {
+      if (!c.inside(x, y)) continue;
+      if (inside(x, y)) {
+        raised[y][x] = true;
+        continue;
+      }
+      // Toute case qui touche le plateau, même en diagonale, fait partie de la falaise : pas de fuite.
+      const touches = [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => inside(x + dx, y + dy)));
+      if (touches && !onBorder(x, y)) cells.push([x, y]);
+    }
+  const before = (x: number, y: number) => c.get(x, y);
+  const verdict = cells.map(([x, y]) => {
+    const t = before(x, y);
+    if (t === Tile.Lava || t === Tile.Bridge || t === Tile.Crater) return null;
+    // Un chemin qui monte sur le plateau : chemin des deux côtés, dans l'axe.
+    const across = (ax: number, ay: number, bx: number, by: number) =>
+      walk(before(ax, ay)) && walk(before(bx, by)) && inside(ax, ay) !== inside(bx, by);
+    const crossing = t === Tile.Path && (across(x, y - 1, x, y + 1) || across(x - 1, y, x + 1, y));
+    return crossing ? Tile.Stairs : Tile.Rock;
+  });
+  cells.forEach(([x, y], i) => {
+    const t = verdict[i];
+    if (t === null) return;
+    c.set(x, y, t);
+    cliff.add(y * MAP_W + x);
+  });
+  // Un passage dégagé au pied de la falaise sud, pour que l'on puisse y atterrir d'un saut.
+  for (const [x, y] of cells) {
+    const below = c.get(x, y + 1);
+    const foot = inside(x, y - 1) && !inside(x, y + 1) && !cliff.has((y + 1) * MAP_W + x) && !onBorder(x, y + 1);
+    if (foot && (below === Tile.Tree || below === Tile.Boulder || below === Tile.Rock)) c.set(x, y + 1, Tile.Ground);
+  }
+}
+
+function finish(c: Canvas, L: Layout): boolean[][] {
   const { rng } = c;
   // Bordure toujours fermée, même si une clairière ou une île la déborde.
   for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (onBorder(x, y) && !BLOCKING.has(c.get(x, y))) c.set(x, y, Tile.Rock);
   for (const zone of L.zones) c.blob(zone.cx, zone.cy, zone.r, Tile.Grass, 1.4, keepLiquid);
   for (const road of L.roads) c.road(road);
   carveArena(c, L.arena);
+
+  // Plateaux en hauteur : on y monte par des escaliers, on en redescend aussi en sautant des corniches.
+  const raised = c.tiles.map((row) => row.map(() => false));
+  const cliff = new Set<number>();
+  for (const { zone, R } of plateauSites(L)) raisePlateau(c, zone, R, raised, cliff);
 
   for (let y = 0; y < MAP_H; y++)
     for (let x = 0; x < MAP_W; x++) {
@@ -490,7 +564,8 @@ function finish(c: Canvas, L: Layout): void {
     for (let y = cy - r; y <= cy + r; y++)
       for (let x = cx - r; x <= cx + r; x++) {
         const t = c.get(x, y);
-        if (t === Tile.Tree || t === Tile.Boulder || t === Tile.Flowers || t === Tile.Grass || (t === Tile.Rock && !onBorder(x, y))) c.set(x, y, Tile.Ground);
+        const rock = t === Tile.Rock && !onBorder(x, y) && !cliff.has(y * MAP_W + x);
+        if (t === Tile.Tree || t === Tile.Boulder || t === Tile.Flowers || t === Tile.Grass || rock) c.set(x, y, Tile.Ground);
       }
   };
   clear(L.start.x, L.start.y, 2);
@@ -515,13 +590,36 @@ function finish(c: Canvas, L: Layout): void {
   const targets = [{ x: L.arena.x, y: L.arena.y }, ...L.zones.map(zoneCell), beside(L.guide), ...L.signs.map(beside)];
   for (const target of targets) {
     const ok = reachableFrom(c.tiles, L.start);
-    if (!ok[target.y][target.x]) connect(c, ok, target);
+    if (!ok[target.y][target.x]) connect(c, ok, target, cliff);
   }
+
+  // Corniches : sur la falaise sud d'un plateau, entre deux cases déjà reliées au départ. Elles ne
+  // font qu'offrir un raccourci vers le bas : personne ne peut s'y retrouver coincé.
+  // Un recoin au pied d'un plateau, coupé du reste, est d'abord relié : on pourra y sauter sans s'y bloquer.
+  let ok = reachableFrom(c.tiles, L.start);
+  for (const k of cliff) {
+    const x = k % MAP_W;
+    const y = Math.floor(k / MAP_W);
+    const below = { x, y: y + 1 };
+    if (c.get(x, y) !== Tile.Rock || !raised[y - 1]?.[x] || raised[below.y]?.[x] || cliff.has(below.y * MAP_W + x)) continue;
+    if (!ok[y - 1][x] || ok[below.y][x] || BLOCKING.has(c.get(below.x, below.y)) || onBorder(below.x, below.y)) continue;
+    connect(c, ok, below, cliff);
+    ok = reachableFrom(c.tiles, L.start);
+  }
+  const ledge = (x: number, y: number) =>
+    c.get(x, y) === Tile.Rock && cliff.has(y * MAP_W + x) && raised[y - 1]?.[x] === true && !raised[y + 1]?.[x] &&
+    !cliff.has((y + 1) * MAP_W + x) && ok[y - 1]?.[x] === true && ok[y + 1]?.[x] === true;
+  const ledges: Point[] = [];
+  for (let y = 1; y < MAP_H - 1; y++)
+    for (let x = 1; x < MAP_W - 1; x++) if (ledge(x, y) && (ledge(x - 1, y) || ledge(x + 1, y))) ledges.push({ x, y });
+  for (const p of ledges) c.set(p.x, p.y, Tile.Ledge);
+  return raised;
 }
 
 /** Retourne la carte de gauche à droite : chaque relief existe dans les deux sens. */
-function mirror(c: Canvas, L: Layout): Layout {
+function mirror(c: Canvas, L: Layout, raised: boolean[][]): Layout {
   for (const row of c.tiles) row.reverse();
+  for (const row of raised) row.reverse();
   const fx = (p: Point) => ({ x: MAP_W - 1 - p.x, y: p.y });
   const open: Side = L.arena.open === 'E' ? 'W' : L.arena.open === 'W' ? 'E' : L.arena.open;
   return {
@@ -538,9 +636,9 @@ export function buildMap(seed: number, terrain: TerrainId = 'riviere'): RegionMa
   const rng = new Rng(seed);
   const c = new Canvas(rng);
   let L = LAYOUTS[terrain](c);
-  finish(c, L);
+  const raised = finish(c, L);
   // La région d'origine (graine par défaut) garde son sens ; les autres sont retournées une fois sur deux.
-  if (seed !== 2026 && rng.next() < 0.5) L = mirror(c, L);
+  if (seed !== 2026 && rng.next() < 0.5) L = mirror(c, L, raised);
   const zones = L.zones;
   const zoneAt = (x: number, y: number) => {
     if (c.tiles[y]?.[x] !== Tile.Grass) return null;
@@ -552,5 +650,5 @@ export function buildMap(seed: number, terrain: TerrainId = 'riviere'): RegionMa
     }
     return best;
   };
-  return { terrain, tiles: c.tiles, zones, start: L.start, guide: L.guide, arena: L.arena, signs: L.signs, zoneAt };
+  return { terrain, tiles: c.tiles, zones, start: L.start, guide: L.guide, arena: L.arena, signs: L.signs, raised, zoneAt };
 }
