@@ -208,6 +208,7 @@ export const SUITES_ARITH_GEO: ChapterDef = {
   title: 'Suites arithmétiques et géométriques',
   region: 'Côte des Progressions',
   theme: 'plage',
+  terrain: 'cote',
   skills: [arithTerme, arithRaison, geoTerme, geoRaison, arithSomme, geoSomme, nature],
   creatures: [
     {

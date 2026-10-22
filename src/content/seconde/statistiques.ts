@@ -7,6 +7,7 @@ export const STATISTIQUES: ChapterDef = {
   title: 'Statistique descriptive',
   region: 'Verger des Statistiques',
   theme: 'automne',
+  terrain: 'riviere',
   skills: STATISTIQUES_SKILLS,
   creatures: [
     creature('moyennou', 'Moyennou', 'Un blob qui fait la moyenne de tout ce qu’il mange : ni trop, ni trop peu.', ['2nde-moyenne', '2nde-moyenne-transformee'], 'blob', 30, 'x̄'),

@@ -7,6 +7,7 @@ export const LOGARITHME: ChapterDef = {
   title: 'Fonction logarithme',
   region: 'Marais du Logarithme',
   theme: 'marais',
+  terrain: 'marais',
   skills: LOGARITHME_SKILLS,
   creatures: [
     creature('tle-lenteuil', 'Lenteuil', 'Une tortue des marais : elle grandit, mais de plus en plus lentement.', ['tle-ln-limites', 'tle-ln-variations'], { shape: 'bete', hue: 90, symbol: 'ln' }),

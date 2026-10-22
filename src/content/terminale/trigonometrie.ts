@@ -7,6 +7,7 @@ export const TRIGONOMETRIE: ChapterDef = {
   title: 'Fonctions sinus et cosinus',
   region: 'Désert des Sinus',
   theme: 'desert',
+  terrain: 'desert',
   skills: TRIGONOMETRIE_SKILLS,
   creatures: [
     creature('tle-sinuscorpion', 'Sinuscorpion', 'Un scorpion dont la queue ondule comme une sinusoïde.', ['tle-trigo-valeurs', 'tle-trigo-derivee'], { shape: 'insecte', hue: 40, symbol: 'sin' }),

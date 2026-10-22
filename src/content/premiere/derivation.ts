@@ -187,6 +187,7 @@ export const DERIVATION: ChapterDef = {
   title: 'Dérivation',
   region: 'Forêt des Tangentes',
   theme: 'foret',
+  terrain: 'foret',
   skills: [taux, penteTangente, nombreDerive, derivePoly, tangente, operations],
   creatures: [
     {

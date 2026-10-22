@@ -7,6 +7,7 @@ export const GEOMETRIE_PLAN: ChapterDef = {
   title: 'Géométrie dans le plan',
   region: 'Désert de Pythagore',
   theme: 'desert',
+  terrain: 'desert',
   skills: GEOMETRIE_PLAN_SKILLS,
   creatures: [
     creature('milieuse', 'Milieuse', 'Un blob qui s’installe toujours pile au milieu de deux points.', ['2nde-milieu', '2nde-symetrique'], 'blob', 45, 'M'),

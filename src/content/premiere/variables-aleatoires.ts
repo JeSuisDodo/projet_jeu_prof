@@ -169,6 +169,7 @@ export const VARIABLES_ALEATOIRES: ChapterDef = {
   title: 'Variables aléatoires',
   region: 'Plaine des Dés',
   theme: 'prairie',
+  terrain: 'riviere',
   skills: [manquante, probabilite, esperance, variance, lineaire, jeu],
   creatures: [
     {

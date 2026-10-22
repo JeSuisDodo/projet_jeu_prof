@@ -7,6 +7,7 @@ export const DENOMBREMENT: ChapterDef = {
   title: 'Combinatoire et dénombrement',
   region: 'Grottes du Dénombrement',
   theme: 'nuit',
+  terrain: 'canyon',
   skills: DENOMBREMENT_SKILLS,
   creatures: [
     creature('tle-factorielle', 'Factoriguêpe', 'Une guêpe qui range ses n alvéoles de n! façons.', ['tle-permutations', 'tle-arrangements'], { shape: 'insecte', hue: 50, symbol: 'n!' }),

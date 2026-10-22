@@ -193,6 +193,7 @@ export const GEOMETRIE_REPEREE: ChapterDef = {
   title: 'Géométrie repérée',
   region: 'Sommets du Repère',
   theme: 'neige',
+  terrain: 'montagne',
   skills: [normal, equationNormale, perpendiculaire, cercleLecture, cercleRayon, distance],
   creatures: [
     {

@@ -7,6 +7,7 @@ export const DERIVATION: ChapterDef = {
   title: 'Dérivation et convexité',
   region: 'Collines Convexes',
   theme: 'foret',
+  terrain: 'montagne',
   skills: DERIVATION_SKILLS,
   creatures: [
     creature('tle-derivouille', 'Dérivouille', 'Une grenouille qui saute d’une fonction à sa dérivée.', ['tle-derivee-composee', 'tle-derivee-racine'], { shape: 'blob', hue: 100, symbol: 'f′' }),

@@ -7,6 +7,7 @@ export const PRIMITIVES: ChapterDef = {
   title: 'Primitives et équations différentielles',
   region: 'Bois des Primitives',
   theme: 'foret',
+  terrain: 'foret',
   skills: PRIMITIVES_SKILLS,
   creatures: [
     creature('tle-remontrelle', 'Remontrelle', 'Une fourmi qui remonte toujours de la dérivée vers la fonction.', ['tle-primitive-polynome', 'tle-primitive-forme'], { shape: 'insecte', hue: 60, symbol: 'F' }),

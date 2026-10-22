@@ -7,6 +7,7 @@ export const ETUDE_FONCTIONS: ChapterDef = {
   title: 'Étude graphique et algébrique de fonctions',
   region: 'Plaine des Antécédents',
   theme: 'prairie',
+  terrain: 'lac',
   skills: ETUDE_FONCTIONS_SKILLS,
   creatures: [
     creature('imageon', 'Imageon', 'Un blob-miroir : donne-lui un nombre, il te renvoie son image.', ['2nde-image', '2nde-domaine'], 'blob', 60, 'f(x)'),

@@ -7,6 +7,7 @@ export const VECTEURS_ESPACE: ChapterDef = {
   title: 'Vecteurs, droites et plans de l’espace',
   region: 'Pics de l’Espace',
   theme: 'neige',
+  terrain: 'montagne',
   skills: VECTEURS_ESPACE_SKILLS,
   creatures: [
     creature('tle-vectaigle', 'Vectaigle', 'Un aigle qui vole en ligne droite d’un point à un autre.', ['tle-espace-vecteur', 'tle-espace-milieu'], { shape: 'oiseau', hue: 210, symbol: '→' }),

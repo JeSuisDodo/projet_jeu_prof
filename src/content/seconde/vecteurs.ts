@@ -7,6 +7,7 @@ export const VECTEURS: ChapterDef = {
   title: 'Vecteurs',
   region: 'Côte des Vecteurs',
   theme: 'plage',
+  terrain: 'cote',
   skills: VECTEURS_SKILLS,
   creatures: [
     creature('flechon', 'Fléchon', 'Un poisson-flèche qui file toujours de son point de départ vers son point d’arrivée.', ['2nde-coord-vecteur', '2nde-translation'], 'poisson', 195, '→'),

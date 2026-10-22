@@ -242,6 +242,7 @@ export const TRIGONOMETRIE: ChapterDef = {
   title: 'Trigonométrie',
   region: 'Nuit du Cercle',
   theme: 'nuit',
+  terrain: 'lac',
   skills: [conversion, valeurs, associes, principale, equation, parite],
   creatures: [
     {

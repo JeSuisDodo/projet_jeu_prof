@@ -7,6 +7,7 @@ export const PARAMETRIQUES: ChapterDef = {
   title: 'Représentations paramétriques et équations cartésiennes',
   region: 'Ciel des Plans',
   theme: 'nuit',
+  terrain: 'archipel',
   skills: PARAMETRIQUES_SKILLS,
   creatures: [
     creature('tle-parametrix', 'Paramétrix', 'Une comète qui avance à chaque valeur du paramètre t.', ['tle-representation-parametrique', 'tle-point-plan'], { shape: 'spectre', hue: 250, symbol: 't' }),

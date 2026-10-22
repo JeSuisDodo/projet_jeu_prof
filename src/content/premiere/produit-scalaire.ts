@@ -181,6 +181,7 @@ export const PRODUIT_SCALAIRE: ChapterDef = {
   title: 'Produit scalaire',
   region: 'Grottes de Cristal',
   theme: 'cristal',
+  terrain: 'canyon',
   skills: [coordonnees, normeAngle, orthogonal, alKashi, polarisation, figure],
   creatures: [
     {

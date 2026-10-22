@@ -7,6 +7,7 @@ export const ENSEMBLES: ChapterDef = {
   title: 'Ensembles de nombres',
   region: 'Prairie des Nombres',
   theme: 'prairie',
+  terrain: 'riviere',
   skills: ENSEMBLES_SKILLS,
   creatures: [
     creature('naturon', 'Naturon', 'Un petit blob qui ne compte que sur ses doigts. Il range chaque nombre dans le bon ensemble.', ['2nde-ensemble'], 'blob', 110, 'ℕ'),

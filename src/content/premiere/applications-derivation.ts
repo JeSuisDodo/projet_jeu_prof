@@ -193,6 +193,7 @@ export const APPLICATIONS_DERIVATION: ChapterDef = {
   title: 'Applications de la dérivation',
   region: 'Vallée des Variations',
   theme: 'automne',
+  terrain: 'riviere',
   skills: [pointsCritiques, variations, extremum, composee, optimisation],
   creatures: [
     {

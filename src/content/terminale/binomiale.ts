@@ -7,6 +7,7 @@ export const BINOMIALE: ChapterDef = {
   title: 'Succession d’épreuves indépendantes, loi binomiale',
   region: 'Prairie de Bernoulli',
   theme: 'prairie',
+  terrain: 'riviere',
   skills: BINOMIALE_SKILLS,
   creatures: [
     creature('tle-bernoullapin', 'Bernoullapin', 'Un lapin qui saute ou ne saute pas : succès ou échec.', ['tle-epreuves-independantes', 'tle-binomiale-modele'], { shape: 'bete', hue: 100, symbol: 'p' }),
