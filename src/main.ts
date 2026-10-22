@@ -114,6 +114,7 @@ const world = new WorldScene({
         await showDialog('Trinomax', ['Impressionnant… Tu mérites le Badge du Volcan.']);
     }),
   bossDefeated: () => save.badges.includes('volcan'),
+  readSign: (lines) => exclusive(() => showDialog('Panneau', lines)),
 });
 
 window.addEventListener('keydown', (e) => {
