@@ -388,6 +388,8 @@ input[type='text']:focus {
   margin: 18px 0 14px;
   font-size: 18px;
   line-height: 1.6;
+  /* Les tableaux (lois, tableaux croisés) peuvent dépasser sur téléphone : on les fait défiler. */
+  overflow-x: auto;
 }
 
 .choices {
