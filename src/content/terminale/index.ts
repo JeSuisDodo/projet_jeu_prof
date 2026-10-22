@@ -19,6 +19,7 @@ import { SOMMES_VA } from './sommesVA';
 export const TERMINALE: GradeDef = {
   id: 'tle-spe',
   name: 'Terminale spécialité',
+  stage: 'lycee',
   island: 'Île des Sommets',
   chapters: [SUITES, LIMITES_SUITES, LIMITES_FONCTIONS, CONTINUITE, DERIVATION, LOGARITHME, TRIGONOMETRIE, PRIMITIVES, INTEGRALES, DENOMBREMENT, VECTEURS_ESPACE, ORTHOGONALITE, PARAMETRIQUES, BINOMIALE, SOMMES_VA],
 };

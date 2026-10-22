@@ -268,10 +268,21 @@ input[type='text']:focus {
 
 /* Écran d'accueil */
 .start .classes {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
   margin: 16px 0;
+}
+
+.start .class-group h3 {
+  margin: 12px 0 6px;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+}
+
+.start .class-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
 }
 
 .start .classes button {
