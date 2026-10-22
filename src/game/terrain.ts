@@ -17,8 +17,28 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, rai
   /** Case en hauteur, sur un plateau. */
   const up = (x: number, y: number) => raised?.[y]?.[x] === true;
   /** Falaise qui borde un plateau : elle se dessine comme le rebord du plateau, pas comme un rocher. */
-  const rim = (x: number, y: number) =>
-    at(x, y) === Tile.Rock && !up(x, y) && [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => up(x + dx, y + dy)));
+  const near = (x: number, y: number, test: (x: number, y: number) => boolean) =>
+    [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => (dx || dy) && test(x + dx, y + dy)));
+  const ring = (x: number, y: number) => at(x, y) === Tile.Rock && !up(x, y) && near(x, y, up);
+  // Seulement là où le rebord se voit : entre le sol du plateau et le sol d'en bas. Collé à une
+  // montagne ou à un autre rocher, il reste un rocher ordinaire.
+  const rimCache = new Map<number, boolean>();
+  const rim = (x: number, y: number) => {
+    const k = y * MAP_W + x;
+    let v = rimCache.get(k);
+    if (v === undefined) {
+      const lowFloor = (a: number, b: number) => !isRock(at(a, b)) && !up(a, b);
+      const highFloor = (a: number, b: number) => !isRock(at(a, b)) && up(a, b);
+      const sides = [[0, 1], [0, -1], [1, 0], [-1, 0]].map(([dx, dy]) => [x + dx, y + dy]);
+      v =
+        ring(x, y) &&
+        near(x, y, highFloor) &&
+        // Un bord exposé, ou un angle du rebord entièrement entouré par le plateau et son rebord.
+        (sides.some(([a, b]) => lowFloor(a, b)) || sides.every(([a, b]) => highFloor(a, b) || ring(a, b)));
+      rimCache.set(k, v);
+    }
+    return v;
+  };
   let seed = 7;
   const rand = () => {
     seed = (seed * 9301 + 49297) % 233280;
