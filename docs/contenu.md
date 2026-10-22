@@ -18,7 +18,9 @@ Un chapitre = un fichier qui exporte un `ChapterDef` :
 - `skills` : des `Skill` (type de `src/exercises/types.ts`) ; les réponses possibles sont
   `number`, `set`, `pair` et `choice` (utiliser `makeChoice` pour un QCM) ; textes en LaTeX entre `$…$` ;
 - `creatures` : 3 à 6 `CreatureDef`, de la plus simple à la plus difficile, chacune avec ses
-  `skills` et un `look` (silhouette, teinte, symbole) : le jeu les dessine ;
+  `skills` et un `look` (silhouette, teinte, symbole) : le jeu les dessine. Leur rareté (commune,
+  peu commune, rare, légendaire) suit leur ordre dans la liste, ou le champ `rarity` : une créature
+  rare se montre peu et pose des questions plus difficiles (voir `src/game/rarity.ts`) ;
 - `boss` : le gardien, qui pose des questions de niveau 3.
 
 **Identifiants** : uniques dans tout le jeu, préfixés par la classe (`2nde-…`, `1re-…`, `tle-…`)

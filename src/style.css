@@ -289,6 +289,58 @@ input[type='text']:focus {
   outline: 3px solid var(--ink);
 }
 
+/* Rareté : étoiles et couleur, du gris (commune) à l'or (légendaire). */
+.rarity {
+  display: inline-block;
+  margin: 2px 0;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: #e9ecef;
+  color: #495057;
+}
+
+.rarity.peu-commune {
+  background: #d3f9d8;
+  color: #2b8a3e;
+}
+
+.rarity.rare {
+  background: #d0ebff;
+  color: #1864ab;
+}
+
+.rarity.legendaire {
+  background: linear-gradient(90deg, #ffe066, #fab005);
+  color: #5c3d00;
+}
+
+.battle-head .portrait.rare {
+  box-shadow: 0 0 0 3px #74c0fc, 0 0 14px #74c0fc;
+}
+
+.battle-head .portrait.legendaire {
+  background: radial-gradient(circle, #fff3bf, #ffd43b);
+  animation: legend-glow 1.6s ease-in-out infinite;
+}
+
+@keyframes legend-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px #fab005, 0 0 10px #fab005;
+  }
+  50% {
+    box-shadow: 0 0 0 3px #ffd43b, 0 0 26px #ffd43b;
+  }
+}
+
+.calm .battle-head .portrait.legendaire {
+  animation: none;
+  box-shadow: 0 0 0 3px #fab005;
+}
+
 /* Combat */
 .battle-head {
   display: flex;
@@ -498,6 +550,15 @@ input[type='text']:focus {
 .dex .card svg {
   width: 72px;
   height: 72px;
+}
+
+.dex .card.rare {
+  border-color: #74c0fc;
+}
+
+.dex .card.legendaire {
+  border-color: #fab005;
+  background: linear-gradient(160deg, #fff9db, transparent 60%);
 }
 
 .dex .card.unknown svg {

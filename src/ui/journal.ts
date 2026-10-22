@@ -1,5 +1,6 @@
 import type { ChapterDef } from '../content/types';
 import { creatureSvg } from '../game/creatureArt';
+import { RARITY, rarityOf, starsOf } from '../game/rarity';
 import type { SaveData } from '../game/save';
 import { escapeHtml } from './math';
 import { h, hideOverlay, showOverlay } from './overlay';
@@ -12,7 +13,10 @@ export function openJournal(save: SaveData, chapter: ChapterDef, onReset: () => 
     .map((c, i) => {
       const n = save.captures[c.id] ?? 0;
       const boss = c === chapter.boss;
-      return `<div class="card ${n ? '' : 'unknown'}" style="animation-delay:${i * 60}ms" title="${n ? escapeHtml(c.description) : ''}">${creatureSvg(c)}<div><strong>${n ? c.name : '???'}</strong></div>
+      // La rareté se voit même avant la capture : on sait ce qu'il reste à dénicher.
+      const rarity = boss ? null : rarityOf(chapter, c);
+      const badge = rarity ? `<div class="rarity ${rarity}" title="${RARITY[rarity].label}">${starsOf(rarity)} ${RARITY[rarity].label}</div>` : '';
+      return `<div class="card ${n ? '' : 'unknown'} ${rarity ?? 'boss'}" style="animation-delay:${i * 60}ms" title="${n ? escapeHtml(c.description) : ''}">${creatureSvg(c)}<div><strong>${n ? c.name : '???'}</strong></div>${badge}
       <div class="muted">${n ? `capturé ${n} fois` : boss ? 'gardien de la région' : 'pas encore vu'}</div></div>`;
     })
     .join('');

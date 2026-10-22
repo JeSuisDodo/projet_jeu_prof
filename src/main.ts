@@ -3,9 +3,9 @@ import { play, setLevels, setMusic, unlockAudio } from './audio/sound';
 import { GRADES, chapterById, gradeById } from './content';
 import type { ChapterDef, CreatureDef, GradeId, TerrainId } from './content/types';
 import { Rng } from './exercises/rng';
-import type { Level } from './exercises/types';
 import { creatureSvg } from './game/creatureArt';
 import { directionWord } from './game/map';
+import { RARITY, pickEncounter, rarityOf } from './game/rarity';
 import { type SaveData, clearSave, loadSave, newSave, speciesCaught, storeSave } from './game/save';
 import { loadSettings, storeSettings } from './game/settings';
 import { WorldScene } from './game/WorldScene';
@@ -33,17 +33,6 @@ const GUIDE_NAME = 'Gardienne Élia';
 /** Espèces à capturer dans la région avant de pouvoir défier son gardien. */
 const speciesForBoss = (c: ChapterDef) => Math.min(3, c.creatures.length);
 const regionCaught = () => speciesCaught(save, chapter.creatures.map((c) => c.id));
-
-/**
- * Créatures d'une zone de niveau donné : les premières du chapitre près du départ (niveau 1),
- * les dernières au nord (niveau 3), avec un recouvrement pour varier les rencontres.
- */
-function zoneCreatures(c: ChapterDef, level: Level): CreatureDef[] {
-  const n = c.creatures.length;
-  const tier = (i: number) => Math.min(3, Math.floor((i * 3) / n) + 1);
-  const pool = c.creatures.filter((_, i) => tier(i) === level || tier(i) === level - 1);
-  return pool.length ? pool : c.creatures;
-}
 
 const persist = () => {
   storeSave(save);
@@ -144,14 +133,16 @@ async function exclusive(action: () => Promise<void>): Promise<void> {
   }
 }
 
-async function fight(creature: CreatureDef, boss: boolean, level: Level): Promise<void> {
+async function fight(creature: CreatureDef, boss: boolean): Promise<void> {
   setMusic(boss ? 'boss' : 'battle');
-  const result = await runBattle({ ...creature, svg: creatureSvg(creature), boss }, level, save, persist);
+  const rarity = boss ? undefined : rarityOf(chapter, creature);
+  if (rarity === 'rare' || rarity === 'legendaire') play('rare');
+  const result = await runBattle({ ...creature, svg: creatureSvg(creature), boss, rarity }, save, persist);
   setMusic('explore');
   if (result.captured) {
     save.captures[creature.id] = (save.captures[creature.id] ?? 0) + 1;
     save.xp += result.xp;
-    showToast(`+${result.xp} XP · ${creature.name} capturé`);
+    showToast(`+${result.xp} XP · ${creature.name} capturé${rarity && rarity !== 'commune' ? ` (${RARITY[rarity].label.toLowerCase()})` : ''}`);
     if (boss && !save.badges.includes(chapter.id)) {
       save.badges.push(chapter.id);
       play('victory');
@@ -179,10 +170,17 @@ const arenaWhere = () => {
   return map ? directionWord(map.start, map.arena) : 'au bout du chemin';
 };
 
+/** La région a-t-elle des plateaux ? */
+const hasPlateaus = () => world.regionMap?.raised.some((row) => row.includes(true)) ?? false;
+
 function signLines(index: number): string[] {
   const n = speciesForBoss(chapter);
   return [
-    [`Bienvenue dans la région ${chapter.region}. Chapitre : ${chapter.title}.`, 'Les hautes herbes les plus proches abritent les créatures les plus faciles.'],
+    [
+      `Bienvenue dans la région ${chapter.region}. Chapitre : ${chapter.title}.`,
+      'Les hautes herbes les plus proches abritent surtout des créatures communes, aux questions faciles. Les rares et les légendaires se cachent plus loin et sont plus coriaces.',
+      ...(hasPlateaus() ? ['Des escaliers mènent aux plateaux. Pour redescendre plus vite, saute d’une corniche vers le sud !'] : []),
+    ],
     [`${FURTHER[world.regionMap?.terrain ?? 'riviere']}, des créatures de niveau 2.`],
     ['Les coins les plus reculés de la région sont réservés aux aventuriers aguerris (niveau 3).'],
     [`Arène de ${chapter.boss.name}, gardien de la région. Il ne combat que ceux qui ont capturé ${n} espèces d’ici.`],
@@ -191,7 +189,7 @@ function signLines(index: number): string[] {
 
 const world = new WorldScene({
   isBusy: () => busy || overlayOpen(),
-  encounter: (level) => exclusive(() => fight(rng.pick(zoneCreatures(chapter, level)), false, level)),
+  encounter: (level) => exclusive(() => fight(pickEncounter(chapter, level, rng), false)),
   talkToGuide: () =>
     exclusive(async () => {
       const species = regionCaught();
@@ -226,7 +224,7 @@ const world = new WorldScene({
       }
       play('boss');
       await showDialog(boss.name, [`Alors tu oses me défier ? Montre-moi ce que tu sais : ${chapter.title} !`]);
-      await fight(boss, true, 3);
+      await fight(boss, true);
       if (save.badges.includes(chapter.id)) await showDialog(boss.name, ['Impressionnant… La région te reconnaît comme son champion.']);
     }),
   bossDefeated: () => save.badges.includes(chapter.id),

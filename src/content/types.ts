@@ -36,6 +36,12 @@ export type TerrainId =
   | 'canyon' // grottes et gorges : salles reliées par des couloirs
   | 'lac'; // grand lac central, île de l'arène et chemin qui en fait le tour
 
+/**
+ * Rareté d'une créature : plus elle est rare, moins on la croise et plus ses questions sont
+ * difficiles (voir `src/game/rarity.ts`).
+ */
+export type Rarity = 'commune' | 'peu-commune' | 'rare' | 'legendaire';
+
 /** Silhouette de base d'une créature, dessinée par le jeu (pas besoin d'image). */
 export type CreatureShape = 'blob' | 'oiseau' | 'bete' | 'plante' | 'golem' | 'poisson' | 'spectre' | 'insecte';
 
@@ -56,6 +62,8 @@ export interface CreatureDef {
   /** Identifiants des compétences (Skill.id) que la créature pose en combat. */
   skills: string[];
   look: CreatureLook;
+  /** Facultatif : sinon déduite de la place dans la liste du chapitre (les dernières sont les plus rares). */
+  rarity?: Rarity;
   /** Dessin SVG fait main (viewBox 0 0 120 120), prioritaire sur `look`. Facultatif. */
   svg?: string;
 }
@@ -73,8 +81,9 @@ export interface ChapterDef {
   /** Compétences du chapitre. Leurs `id` doivent être uniques dans tout le jeu (préfixer aussi). */
   skills: Skill[];
   /**
-   * 3 à 6 créatures sauvages, de la plus simple à la plus difficile : les premières peuplent les
-   * herbes du sud (niveau 1), les dernières celles du nord (niveau 3).
+   * 3 à 6 créatures sauvages, de la plus simple à la plus difficile : les premières sont communes
+   * (questions de niveau 1), les dernières rares, voire légendaires (niveau 3), et se cachent
+   * surtout dans les herbes les plus reculées.
    */
   creatures: CreatureDef[];
   /** Gardien de la région : il pose des questions de niveau 3 sur ses compétences (souvent toutes). */

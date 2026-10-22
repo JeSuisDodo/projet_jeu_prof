@@ -15,7 +15,9 @@ export type Effect =
   | 'flee'
   | 'sign'
   | 'boss'
-  | 'victory';
+  | 'victory'
+  | 'jump'
+  | 'rare';
 
 /** Une voix d'un morceau : une note (« A4 »), un silence « - », une tenue « _ », ou « x » pour une percussion. */
 interface Part {
@@ -283,6 +285,11 @@ export function play(effect: Effect): void {
     case 'boss':
       hiss(t, 0.8, 0.25, fxBus, 300, 'lowpass', 60);
       return tone(70, t, 0.8, 'sawtooth', 0.08, fxBus, 40);
+    case 'jump':
+      tone(260, t, 0.16, 'square', 0.05, fxBus, 620);
+      return hiss(t + 0.3, 0.1, 0.1, fxBus, 900, 'lowpass', 300);
+    case 'rare':
+      return melody('E6 B5 E6 G6 B6', 0.07, 'triangle', 0.1, 0.4);
     case 'victory':
       return melody('G4 C5 E5 G5 - E5 G5 _ C6', 0.12, 'square', 0.07, 0.7);
   }

@@ -40,6 +40,8 @@ export class WorldScene extends Phaser.Scene {
   private lastTile = '';
   private cooldownUntil = 0;
   private encountering = false;
+  /** Saut d'une corniche en cours : le joueur ne contrôle plus le personnage. */
+  private jumping = false;
   private nearGuide = false;
   private nearBoss = false;
   private nearSign = -1;
@@ -77,6 +79,7 @@ export class WorldScene extends Phaser.Scene {
     this.dustWalked = 0;
     this.lastTile = '';
     this.encountering = false;
+    this.jumping = false;
     this.nearGuide = false;
     this.nearBoss = false;
     this.nearSign = -1;
@@ -148,7 +151,7 @@ export class WorldScene extends Phaser.Scene {
    * pour que l'on passe derrière eux.
    */
   private drawTiles(): void {
-    paintTerrain(this, this.map.tiles, this.theme).setDepth(-1);
+    paintTerrain(this, this.map.tiles, this.theme, this.map.raised).setDepth(-1);
     // Sur les grandes étendues (mer, archipel), une case de liquide sur deux suffit pour les remous.
     const liquid = this.map.tiles.flat().filter((t) => t === Tile.Lava).length;
     const sparse = liquid > 900;
@@ -301,6 +304,7 @@ export class WorldScene extends Phaser.Scene {
 
   update(_time: number, deltaMs: number): void {
     this.player.setDepth(this.player.y);
+    if (this.jumping) return;
     if (this.hooks.isBusy() || this.encountering) {
       this.input.keyboard!.resetKeys();
       this.player.play(`hero-${this.facing}-idle`, true);
@@ -328,11 +332,14 @@ export class WorldScene extends Phaser.Scene {
     let moved = 0;
     if (dx !== 0 || dy !== 0) {
       const len = Math.hypot(dx, dy);
-      const step = (SPEED * deltaMs) / 1000;
+      // On monte et descend les escaliers moins vite.
+      const onStairs = this.map.tiles[Math.floor(this.player.y / TILE)]?.[Math.floor(this.player.x / TILE)] === Tile.Stairs;
+      const step = (SPEED * (onStairs ? 0.65 : 1) * deltaMs) / 1000;
       const before = { x: this.player.x, y: this.player.y };
       this.tryMove((dx / len) * step, 0);
       this.tryMove(0, (dy / len) * step);
       this.facing = Math.abs(dx) > Math.abs(dy) ? 'side' : dy < 0 ? 'up' : 'down';
+      if (this.facing === 'down' && this.player.y === before.y && this.tryJump()) return;
       // Le profil est dessiné tourné vers la droite.
       this.player.setFlipX(this.facing === 'side' && dx < 0);
       moved = Math.hypot(this.player.x - before.x, this.player.y - before.y);
@@ -346,18 +353,62 @@ export class WorldScene extends Phaser.Scene {
   private tryMove(mx: number, my: number): void {
     const nx = this.player.x + mx;
     const ny = this.player.y + my;
-    // Boîte de collision aux pieds du personnage.
-    const corners = [
+    if (!this.blockedAt(nx, ny)) this.player.setPosition(nx, ny);
+  }
+
+  /** Les quatre coins de la boîte de collision, aux pieds du personnage. */
+  private blockedAt(nx: number, ny: number): boolean {
+    return [
       [nx - 8, ny - 6],
       [nx + 8, ny - 6],
       [nx - 8, ny + 2],
       [nx + 8, ny + 2],
-    ];
-    const blocked = corners.some(([cx, cy]) => {
+    ].some(([cx, cy]) => {
       const t = this.map.tiles[Math.floor(cy / TILE)]?.[Math.floor(cx / TILE)];
       return t === undefined || BLOCKING.has(t);
     });
-    if (!blocked) this.player.setPosition(nx, ny);
+  }
+
+  /**
+   * Bloqué en marchant vers le sud devant une corniche : on saute par-dessus et l'on atterrit
+   * sur la case d'en dessous. On ne peut pas la franchir dans l'autre sens.
+   */
+  private tryJump(): boolean {
+    const ledgeY = Math.floor((this.player.y + 6) / TILE);
+    const col = Math.floor(this.player.x / TILE);
+    if (this.map.tiles[ledgeY]?.[col] !== Tile.Ledge) return false;
+    const landY = (ledgeY + 1) * TILE + 16;
+    let landX = this.player.x;
+    if (this.blockedAt(landX, landY)) landX = (col + 0.5) * TILE;
+    if (this.blockedAt(landX, landY)) return false;
+
+    this.jumping = true;
+    play('jump');
+    const from = { x: this.player.x, y: this.player.y };
+    const shadow = this.add.ellipse(from.x, from.y, 20, 7, 0x000000, 0.3).setDepth(from.y - 1);
+    this.player.play('hero-down-walk', true);
+    this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      duration: 380,
+      onUpdate: (tw) => {
+        const t = tw.getValue() ?? 0;
+        const x = from.x + (landX - from.x) * t;
+        const y = from.y + (landY - from.y) * t;
+        shadow.setPosition(x, y);
+        this.player.setPosition(x, y - Math.sin(Math.PI * t) * 18);
+        this.player.setDepth(y + TILE);
+      },
+      onComplete: () => {
+        shadow.destroy();
+        this.player.setPosition(landX, landY);
+        this.player.play('hero-down-idle', true);
+        if (!this.calm) this.dust?.explode(6, landX, landY);
+        this.lastTile = '';
+        this.jumping = false;
+      },
+    });
+    return true;
   }
 
   private afterStep(moved: number): void {
