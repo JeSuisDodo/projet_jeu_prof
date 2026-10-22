@@ -27,7 +27,13 @@ Une seule région jouable : **le Volcan du Second degré (1re spécialité)**.
 - Personnages détaillés (héros vu de face, de dos et de profil) et créatures redessinées.
 - Animations : marche et respiration des personnages, herbe qui ondule et se plie au passage,
   lave qui bouillonne, braises et fumée du cratère, transition de combat, apparition, coups,
-  capture et fuite des créatures. Le réglage système « réduire les animations » est respecté.
+  capture et fuite des créatures. Le réglage « réduire les animations » est respecté.
+- Son : musique d'exploration, de combat et du gardien, bruitages (herbes, rencontre, bonne et
+  mauvaise réponse, capture, fuite, panneaux). Tout est synthétisé par le navigateur (Web Audio),
+  sans fichier son : compositions originales, aucun droit à gérer.
+- En haut à droite, trois boutons-icônes : couper le son (M), carnet (C), paramètres (P).
+  Paramètres : volume de la musique et des effets, couper le son, réduire les animations
+  (coché d'office si le système le demande), texte plus grand. Gardés sur l'appareil.
 - Sauvegarde dans le navigateur (`localStorage`). Pas encore de comptes ni d'espace professeur.
 
 ## Lancer le jeu
@@ -51,9 +57,10 @@ GitHub Actions*.
 
 | Dossier | Rôle |
 | --- | --- |
+| `src/audio` | Musique et bruitages synthétisés (Web Audio). |
 | `src/exercises` | Modèles d'exercices, saisie des réponses (entiers, décimaux, fractions), vérification. |
 | `src/game` | Carte (`map.ts`), décor peint en relief (`terrain.ts`), créatures, sauvegarde, textures animées et scène Phaser de l'exploration. |
-| `src/ui` | Écrans HTML par-dessus le jeu : accueil, combat, carnet, dialogues. |
+| `src/ui` | Écrans HTML par-dessus le jeu : accueil, combat, carnet, dialogues, paramètres. |
 | `tests` | Tests Vitest : chaque modèle est essayé sur des centaines de tirages. |
 
 Ajouter un exercice : écrire un objet `Skill` dans `src/exercises/secondDegre.ts` (ou un nouveau
