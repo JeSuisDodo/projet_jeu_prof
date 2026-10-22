@@ -1,6 +1,7 @@
 import type { Skill } from '../exercises/types';
 import { CINQUIEME } from './cinquieme';
 import { LICENCE2 } from './licence2';
+import { LICENCE3 } from './licence3';
 import { PREMIERE } from './premiere';
 import { QUATRIEME } from './quatrieme';
 import { SECONDE } from './seconde';
@@ -10,7 +11,7 @@ import { TROISIEME } from './troisieme';
 import type { ChapterDef, CreatureDef, GradeDef, GradeId } from './types';
 
 /** Toutes les classes du jeu, dans l'ordre de l'accueil. */
-export const GRADES: GradeDef[] = [SIXIEME, CINQUIEME, QUATRIEME, TROISIEME, SECONDE, PREMIERE, TERMINALE, LICENCE2];
+export const GRADES: GradeDef[] = [SIXIEME, CINQUIEME, QUATRIEME, TROISIEME, SECONDE, PREMIERE, TERMINALE, LICENCE2, LICENCE3];
 
 export const allChapters = (): ChapterDef[] => GRADES.flatMap((g) => g.chapters);
 
