@@ -468,9 +468,21 @@ function connect(c: Canvas, ok: boolean[][], target: Point, cliff: Set<number>):
   }
 }
 
+/** Part de roche autour d'un point : un plateau n'a pas de sens au milieu d'un massif. */
+function rockShare(c: Canvas, cx: number, cy: number, r: number): number {
+  let rock = 0;
+  let all = 0;
+  for (let y = Math.floor(cy - r); y <= cy + r; y++)
+    for (let x = Math.floor(cx - r); x <= cx + r; x++) {
+      all++;
+      if (c.get(x, y) === Tile.Rock) rock++;
+    }
+  return rock / all;
+}
+
 /** Zones d'herbes reculées que l'on hisse sur un plateau, loin du départ, de l'arène et des panneaux. */
-function plateauSites(L: Layout): { zone: GrassZone; R: number }[] {
-  const chosen: { zone: GrassZone; R: number }[] = [];
+function plateauSites(c: Canvas, L: Layout): { zone: GrassZone; R: number; plan: PlateauPlan }[] {
+  const chosen: { zone: GrassZone; R: number; plan: PlateauPlan }[] = [];
   const far = (p: Point, x: number, y: number, d: number) => Math.hypot(p.x - x, p.y - y) > d;
   for (const zone of [...L.zones].sort((a, b) => b.level - a.level)) {
     if (chosen.length >= (L.plateaus ?? 3)) break;
@@ -485,32 +497,38 @@ function plateauSites(L: Layout): { zone: GrassZone; R: number }[] {
       // La falaise ne coupe pas une autre zone d'herbes en deux.
       L.zones.every((o) => o === zone || Math.abs(Math.hypot(o.cx - cx, o.cy - cy) - R) > o.r + 1.5) &&
       chosen.every((p) => far({ x: p.zone.cx, y: p.zone.cy }, cx, cy, p.R + R + 4));
-    if (fits) chosen.push({ zone, R });
+    if (!fits || rockShare(c, cx, cy, R + 1) >= 0.15) continue;
+    // Une falaise qui longe un chemin le couperait : on garde seulement les plateaux qu'un chemin traverse.
+    const plan = planPlateau(c, zone, R);
+    if (plan.cut === 0) chosen.push({ zone, R, plan });
   }
   return chosen;
 }
 
-/**
- * Hisse une zone sur un plateau aux angles arrondis : une falaise d'une case l'entoure. Là où un
- * chemin la traverse, on taille un escalier. Le contenu du plateau ne change pas.
- */
-function raisePlateau(c: Canvas, zone: GrassZone, R: number, raised: boolean[][], cliff: Set<number>): void {
+interface PlateauPlan {
+  inside: (x: number, y: number) => boolean;
+  /** Cases de la falaise et ce qu'elles deviennent (null : liquide ou arène, on n'y touche pas). */
+  cells: [number, number][];
+  verdict: (Tile | null)[];
+  /** Cases de chemin que la falaise couperait en longeant le chemin au lieu de le traverser. */
+  cut: number;
+}
+
+/** Trace d'un plateau aux angles arrondis autour d'une zone, sans encore rien poser. */
+function planPlateau(c: Canvas, zone: GrassZone, R: number): PlateauPlan {
   const inside = (x: number, y: number) =>
     Math.cbrt(Math.abs((x - zone.cx) / (R + 1)) ** 3 + Math.abs((y - zone.cy) / R) ** 3) < 1;
   const walk = (t: Tile) => t === Tile.Path || t === Tile.Stairs;
   const cells: [number, number][] = [];
   for (let y = Math.floor(zone.cy - R - 2); y <= zone.cy + R + 2; y++)
     for (let x = Math.floor(zone.cx - R - 3); x <= zone.cx + R + 3; x++) {
-      if (!c.inside(x, y)) continue;
-      if (inside(x, y)) {
-        raised[y][x] = true;
-        continue;
-      }
+      if (!c.inside(x, y) || inside(x, y)) continue;
       // Toute case qui touche le plateau, même en diagonale, fait partie de la falaise : pas de fuite.
       const touches = [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => inside(x + dx, y + dy)));
       if (touches && !onBorder(x, y)) cells.push([x, y]);
     }
   const before = (x: number, y: number) => c.get(x, y);
+  let cut = 0;
   const verdict = cells.map(([x, y]) => {
     const t = before(x, y);
     if (t === Tile.Lava || t === Tile.Bridge || t === Tile.Crater) return null;
@@ -518,8 +536,19 @@ function raisePlateau(c: Canvas, zone: GrassZone, R: number, raised: boolean[][]
     const across = (ax: number, ay: number, bx: number, by: number) =>
       walk(before(ax, ay)) && walk(before(bx, by)) && inside(ax, ay) !== inside(bx, by);
     const crossing = t === Tile.Path && (across(x, y - 1, x, y + 1) || across(x - 1, y, x + 1, y));
+    if (t === Tile.Path && !crossing) cut++;
     return crossing ? Tile.Stairs : Tile.Rock;
   });
+  return { inside, cells, verdict, cut };
+}
+
+/**
+ * Hisse une zone sur son plateau : la falaise l'entoure, un escalier est taillé là où un chemin la
+ * traverse. Le contenu du plateau ne change pas.
+ */
+function raisePlateau(c: Canvas, plan: PlateauPlan, raised: boolean[][], cliff: Set<number>): void {
+  const { inside, cells, verdict } = plan;
+  for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (inside(x, y)) raised[y][x] = true;
   cells.forEach(([x, y], i) => {
     const t = verdict[i];
     if (t === null) return;
@@ -545,7 +574,7 @@ function finish(c: Canvas, L: Layout): boolean[][] {
   // Plateaux en hauteur : on y monte par des escaliers, on en redescend aussi en sautant des corniches.
   const raised = c.tiles.map((row) => row.map(() => false));
   const cliff = new Set<number>();
-  for (const { zone, R } of plateauSites(L)) raisePlateau(c, zone, R, raised, cliff);
+  for (const { plan } of plateauSites(c, L)) raisePlateau(c, plan, raised, cliff);
 
   for (let y = 0; y < MAP_H; y++)
     for (let x = 0; x < MAP_W; x++) {
