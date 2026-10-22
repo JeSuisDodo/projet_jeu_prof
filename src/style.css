@@ -223,6 +223,19 @@ input[type='text']:focus {
   animation: flee 0.7s ease-in forwards;
 }
 
+.battle-head .portrait.fled::after {
+  content: 'enfui';
+  position: absolute;
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #5c3d2e;
+  color: #fff;
+  font-size: 0.75rem;
+}
+
 .battle-head .portrait .spark {
   position: absolute;
   left: 50%;
@@ -561,13 +574,18 @@ form.wrong input {
   }
 }
 
+/* La créature recule et pâlit, mais reste visible : un cadre vide ressemblait à un bug. */
 @keyframes flee {
   20% {
     transform: translateY(4px) scaleY(0.9);
   }
+  60% {
+    transform: translate(24px, -6px) scale(0.85);
+  }
   to {
-    transform: translate(140px, -30px) scale(0.6);
-    opacity: 0;
+    transform: translate(10px, 0) scale(0.8);
+    opacity: 0.4;
+    filter: grayscale(1);
   }
 }
 

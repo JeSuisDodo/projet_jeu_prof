@@ -1,4 +1,4 @@
-import { type Frac, fracEq, parseFrac, parseFracList } from './fraction';
+import { type Frac, fracEq, parseFrac, parseFracLists } from './fraction';
 import type { Rng } from './rng';
 
 /** Difficulté d'une créature : 1 = nombres simples, 3 = coefficients et racines plus délicats. */
@@ -38,11 +38,13 @@ export function checkAnswer(answer: Answer, response: Response): boolean {
       return f !== null && fracEq(f, answer.value);
     }
     case 'set': {
-      const list = typeof response === 'string' ? parseFracList(response) : null;
-      if (!list) return false;
+      if (typeof response !== 'string') return false;
       const expected = answer.values;
-      const unique = list.filter((f, i) => list.findIndex((g) => fracEq(f, g)) === i);
-      return unique.length === expected.length && expected.every((e) => unique.some((u) => fracEq(u, e)));
+      // L'ordre et les doublons ne comptent pas ; une seule lecture correcte suffit.
+      return parseFracLists(response).some((list) => {
+        const unique = list.filter((f, i) => list.findIndex((g) => fracEq(f, g)) === i);
+        return unique.length === expected.length && expected.every((e) => unique.some((u) => fracEq(u, e)));
+      });
     }
     case 'pair': {
       if (!Array.isArray(response)) return false;

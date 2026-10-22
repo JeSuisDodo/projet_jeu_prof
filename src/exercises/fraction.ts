@@ -28,9 +28,20 @@ export function fracLatex(f: Frac): string {
   return `${f.n < 0 ? '-' : ''}\\frac{${Math.abs(f.n)}}{${f.d}}`;
 }
 
+/** Retire ce qui entoure souvent une réponse : guillemets, crochets, parenthèses, point final, « x = ». */
+function clean(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[−–—]/g, '-')
+    .replace(/[«»"“”„'‘’`´{}[\]()∅]/g, ' ')
+    .replace(/\b[a-z]\s*_?\s*[0-9₀-₉]?\s*=/g, ' ')
+    .replace(/[.\s]+$/, '')
+    .trim();
+}
+
 /** Lit une réponse d'élève : entier, décimal (point ou virgule) ou fraction « a/b ». */
 export function parseFrac(raw: string): Frac | null {
-  const s = raw.trim().replace(/\s+/g, '').replace(/[−–]/g, '-').replace(',', '.');
+  const s = clean(raw).replace(/\s+/g, '').replace(',', '.');
   const asFraction = /^([+-]?\d+)\/([+-]?\d+)$/.exec(s);
   if (asFraction) {
     const d = Number(asFraction[2]);
@@ -46,17 +57,35 @@ export function parseFrac(raw: string): Frac | null {
   return null;
 }
 
-/** Lit une liste de nombres séparés par « ; » (accolades et « x = » tolérés). Liste vide pour « aucune ». */
-export function parseFracList(raw: string): Frac[] | null {
-  const s = raw.trim().toLowerCase().replace(/[{}∅]/g, '').replace(/s\s*=/g, '');
-  if (s === '' || /^aucun/.test(s) || s === 'vide') return [];
-  const parts = s.split(/;|\bet\b|\bou\b/).map((p) => p.replace(/x_?\s*\d?\s*=/g, '').trim());
+function parseParts(parts: string[]): Frac[] | null {
   const out: Frac[] = [];
   for (const p of parts) {
-    if (p === '') continue;
+    if (p.trim() === '') continue;
     const f = parseFrac(p);
     if (!f) return null;
     out.push(f);
   }
   return out;
+}
+
+/**
+ * Toutes les façons raisonnables de lire une liste de solutions. Le séparateur conseillé est « ; »,
+ * mais on accepte aussi « et », « ou », « / » entouré d'espaces, la virgule et les espaces.
+ * « 2,5 » reste ambigu (2,5 ou {2 ; 5}) : les deux lectures sont proposées.
+ */
+export function parseFracLists(raw: string): Frac[][] {
+  const s = clean(raw).replace(/\b(et|ou)\b|\s\/\s|\|/g, ';');
+  if (s === '' || /^(aucun|vide|pas de solution|impossible)/.test(s)) return [[]];
+  const splits = s.includes(';') ? [s.split(';')] : [[s], s.split(','), s.split(/\s+/), s.split(/[,\s]+/)];
+  const lists: Frac[][] = [];
+  for (const parts of splits) {
+    const list = parseParts(parts);
+    if (list && list.length > 0) lists.push(list);
+  }
+  return lists;
+}
+
+/** Première lecture d'une liste de solutions, ou null si rien n'est lisible. */
+export function parseFracList(raw: string): Frac[] | null {
+  return parseFracLists(raw)[0] ?? null;
 }

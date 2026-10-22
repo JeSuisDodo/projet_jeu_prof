@@ -65,6 +65,21 @@ describe('fractions et saisie', () => {
     expect(parseFracList('2 ; truc')).toBeNull();
   });
 
+  it('accepte les solutions écrites de plusieurs façons', () => {
+    const set: Answer = { kind: 'set', values: [frac(-2), frac(4)] };
+    const ok = ['"4;-2"', '4 ; -2', '-2;4', '« 4 ; −2 »', '{4 ; -2}', 'S = {-2 ; 4}', '4,-2', '4, -2', '4 -2',
+      'x1 = 4 et x2 = -2', '(4 ; -2)', '[-2 ; 4]', '4 ou -2', "'4;-2'.", '4 ; -2 ; 4'];
+    for (const r of ok) expect(checkAnswer(set, r), r).toBe(true);
+    for (const r of ['4', '4 ; 2', '4 ; -2 ; 1', 'aucune', '"4;-3"']) expect(checkAnswer(set, r), r).toBe(false);
+    // « 2,5 » se lit 2,5 ou {2 ; 5} : la bonne lecture est acceptée dans les deux cas.
+    expect(checkAnswer({ kind: 'set', values: [frac(5, 2)] }, '2,5')).toBe(true);
+    expect(checkAnswer({ kind: 'set', values: [frac(2), frac(5)] }, '2,5')).toBe(true);
+    expect(checkAnswer({ kind: 'set', values: [] }, '"aucune"')).toBe(true);
+    expect(checkAnswer({ kind: 'set', values: [] }, 'S = ∅')).toBe(true);
+    expect(checkAnswer({ kind: 'number', value: frac(-3, 2) }, '" -1,5 "')).toBe(true);
+    expect(checkAnswer({ kind: 'number', value: frac(3) }, 'x = 3')).toBe(true);
+  });
+
   it('écrit le LaTeX attendu', () => {
     expect(fracLatex(frac(-3, 2))).toBe('-\\frac{3}{2}');
     expect(polyLatex(2, -2, -12)).toBe('2x^2 - 2x - 12');
