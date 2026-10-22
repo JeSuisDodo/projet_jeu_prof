@@ -14,6 +14,7 @@ Chaque classe est une **île**, chaque chapitre du manuel une **région** de l'�
 | Seconde | `src/content/seconde/` (exercices possibles dans `src/exercises/seconde/`) | `SECONDE.chapters` dans `src/content/seconde/index.ts` |
 | 1re spécialité | `src/content/premiere/` | `PREMIERE.chapters` |
 | Terminale spécialité | `src/content/terminale/` (exercices possibles dans `src/exercises/terminale/`) | `TERMINALE.chapters` |
+| Licence 2 | `src/content/licence2/` (exercices dans `src/exercises/licence2/`) | `LICENCE2.chapters` |
 
 Un chapitre = un fichier qui exporte un `ChapterDef` :
 
@@ -27,7 +28,7 @@ Un chapitre = un fichier qui exporte un `ChapterDef` :
   rare se montre peu et pose des questions plus difficiles (voir `src/game/rarity.ts`) ;
 - `boss` : le gardien, qui pose des questions de niveau 3.
 
-**Identifiants** : uniques dans tout le jeu, préfixés par la classe (`6e-…`, `5e-…`, `4e-…`, `3e-…`, `2nde-…`, `1re-…`, `tle-…`)
+**Identifiants** : uniques dans tout le jeu, préfixés par la classe (`6e-…`, `5e-…`, `4e-…`, `3e-…`, `2nde-…`, `1re-…`, `tle-…`, `l1-…`, `l2-…`, `l3-…`)
 pour les chapitres, les compétences et les créatures. La sauvegarde s'appuie dessus : ne pas les
 renommer une fois publiés.
 
