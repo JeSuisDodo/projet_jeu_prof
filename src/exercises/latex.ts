@@ -35,3 +35,19 @@ export function factoredLatex(a: number, r1: number, r2: number): string {
 
 /** Nombre entre parenthèses s'il est négatif, pour les substitutions. */
 export const paren = (v: number) => (v < 0 ? `(${v})` : String(v));
+
+/**
+ * Somme de termes en LaTeX : sumLatex([[3, 'n^2'], [-1, 'n'], [5, '']]) donne « 3n^2 - n + 5 ».
+ * Les termes nuls disparaissent, les coefficients 1 et -1 devant une variable aussi (sauf avec
+ * keepOnes, utile pour les substitutions : sumLatex([[1, '\\times 4']], true) donne « 1\times 4 »).
+ */
+export function sumLatex(terms: [number, string][], keepOnes = false): string {
+  let out = '';
+  for (const [c, v] of terms) {
+    if (c === 0) continue;
+    const abs = Math.abs(c);
+    const body = v && abs === 1 && !keepOnes ? v : `${abs}${v}`;
+    out += out === '' ? `${c < 0 ? '-' : ''}${body}` : ` ${c < 0 ? '-' : '+'} ${body}`;
+  }
+  return out || '0';
+}
