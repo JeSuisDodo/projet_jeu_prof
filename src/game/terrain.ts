@@ -14,6 +14,11 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, rai
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H ? Tile.Rock : tiles[y][x]);
   const isLavaLike = (t: Tile) => t === Tile.Lava || t === Tile.Bridge;
   const isRock = (t: Tile) => t === Tile.Rock;
+  /** Case en hauteur, sur un plateau. */
+  const up = (x: number, y: number) => raised?.[y]?.[x] === true;
+  /** Falaise qui borde un plateau : elle se dessine comme le rebord du plateau, pas comme un rocher. */
+  const rim = (x: number, y: number) =>
+    at(x, y) === Tile.Rock && !up(x, y) && [-1, 0, 1].some((dy) => [-1, 0, 1].some((dx) => up(x + dx, y + dy)));
   let seed = 7;
   const rand = () => {
     seed = (seed * 9301 + 49297) % 233280;
@@ -80,7 +85,7 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, rai
     each(
       () => true,
       (x, y, px, py) => {
-        if (raised[y][x]) g.fillStyle(0xffffff, 0.09).fillRect(px, py, TILE, TILE);
+        if (raised[y][x]) g.fillStyle(0xffffff, 0.15).fillRect(px, py, TILE, TILE);
       },
     );
 
@@ -173,17 +178,28 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, rai
     }
   });
 
-  // 8. Ombres portées des falaises et des corniches sur le sol (lumière venant du nord-ouest).
+  // 8. Ombres portées des falaises et des corniches sur le sol (lumière venant du nord-ouest) :
+  // dégradé, plus sombre au pied de la paroi.
   each(
     (t) => !isRock(t),
     (x, y, px, py) => {
-      if (isRock(at(x, y - 1)) || at(x, y - 1) === Tile.Ledge) g.fillStyle(0x1b1412, 0.3).fillRect(px, py, TILE, 8);
-      if (isRock(at(x - 1, y))) g.fillStyle(0x1b1412, 0.22).fillRect(px, py, 7, TILE);
+      // Le dessus d'un plateau ne reçoit pas l'ombre de son propre rebord.
+      if (up(x, y)) return;
+      if (isRock(at(x, y - 1)) || at(x, y - 1) === Tile.Ledge) {
+        g.fillStyle(0x1b1412, 0.34).fillRect(px, py, TILE, 5);
+        g.fillStyle(0x1b1412, 0.2).fillRect(px, py + 5, TILE, 5);
+        g.fillStyle(0x1b1412, 0.09).fillRect(px, py + 10, TILE, 5);
+      }
+      if (isRock(at(x - 1, y))) {
+        g.fillStyle(0x1b1412, 0.22).fillRect(px, py, 5, TILE);
+        g.fillStyle(0x1b1412, 0.1).fillRect(px + 5, py, 4, TILE);
+      }
     },
   );
 
   // 9. Falaises : dessus clair aux plaques de roche, paroi striée au sud, flancs ombrés.
   each(Tile.Rock, (x, y, px, py) => {
+    if (rim(x, y)) return;
     const faceSouth = !isRock(at(x, y + 1));
     const { c } = solid(x, y, isRock, shade(T.rock, -0.55), T.rock, 12);
     // Plaques de roche sur le dessus, éclairées en haut à gauche.
@@ -207,6 +223,10 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, rai
         bl: Math.max(0, c.bl - 2),
         br: Math.max(0, c.br - 2),
       });
+      // Dégradé : la paroi s'assombrit vers le pied, loin de la lumière.
+      const inset = (isRock(at(x - 1, y)) ? 0 : 2) + (isRock(at(x + 1, y)) ? 0 : 2);
+      g.fillStyle(shade(T.rock, -0.47)).fillRect(px + (isRock(at(x - 1, y)) ? 0 : 2), top + 7, TILE - inset, 5);
+      g.fillStyle(shade(T.rock, -0.56)).fillRect(px + (isRock(at(x - 1, y)) ? 0 : 2), top + 12, TILE - inset, TILE - 27 > 0 ? TILE - 27 : 3);
       g.fillStyle(shade(T.rock, -0.22)).fillRect(px, top, TILE, 2);
       g.lineStyle(2, shade(T.rock, -0.55));
       for (let k = 5; k < TILE; k += 8) g.lineBetween(px + k, top + 4, px + k - 1, py + TILE - 5);
@@ -215,34 +235,109 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, rai
     }
   });
 
-  // 10. Escaliers taillés dans la falaise : marches éclairées sur le dessus, contremarches sombres.
+  // 10. Rebords des plateaux : le dessus prolonge le sol du plateau, la paroi se voit au sud (haute,
+  // striée, plus sombre en bas), en tranche à l'est et à l'ouest, et en simple arête au nord.
+  const low = (t: Tile, x: number, y: number) => !isRock(t) && !up(x, y);
+  each(Tile.Rock, (x, y, px, py) => {
+    if (!rim(x, y)) return;
+    const south = low(at(x, y + 1), x, y + 1);
+    const west = low(at(x - 1, y), x - 1, y);
+    const east = low(at(x + 1, y), x + 1, y);
+    const north = low(at(x, y - 1), x, y - 1);
+    g.fillStyle(T.ground).fillRect(px, py, TILE, TILE);
+    g.fillStyle(0xffffff, 0.15).fillRect(px, py, TILE, TILE);
+    if (north) {
+      // Arête du plateau vue d'en haut : liseré de roche et bord éclairé.
+      g.fillStyle(shade(T.rock, -0.55)).fillRect(px, py, TILE, 3);
+      g.fillStyle(shade(T.rock, -0.1)).fillRect(px, py + 3, TILE, 3);
+      g.fillStyle(shade(T.ground, 0.45)).fillRect(px, py + 6, TILE, 2);
+    }
+    // Parois latérales en tranche : éclairée à l'ouest, dans l'ombre à l'est.
+    const side = (fx: number, lit: boolean) => {
+      g.fillStyle(shade(T.rock, lit ? -0.08 : -0.5)).fillRect(fx, py, 11, TILE);
+      g.lineStyle(1, shade(T.rock, lit ? -0.35 : -0.7));
+      for (let k = 6; k < TILE; k += 8) g.lineBetween(fx + 2, py + k, fx + 9, py + k + 1);
+      g.fillStyle(shade(T.rock, -0.7)).fillRect(lit ? fx : fx + 9, py, 2, TILE);
+      g.fillStyle(shade(T.ground, lit ? 0.45 : -0.2)).fillRect(lit ? fx + 11 : fx - 2, py, 2, TILE);
+    };
+    if (west) side(px, true);
+    if (east) side(px + TILE - 11, false);
+    if (south) {
+      // Paroi vue de face, sur presque toute la case : le plateau domine le chemin.
+      const top = py + 7;
+      g.fillStyle(shade(T.rock, -0.7)).fillRect(px, top, TILE, TILE - 7);
+      [-0.1, -0.22, -0.34, -0.46].forEach((k, i) => g.fillStyle(shade(T.rock, k)).fillRect(px, top + 2 + i * 5.5, TILE, 5.5));
+      g.lineStyle(2, shade(T.rock, -0.62));
+      for (let k = 4 + ((x * 3) % 5); k < TILE; k += 7) g.lineBetween(px + k, top + 4, px + k - 1, py + TILE - 3);
+      g.fillStyle(shade(T.rock, -0.75)).fillRect(px, py + TILE - 3, TILE, 3);
+      // Rebord herbeux qui déborde au-dessus de la paroi.
+      g.fillStyle(shade(T.ground, -0.3)).fillRect(px, top - 1, TILE, 3);
+      g.fillStyle(shade(T.ground, 0.35)).fillRect(px, top - 3, TILE, 2);
+      g.fillStyle(T.ground);
+      for (let k = 2; k < TILE; k += 6) g.fillTriangle(px + k, top + 1, px + k + 4, top + 1, px + k + 2, top + 4);
+      // Le coin de la paroi tourne : on voit l'arête claire du côté éclairé.
+      if (west) g.fillStyle(shade(T.rock, 0.05)).fillRect(px, top, 4, TILE - 7);
+      if (east) g.fillStyle(shade(T.rock, -0.8)).fillRect(px + TILE - 4, top, 4, TILE - 7);
+    }
+  });
+
+  // 11. Escaliers taillés dans la falaise : des marches qui s'éclaircissent en montant, entre deux joues
+  // de pierre, et une ombre au pied.
   const isStairs = (t: Tile) => t === Tile.Stairs;
   each(Tile.Stairs, (x, y, px, py) => {
     // Un escalier entre deux cases à gauche et à droite se monte d'est en ouest : marches verticales.
     const sideways = !BLOCKS(at(x - 1, y)) && !BLOCKS(at(x + 1, y)) && (BLOCKS(at(x, y - 1)) || BLOCKS(at(x, y + 1)));
-    solid(x, y, isStairs, shade(T.rock, -0.55), shade(T.rock, -0.1), 4);
-    for (let k = 0; k < 4; k++) {
+    g.fillStyle(shade(T.rock, -0.6)).fillRect(px, py, TILE, TILE);
+    const steps = 4;
+    // Sens de la montée : vers le plateau.
+    const upward = sideways ? (up(x + 1, y) ? 1 : -1) : up(x, y + 1) && !up(x, y - 1) ? 1 : -1;
+    for (let k = 0; k < steps; k++) {
+      // k = 0 : la marche la plus basse.
+      const light = -0.2 + k * 0.15;
       if (sideways) {
-        g.fillStyle(shade(T.rock, 0.3)).fillRect(px + 2 + k * 8, py + 2, 5, TILE - 4);
-        g.fillStyle(shade(T.rock, -0.4)).fillRect(px + 7 + k * 8, py + 2, 2, TILE - 4);
+        const ox = upward > 0 ? px + k * 8 : px + TILE - (k + 1) * 8;
+        g.fillStyle(shade(T.rock, light)).fillRect(ox, py + 4, 8, TILE - 8);
+        g.fillStyle(shade(T.rock, light + 0.2)).fillRect(upward > 0 ? ox + 6 : ox, py + 4, 2, TILE - 8);
+        g.fillStyle(shade(T.rock, -0.55)).fillRect(upward > 0 ? ox : ox + 6, py + 4, 1, TILE - 8);
       } else {
-        g.fillStyle(shade(T.rock, 0.3)).fillRect(px + 2, py + 2 + k * 8, TILE - 4, 5);
-        g.fillStyle(shade(T.rock, -0.4)).fillRect(px + 2, py + 7 + k * 8, TILE - 4, 2);
+        // Le haut de l'escalier est au nord quand on monte vers le nord.
+        const oy = upward < 0 ? py + TILE - (k + 1) * 8 : py + k * 8;
+        g.fillStyle(shade(T.rock, light)).fillRect(px + 4, oy, TILE - 8, 8);
+        g.fillStyle(shade(T.rock, light + 0.22)).fillRect(px + 4, upward < 0 ? oy : oy + 6, TILE - 8, 2);
+        g.fillStyle(shade(T.rock, -0.6)).fillRect(px + 4, upward < 0 ? oy + 7 : oy, TILE - 8, 1);
       }
+    }
+    // Joues de pierre là où l'escalier touche la falaise.
+    const cheek = (fx: number, fy: number, w: number, h: number, k: number) => g.fillStyle(shade(T.rock, k)).fillRect(fx, fy, w, h);
+    if (sideways) {
+      if (!isStairs(at(x, y - 1))) cheek(px, py, TILE, 4, -0.15);
+      if (!isStairs(at(x, y + 1))) cheek(px, py + TILE - 4, TILE, 4, -0.5);
+    } else {
+      if (!isStairs(at(x - 1, y))) cheek(px, py, 4, TILE, -0.15);
+      if (!isStairs(at(x + 1, y))) cheek(px + TILE - 4, py, 4, TILE, -0.5);
     }
   });
 
-  // 11. Corniches : rebord de terre au bas de la case, d'où l'on saute vers le sud.
+  // 12. Corniches : une petite marche de terre au bas de la case, rebord herbeux éclairé et paroi
+  // sombre, d'où l'on saute vers le sud.
   const isLedge = (t: Tile) => t === Tile.Ledge;
   each(Tile.Ledge, (x, y, px, py) => {
-    const l = isLedge(at(x - 1, y)) ? 0 : 4;
-    const r = isLedge(at(x + 1, y)) ? 0 : 4;
-    const radius = { tl: l ? 4 : 0, tr: r ? 4 : 0, bl: l ? 4 : 0, br: r ? 4 : 0 };
-    g.fillStyle(shade(T.rock, -0.6)).fillRoundedRect(px + l, py + 16, TILE - l - r, 14, radius);
-    g.fillStyle(shade(T.rock, -0.25)).fillRoundedRect(px + l, py + 16, TILE - l - r, 9, radius);
-    g.fillStyle(shade(T.ground, 0.35)).fillRect(px + l + (l ? 2 : 0), py + 15, TILE - l - r - (l ? 2 : 0) - (r ? 2 : 0), 2);
-    // Petite flèche gravée : on descend par ici.
-    g.fillStyle(shade(T.rock, 0.25), 0.8).fillTriangle(px + 12, py + 19, px + 20, py + 19, px + 16, py + 23);
+    g.fillStyle(0xffffff, 0.1).fillRect(px, py, TILE, 18);
+    const l = isLedge(at(x - 1, y)) ? 0 : 3;
+    const r = isLedge(at(x + 1, y)) ? 0 : 3;
+    const radius = { tl: 0, tr: 0, bl: l ? 5 : 0, br: r ? 5 : 0 };
+    const top = py + 17;
+    g.fillStyle(shade(T.ground, -0.65)).fillRoundedRect(px + l, top, TILE - l - r, TILE - 17, radius);
+    g.fillStyle(shade(T.ground, -0.4)).fillRect(px + l, top + 2, TILE - l - r, 5);
+    g.fillStyle(shade(T.ground, -0.52)).fillRect(px + l, top + 7, TILE - l - r, 4);
+    g.lineStyle(1, shade(T.ground, -0.7));
+    for (let k = 5; k < TILE - 2; k += 6) g.lineBetween(px + k, top + 3, px + k, top + 12);
+    // Lèvre herbeuse qui surplombe la marche.
+    g.fillStyle(shade(T.ground, 0.4)).fillRect(px + l, top - 2, TILE - l - r, 2);
+    g.fillStyle(T.ground);
+    for (let k = 2; k < TILE - 3; k += 6) g.fillTriangle(px + k, top, px + k + 4, top, px + k + 2, top + 3);
+    // Petite flèche : on descend par ici.
+    g.fillStyle(shade(T.ground, 0.5), 0.85).fillTriangle(px + 12, top + 4, px + 20, top + 4, px + 16, top + 9);
   });
 
   const rt = scene.add.renderTexture(0, 0, MAP_W * TILE, MAP_H * TILE).setOrigin(0);
