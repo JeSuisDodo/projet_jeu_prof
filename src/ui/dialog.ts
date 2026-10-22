@@ -1,3 +1,4 @@
+import { play } from '../audio/sound';
 import { renderMath } from './math';
 import { h, hideOverlay, showOverlay } from './overlay';
 
@@ -11,6 +12,7 @@ export function showDialog(who: string, lines: string[]): Promise<void> {
         <div class="help">${i < lines.length - 1 ? 'Suite ▸' : 'Fermer ▸'} (Entrée ou clic)</div>`;
     };
     const next = () => {
+      play('dialog');
       i++;
       if (i < lines.length) return render();
       window.removeEventListener('keydown', onKey);

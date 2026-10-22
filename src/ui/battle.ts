@@ -1,3 +1,4 @@
+import { play } from '../audio/sound';
 import { Rng } from '../exercises/rng';
 import { skillById } from '../exercises/secondDegre';
 import { type Exercise, type Level, type Response, checkAnswer } from '../exercises/types';
@@ -105,6 +106,7 @@ export function runBattle(creature: Creature, level: Level, save: SaveData, onCh
         panel.querySelector('.battle-head')?.replaceWith(head(false, hp));
         const portrait = panel.querySelector('.portrait');
         portrait?.classList.add(hp === 0 ? 'captured' : 'hit');
+        play(hp === 0 ? 'capture' : 'correct');
         if (hp === 0 && portrait) {
           // Gerbe d'étincelles autour de la créature capturée.
           for (let i = 0; i < 10; i++) {
@@ -127,6 +129,8 @@ export function runBattle(creature: Creature, level: Level, save: SaveData, onCh
         }
       } else {
         panel.querySelector('.portrait')?.classList.add('fled');
+        play('wrong');
+        setTimeout(() => play('flee'), 300);
         zone.querySelector('form')?.classList.add('wrong');
         feedback.className = 'feedback bad';
         feedback.innerHTML =

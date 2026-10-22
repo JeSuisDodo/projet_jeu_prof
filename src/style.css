@@ -108,6 +108,59 @@ input[type='text']:focus {
   pointer-events: auto;
 }
 
+/* Boutons-icônes en haut à droite : son, carnet, paramètres. */
+#hud .icon-btn {
+  width: 46px;
+  height: 46px;
+  padding: 9px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  box-shadow: 0 3px 0 var(--accent-dark), 0 6px 14px rgba(0, 0, 0, 0.3);
+  transition: transform 0.12s;
+}
+
+#hud .icon-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+
+#hud .icon-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--accent-dark);
+}
+
+#hud .icon-btn svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Fenêtre des paramètres */
+.settings .setting {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.settings .setting > span:first-child {
+  width: 130px;
+  flex: none;
+  font-weight: 600;
+}
+
+.settings .setting input[type='range'] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.settings .setting.check input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  accent-color: var(--accent);
+}
+
 /* Fenêtres par-dessus le jeu */
 #overlay {
   position: fixed;
@@ -644,19 +697,24 @@ form.wrong input {
   }
 }
 
-/* Réglage système « réduire les animations » : tout reste lisible, sans mouvement. */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    animation-delay: 0ms !important;
-    transition-duration: 0.01ms !important;
-  }
-  .toast {
-    animation: none;
-  }
+/* Réglage « réduire les animations » (coché par défaut si le système le demande) : tout reste lisible, sans mouvement. */
+html.calm *,
+html.calm *::before,
+html.calm *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+html.calm .toast {
+  animation: none;
+}
+
+/* Réglage « texte plus grand » : les fenêtres et les étiquettes grossissent d'un cran. */
+html.big-text #overlay > *,
+html.big-text #hud .tag {
+  zoom: 1.2;
 }
 
 @keyframes shake {

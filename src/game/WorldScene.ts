@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { Level } from '../exercises/types';
 import { BLOCKING, CRATER, GUIDE, MAP_H, MAP_W, type RegionMap, SIGNS, START, TILE, Tile, buildMap } from './map';
 import { paintTerrain } from './terrain';
+import { play } from '../audio/sound';
 import { FACINGS, type Facing, makeTextures } from './textures';
 
 /** Ce que la scène demande à l'interface (combats, dialogues), qui vit en dehors de Phaser. */
@@ -12,13 +13,13 @@ export interface WorldHooks {
   approachBoss: () => Promise<void>;
   bossDefeated: () => boolean;
   readSign: (lines: string[]) => Promise<void>;
+  /** Réglage « réduire les animations » (par défaut celui du système). */
+  isCalm: () => boolean;
 }
 
 const SPEED = 150;
 const ENCOUNTER_CHANCE = 0.12;
 
-/** Réglage système « réduire les animations » : on garde le jeu, sans particules ni mouvements décoratifs. */
-const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
 export class WorldScene extends Phaser.Scene {
   private map!: RegionMap;
@@ -39,14 +40,17 @@ export class WorldScene extends Phaser.Scene {
   private nearBoss = false;
   private nearSign = -1;
   private facing: Facing = 'down';
+  /** Animations réduites : on garde le jeu, sans particules ni mouvements décoratifs. */
   private calm = false;
+  private lavaSprites: Phaser.GameObjects.Sprite[] = [];
+  private ambience: (Phaser.GameObjects.Particles.ParticleEmitter | Phaser.Tweens.Tween)[] = [];
 
   constructor(private hooks: WorldHooks) {
     super('world');
   }
 
   create(): void {
-    this.calm = reducedMotion();
+    this.calm = this.hooks.isCalm();
     makeTextures(this);
     this.makeAnimations();
     this.map = buildMap();
@@ -119,6 +123,7 @@ export class WorldScene extends Phaser.Scene {
         } else if (t === Tile.Lava) {
           const s = this.add.sprite(px, py, 'lava-0').setOrigin(0).setDepth(0);
           if (!this.calm) s.play({ key: 'lava-bubble', startFrame: (x * 7 + y * 3) % 3 });
+          this.lavaSprites.push(s);
         } else if (t === Tile.Tree) {
           this.add.image(px + TILE / 2, bottom - 2, (x * 3 + y * 5) % 4 === 0 ? 'tree-1' : 'tree-0').setOrigin(0.5, 0.92).setDepth(bottom);
         } else if (t === Tile.Boulder) {
@@ -133,7 +138,7 @@ export class WorldScene extends Phaser.Scene {
   private addAmbience(): void {
     const lavaTiles: [number, number][] = [];
     this.map.tiles.forEach((row, y) => row.forEach((t, x) => t === Tile.Lava && lavaTiles.push([x, y])));
-    this.add
+    const embers = this.add
       .particles(0, 0, 'ember', {
         emitZone: {
           type: 'random',
@@ -156,7 +161,7 @@ export class WorldScene extends Phaser.Scene {
       })
       .setDepth(9_000);
 
-    this.add
+    const smoke = this.add
       .particles((CRATER.x + 0.5) * TILE, (CRATER.y - 1) * TILE, 'smoke', {
         x: { min: -40, max: 40 },
         lifespan: 3000,
@@ -190,8 +195,35 @@ export class WorldScene extends Phaser.Scene {
       })
       .setDepth(5);
 
-    this.tweens.add({ targets: this.bubble, y: this.bubble.y - 5, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    this.tweens.add({ targets: this.boss, scaleX: 1.04, scaleY: 0.97, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.ambience = [
+      embers,
+      smoke,
+      this.tweens.add({ targets: this.bubble, y: this.bubble.y - 5, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' }),
+      this.tweens.add({ targets: this.boss, scaleX: 1.04, scaleY: 0.97, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' }),
+    ];
+  }
+
+  /** Change le réglage en cours de partie : le décor s'arrête ou reprend vie sans recharger. */
+  setCalm(calm: boolean): void {
+    if (!this.player || calm === this.calm) return;
+    this.calm = calm;
+    this.grassSprites.forEach((s, key) => {
+      const [x, y] = key.split(',').map(Number);
+      if (calm) s.stop().setTexture('grass-0');
+      else s.play({ key: 'grass-sway', startFrame: (x + y) % 4 });
+    });
+    this.lavaSprites.forEach((s) => (calm ? s.stop().setTexture('lava-0') : s.play('lava-bubble')));
+    if (!calm && this.ambience.length === 0) return this.addAmbience();
+    for (const a of this.ambience) {
+      if (a instanceof Phaser.Tweens.Tween) {
+        if (calm) a.pause();
+        else a.resume();
+      } else {
+        a.setVisible(!calm);
+        if (calm) a.stop();
+        else a.start();
+      }
+    }
   }
 
   update(_time: number, deltaMs: number): void {
@@ -263,13 +295,16 @@ export class WorldScene extends Phaser.Scene {
 
     if (key !== this.lastTile) {
       this.lastTile = key;
-      if (zone) this.rustle(key);
+      if (zone) {
+        play('rustle');
+        this.rustle(key);
+      }
     }
     if (!zone) {
       this.dustWalked += moved;
       if (this.dustWalked > 22) {
         this.dustWalked = 0;
-        this.dust?.explode(2, this.player.x, this.player.y);
+        if (!this.calm) this.dust?.explode(2, this.player.x, this.player.y);
       }
     }
 
@@ -294,6 +329,7 @@ export class WorldScene extends Phaser.Scene {
   /** Transition avant le combat : l'écran tremble, flashe et zoome brièvement. */
   private async startEncounter(creatures: string[], level: Level): Promise<void> {
     this.encountering = true;
+    play('encounter');
     const cam = this.cameras.main;
     if (!this.calm) {
       const zoom = cam.zoom;
