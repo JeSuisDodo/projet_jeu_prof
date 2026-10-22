@@ -33,7 +33,7 @@ function clean(raw: string): string {
   return raw
     .toLowerCase()
     .replace(/[−–—]/g, '-')
-    .replace(/[«»"“”„'‘’`´{}[\]()∅]/g, ' ')
+    .replace(/[«»"“”„'‘’`´{}[\]()∅%€]/g, ' ')
     .replace(/\b[a-z]\s*_?\s*[0-9₀-₉]?\s*=/g, ' ')
     .replace(/[.\s]+$/, '')
     .trim();
