@@ -2,6 +2,8 @@ import type { GradeDef } from '../types';
 import { APPLICATIONS_DERIVATION } from './applications-derivation';
 import { DERIVATION } from './derivation';
 import { EXPONENTIELLE } from './exponentielle';
+import { GEOMETRIE_REPEREE } from './geometrie-reperee';
+import { PRODUIT_SCALAIRE } from './produit-scalaire';
 import { SECOND_DEGRE } from './second-degre';
 import { SUITES_ARITH_GEO } from './suites-arith-geo';
 import { SUITES_NUMERIQUES } from './suites-numeriques';
@@ -12,5 +14,5 @@ export const PREMIERE: GradeDef = {
   id: '1re-spe',
   name: '1re spécialité',
   island: 'Île des Variations',
-  chapters: [SECOND_DEGRE, SUITES_NUMERIQUES, SUITES_ARITH_GEO, DERIVATION, APPLICATIONS_DERIVATION, EXPONENTIELLE, TRIGONOMETRIE],
+  chapters: [SECOND_DEGRE, SUITES_NUMERIQUES, SUITES_ARITH_GEO, DERIVATION, APPLICATIONS_DERIVATION, EXPONENTIELLE, TRIGONOMETRIE, PRODUIT_SCALAIRE, GEOMETRIE_REPEREE],
 };

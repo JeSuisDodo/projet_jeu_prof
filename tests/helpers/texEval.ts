@@ -59,14 +59,14 @@ export function texToJs(tex: string): string {
   }
   // Multiplications implicites : « 3x », « 2 PI », « )( », « x exp(… ».
   return out
-    .replace(/(\d|x|PI|E|\))\s*(?=x|PI|E\b|exp|cos|sin|Math|\()/g, '$1*')
-    .replace(/(x|PI|E|\))\s*(?=\d)/g, '$1*')
+    .replace(/(\d|x|y|PI|E|\))\s*(?=x|y|PI|E\b|exp|cos|sin|Math|\()/g, '$1*')
+    .replace(/(x|y|PI|E|\))\s*(?=\d)/g, '$1*')
     // Moins unaire : « -x**2 » est refusé par JavaScript.
     .replace(/(^|\()\s*-/g, '$1(-1)*');
 }
 
-export function texEval(tex: string, x = 0): number {
+export function texEval(tex: string, x = 0, y = 0): number {
   const js = texToJs(tex);
-  const f = new Function('x', 'PI', 'E', 'exp', 'cos', 'sin', `return (${js});`);
-  return f(x, Math.PI, Math.E, Math.exp, Math.cos, Math.sin) as number;
+  const f = new Function('x', 'y', 'PI', 'E', 'exp', 'cos', 'sin', `return (${js});`);
+  return f(x, y, Math.PI, Math.E, Math.exp, Math.cos, Math.sin) as number;
 }
