@@ -7,6 +7,7 @@ export const ORTHOGONALITE: ChapterDef = {
   title: 'Orthogonalité et distances dans l’espace',
   region: 'Glacier Orthogonal',
   theme: 'neige',
+  terrain: 'lac',
   skills: ORTHOGONALITE_SKILLS,
   creatures: [
     creature('tle-scalairon', 'Scalairon', 'Un pingouin qui multiplie les coordonnées deux à deux puis les additionne.', ['tle-produit-scalaire', 'tle-orthogonalite'], { shape: 'oiseau', hue: 195, symbol: 'u·v' }),

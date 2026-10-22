@@ -7,6 +7,7 @@ export const VARIATIONS: ChapterDef = {
   title: 'Étude des variations d’une fonction',
   region: 'Monts des Variations',
   theme: 'volcan',
+  terrain: 'montagne',
   skills: VARIATIONS_SKILLS,
   creatures: [
     creature('montedescend', 'Montedescend', 'Une chèvre des montagnes : elle sait à chaque pas si le chemin monte ou descend.', ['2nde-sens-affine', '2nde-comparer-tableau'], 'bete', 25, '↗'),

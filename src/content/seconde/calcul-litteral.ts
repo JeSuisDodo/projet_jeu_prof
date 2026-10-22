@@ -7,6 +7,7 @@ export const CALCUL_LITTERAL: ChapterDef = {
   title: 'Calcul littéral',
   region: 'Forêt des Lettres',
   theme: 'foret',
+  terrain: 'foret',
   skills: CALCUL_LITTERAL_SKILLS,
   creatures: [
     creature('fractinou', 'Fractinou', 'Un blob coupé en parts, qui additionne les fractions sans jamais se tromper de dénominateur.', ['2nde-fractions', '2nde-puissances'], 'blob', 90, '½'),

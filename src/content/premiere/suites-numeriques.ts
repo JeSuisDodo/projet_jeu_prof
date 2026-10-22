@@ -147,6 +147,7 @@ export const SUITES_NUMERIQUES: ChapterDef = {
   title: 'Suites numériques',
   region: 'Prairie des Suites',
   theme: 'prairie',
+  terrain: 'lac',
   skills: [explicite, recurrente, suivant, variation, seuil],
   creatures: [
     {

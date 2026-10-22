@@ -7,6 +7,7 @@ export const FONCTIONS_REFERENCE: ChapterDef = {
   title: 'Fonctions de référence',
   region: 'Marais des Courbes',
   theme: 'marais',
+  terrain: 'marais',
   skills: FONCTIONS_REFERENCE_SKILLS,
   creatures: [
     creature('carrapaud', 'Carrapaud', 'Un crapaud en forme de parabole. Il saute toujours vers deux solutions opposées.', ['2nde-carre-equation', '2nde-carre-inequation'], 'bete', 100, 'x²'),

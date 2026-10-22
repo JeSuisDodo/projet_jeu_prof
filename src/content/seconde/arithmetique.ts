@@ -7,6 +7,7 @@ export const ARITHMETIQUE: ChapterDef = {
   title: 'Arithmétique',
   region: 'Grottes des Premiers',
   theme: 'cristal',
+  terrain: 'canyon',
   skills: ARITHMETIQUE_SKILLS,
   creatures: [
     creature('restou', 'Restou', 'Un blob qui partage tout en parts égales et garde toujours le reste pour lui.', ['2nde-reste', '2nde-diviseurs'], 'blob', 270, 'r'),

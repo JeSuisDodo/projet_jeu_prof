@@ -7,6 +7,7 @@ export const INTEGRALES: ChapterDef = {
   title: 'Calcul intégral',
   region: 'Lac des Aires',
   theme: 'cristal',
+  terrain: 'lac',
   skills: INTEGRALES_SKILLS,
   creatures: [
     creature('tle-airignon', 'Airignon', 'Un poisson plat qui mesure l’aire sous chaque vague.', ['tle-integrale-polynome', 'tle-integrale-linearite'], { shape: 'poisson', hue: 270, symbol: '∫' }),

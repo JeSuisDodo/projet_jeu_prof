@@ -1,10 +1,11 @@
 import type { Level } from '../exercises/types';
 import { Rng } from '../exercises/rng';
+import type { TerrainId } from '../content/types';
 
 /**
- * Carte d'une région, générée de façon déterministe. Toutes les régions partagent le même relief
- * (rivière, ponts, plateaux, arène du gardien) ; le décor (arbres, rochers, fleurs) dépend de la
- * graine de la région et les couleurs de son thème.
+ * Cases, dimensions et outils de dessin des cartes. Chaque région a un relief (forêt, montagne,
+ * côte…) décrit dans `layouts.ts` ; le décor fin dépend de la graine de la région et les couleurs
+ * de son thème.
  */
 
 export const TILE = 32;
@@ -14,8 +15,9 @@ export const MAP_H = 60;
 export enum Tile {
   Ground,
   Grass,
-  /** Falaise : bords de la carte et plateaux rocheux. */
+  /** Falaise : bords de la carte, montagnes, parois des grottes. */
   Rock,
+  /** « Liquide » infranchissable : lave, eau, mer… selon le thème. */
   Lava,
   Path,
   Crater,
@@ -29,6 +31,11 @@ export enum Tile {
 
 export const BLOCKING = new Set([Tile.Rock, Tile.Lava, Tile.Tree, Tile.Boulder, Tile.Sign]);
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
 /** Une zone de hautes herbes et le niveau de ses créatures. */
 export interface GrassZone {
   cx: number;
@@ -37,44 +44,23 @@ export interface GrassZone {
   level: Level;
 }
 
-export const GRASS_ZONES: GrassZone[] = [
-  // Plaine du sud, près du départ : niveau 1.
-  { cx: 17, cy: 49, r: 4.5, level: 1 },
-  { cx: 29, cy: 54, r: 3.5, level: 1 },
-  { cx: 45, cy: 50, r: 5, level: 1 },
-  { cx: 58, cy: 54, r: 3.5, level: 1 },
-  // Terres de l'est, au sud de la rivière : niveau 2.
-  { cx: 71, cy: 40, r: 4.5, level: 2 },
-  // Plateaux du nord-ouest, après le premier pont : niveau 2.
-  { cx: 10, cy: 21, r: 4.5, level: 2 },
-  { cx: 24, cy: 13, r: 4, level: 2 },
-  { cx: 30, cy: 23, r: 3.5, level: 2 },
-  // Pentes du volcan, au nord-est : niveau 3.
-  { cx: 50, cy: 22, r: 4, level: 3 },
-  { cx: 53, cy: 9, r: 3.5, level: 3 },
-  { cx: 66, cy: 24, r: 3, level: 3 },
-];
+export type Side = 'N' | 'S' | 'E' | 'W';
 
-export const START = { x: 8, y: 54 };
-export const GUIDE = { x: 11, y: 53 };
-export const CRATER = { x: 66, y: 11, r: 5 };
-
-/** Panneaux : près du village, aux deux ponts, devant l'arène. Leur texte dépend de la région. */
-export const SIGNS = [
-  { x: 12, y: 56 },
-  { x: 16, y: 34 },
-  { x: 44, y: 18 },
-  { x: 58, y: 15 },
-];
-
-/** Rivière de lave principale (est–ouest) et son bras nord (vers le cratère). */
-export const riverY = (x: number) => 31 + Math.round(2.5 * Math.sin(x / 4.5));
-const branchX = (y: number) => 41 + Math.round(1.5 * Math.sin(y / 3));
-const BRIDGES_MAIN = [17, 18, 19, 55, 56, 57];
-const BRIDGE_BRANCH = [20, 21, 22];
+/** Arène du gardien : un cercle de rayon r, ouvert d'un côté. */
+export interface Arena extends Point {
+  r: number;
+  open: Side;
+}
 
 export interface RegionMap {
+  terrain: TerrainId;
   tiles: Tile[][];
+  zones: GrassZone[];
+  start: Point;
+  guide: Point;
+  arena: Arena;
+  /** Panneaux : près du départ, deux le long du chemin, devant l'arène. Leur texte dépend de la région. */
+  signs: Point[];
   zoneAt: (x: number, y: number) => GrassZone | null;
 }
 
@@ -85,129 +71,100 @@ export function seedFor(regionId: string): number {
   return h >>> 0;
 }
 
-export function buildMap(seed = 2026): RegionMap {
-  const rng = new Rng(seed);
-  const tiles: Tile[][] = Array.from({ length: MAP_H }, () => Array<Tile>(MAP_W).fill(Tile.Ground));
-  const inside = (x: number, y: number) => x >= 0 && y >= 0 && x < MAP_W && y < MAP_H;
-  const set = (x: number, y: number, t: Tile) => {
-    if (inside(x, y)) tiles[y][x] = t;
-  };
-  const get = (x: number, y: number) => (inside(x, y) ? tiles[y][x] : Tile.Rock);
-  const dist = (x: number, y: number, cx: number, cy: number) => Math.hypot(x - cx, y - cy);
-  const blob = (cx: number, cy: number, r: number, t: Tile, jitter = 1) => {
-    for (let y = Math.floor(cy - r - 2); y <= cy + r + 2; y++)
-      for (let x = Math.floor(cx - r - 2); x <= cx + r + 2; x++)
-        if (dist(x, y, cx, cy) <= r + rng.next() * jitter - jitter / 2) set(x, y, t);
-  };
+/** Direction de `to` vu depuis `from`, pour les répliques : « au nord-est ». */
+export function directionWord(from: Point, to: Point): string {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const ns = dy < -Math.abs(dx) / 2 ? 'nord' : dy > Math.abs(dx) / 2 ? 'sud' : '';
+  const ew = dx > Math.abs(dy) / 2 ? 'est' : dx < -Math.abs(dy) / 2 ? 'ouest' : '';
+  return `au ${[ns, ew].filter(Boolean).join('-') || 'centre'}`;
+}
 
-  // Falaises du pourtour, au bord irrégulier.
-  for (let y = 0; y < MAP_H; y++)
-    for (let x = 0; x < MAP_W; x++) {
-      const edge = Math.min(x, y, MAP_W - 1 - x, MAP_H - 1 - y);
-      const depth = 2 + Math.round(1.2 + 1.2 * Math.sin(x / 5 + y / 7));
-      if (edge < depth) set(x, y, Tile.Rock);
-    }
+/** Une case est-elle sur la bordure infranchissable (deux cases depuis le bord) ? */
+export const onBorder = (x: number, y: number) => x < 2 || y < 2 || x >= MAP_W - 2 || y >= MAP_H - 2;
 
-  // Plateaux rocheux à l'intérieur.
-  blob(32, 43, 3.5, Tile.Rock, 0.6);
-  blob(66, 47, 2.5, Tile.Rock, 0.6);
-  blob(14, 11, 3, Tile.Rock, 0.6);
-  blob(35, 8, 2.5, Tile.Rock, 0.6);
-  blob(74, 22, 2.5, Tile.Rock, 0.6);
+/** Feuille de dessin d'une carte : les reliefs s'y tracent avant que `layouts.ts` n'ajoute chemins et décor. */
+export class Canvas {
+  readonly tiles: Tile[][];
 
-  for (const zone of GRASS_ZONES) blob(zone.cx, zone.cy, zone.r, Tile.Grass, 1.4);
+  constructor(
+    readonly rng: Rng,
+    fill = Tile.Ground,
+  ) {
+    this.tiles = Array.from({ length: MAP_H }, () => Array<Tile>(MAP_W).fill(fill));
+  }
 
-  // Forêt du sud-ouest et arbres épars.
-  for (let y = 36; y < 46; y++)
-    for (let x = 4; x < 10; x++) if (get(x, y) === Tile.Ground && rng.next() < 0.45) set(x, y, Tile.Tree);
-  for (let y = 0; y < MAP_H; y++)
-    for (let x = 0; x < MAP_W; x++) {
-      if (get(x, y) !== Tile.Ground) continue;
-      const nearCliff = [get(x - 1, y), get(x + 1, y), get(x, y - 1), get(x, y + 1)].includes(Tile.Rock);
-      const r = rng.next();
-      if (nearCliff && r < 0.18) set(x, y, Tile.Tree);
-      else if (r < 0.015) set(x, y, Tile.Tree);
-      else if (r < 0.03) set(x, y, Tile.Boulder);
-      else if (r < 0.08) set(x, y, Tile.Flowers);
-    }
+  fill(t: Tile): void {
+    for (const row of this.tiles) row.fill(t);
+  }
 
-  // Chemins : départ → premier pont → bras nord → cratère, et une branche vers l'est.
-  const road = (points: [number, number][]) => {
+  inside(x: number, y: number): boolean {
+    return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H;
+  }
+
+  get(x: number, y: number): Tile {
+    return this.inside(x, y) ? this.tiles[y][x] : Tile.Rock;
+  }
+
+  set(x: number, y: number, t: Tile): void {
+    if (this.inside(x, y)) this.tiles[y][x] = t;
+  }
+
+  /** Disque au bord irrégulier ; `keep` protège certaines cases. */
+  blob(cx: number, cy: number, r: number, t: Tile, jitter = 1, keep?: (old: Tile) => boolean): void {
+    this.ellipse(cx, cy, r, r, t, jitter, keep);
+  }
+
+  ellipse(cx: number, cy: number, rx: number, ry: number, t: Tile, jitter = 1, keep?: (old: Tile) => boolean): void {
+    for (let y = Math.floor(cy - ry - 2); y <= cy + ry + 2; y++)
+      for (let x = Math.floor(cx - rx - 2); x <= cx + rx + 2; x++) {
+        const d = Math.hypot((x - cx) / rx, (y - cy) / ry) * Math.min(rx, ry);
+        if (d <= Math.min(rx, ry) + this.rng.next() * jitter - jitter / 2 && !keep?.(this.get(x, y))) this.set(x, y, t);
+      }
+  }
+
+  /** Falaises du pourtour, au bord irrégulier. */
+  cliffs(base = 2): void {
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        const edge = Math.min(x, y, MAP_W - 1 - x, MAP_H - 1 - y);
+        const depth = base + Math.round(1.2 + 1.2 * Math.sin(x / 5 + y / 7));
+        if (edge < depth) this.set(x, y, Tile.Rock);
+      }
+  }
+
+  /**
+   * Trace une suite de segments en L (d'abord horizontal, puis vertical) de largeur `width`.
+   * `paint` décide de la case posée à partir de l'ancienne.
+   */
+  polyline(points: [number, number][], width: number, paint: (old: Tile) => Tile | null): void {
+    const put = (x: number, y: number) => {
+      if (onBorder(x, y)) return;
+      const t = paint(this.get(x, y));
+      if (t !== null) this.set(x, y, t);
+    };
     for (let i = 0; i < points.length - 1; i++) {
       const [x0, y0] = points[i];
       const [x1, y1] = points[i + 1];
-      for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) for (const w of [0, 1]) set(x, y0 + w, Tile.Path);
-      for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (const w of [0, 1]) set(x1 + w, y, Tile.Path);
+      for (let x = Math.min(x0, x1); x <= Math.max(x0, x1) + width - 1; x++) for (let w = 0; w < width; w++) put(x, y0 + w);
+      for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let w = 0; w < width; w++) put(x1 + w, y);
     }
-  };
-  road([
-    [START.x, START.y],
-    [17, START.y],
-    [17, 26],
-    [30, 26],
-    [30, 20],
-    [46, 20],
-    [46, 16],
-    [CRATER.x - 1, 16],
-  ]);
-  road([
-    [17, 42],
-    [55, 42],
-    [55, 36],
-  ]);
-  road([
-    [55, 26],
-    [60, 26],
-  ]);
-
-  // Lave : rivière, bras nord, lacs.
-  for (let x = 3; x < MAP_W - 3; x++) for (let w = -1; w <= 1; w++) set(x, riverY(x) + w, Tile.Lava);
-  for (let y = 3; y < riverY(41) - 1; y++) for (let w = 0; w <= 1; w++) set(branchX(y) + w, y, Tile.Lava);
-  // Ponts rectangulaires : ils couvrent toute la largeur de la lave sous leurs colonnes (ou lignes).
-  for (const cols of [BRIDGES_MAIN.slice(0, 3), BRIDGES_MAIN.slice(3)]) {
-    const ys = cols.map(riverY);
-    for (let y = Math.min(...ys) - 1; y <= Math.max(...ys) + 1; y++) for (const x of cols) set(x, y, Tile.Bridge);
-  }
-  const xs = BRIDGE_BRANCH.map(branchX);
-  for (let x = Math.min(...xs); x <= Math.max(...xs) + 1; x++) for (const y of BRIDGE_BRANCH) set(x, y, Tile.Bridge);
-  blob(12, 47, 2, Tile.Lava, 0.4);
-  blob(62, 44, 2.2, Tile.Lava, 0.4);
-  blob(26, 33 + 4, 1.5, Tile.Lava, 0.3);
-
-  // Arène du gardien (le cratère) : un cercle de roche ouvert au sud.
-  for (let y = CRATER.y - CRATER.r - 2; y <= CRATER.y + CRATER.r + 2; y++)
-    for (let x = CRATER.x - CRATER.r - 2; x <= CRATER.x + CRATER.r + 2; x++) {
-      const d = dist(x, y, CRATER.x, CRATER.y);
-      const opening = y > CRATER.y && x >= CRATER.x - 2 && x <= CRATER.x + 1;
-      if (d <= CRATER.r || (d <= CRATER.r + 1.5 && opening)) set(x, y, Tile.Crater);
-      else if (d <= CRATER.r + 1.5) set(x, y, Tile.Rock);
-    }
-
-  // Autour du départ, du guide et des panneaux : rien ne bloque.
-  const clear = (cx: number, cy: number, r: number) => {
-    for (let y = cy - r; y <= cy + r; y++)
-      for (let x = cx - r; x <= cx + r; x++) {
-        const t = get(x, y);
-        if (t === Tile.Tree || t === Tile.Boulder || t === Tile.Flowers || t === Tile.Grass) set(x, y, Tile.Ground);
-      }
-  };
-  clear(START.x, START.y, 2);
-  clear(GUIDE.x, GUIDE.y, 1);
-  for (const s of SIGNS) {
-    clear(s.x, s.y, 1);
-    set(s.x, s.y, Tile.Sign);
   }
 
-  const zoneAt = (x: number, y: number) => {
-    if (tiles[y]?.[x] !== Tile.Grass) return null;
-    let best: GrassZone | null = null;
-    let bestD = Infinity;
-    for (const zone of GRASS_ZONES) {
-      const d = dist(x, y, zone.cx, zone.cy) - zone.r;
-      if (d < bestD) [best, bestD] = [zone, d];
-    }
-    return best;
-  };
+  /** Chemin de terre : il franchit le liquide par des ponts et ouvre un passage dans la roche et les arbres. */
+  road(points: [number, number][], width = 2): void {
+    this.polyline(points, width, (old) =>
+      old === Tile.Lava || old === Tile.Bridge ? Tile.Bridge : old === Tile.Crater || old === Tile.Sign ? null : Tile.Path,
+    );
+  }
 
-  return { tiles, zoneAt };
+  /** Bruit lisse dans [-1 ; 1], somme de sinusoïdes aux phases tirées au hasard. */
+  noise(scale = 1): (x: number, y: number) => number {
+    const waves = Array.from({ length: 4 }, () => ({
+      fx: (0.05 + this.rng.next() * 0.12) / scale,
+      fy: (0.05 + this.rng.next() * 0.12) / scale,
+      p: this.rng.next() * Math.PI * 2,
+    }));
+    return (x, y) => waves.reduce((s, w) => s + Math.sin(x * w.fx + y * w.fy + w.p) + Math.sin(x * w.fy - y * w.fx + w.p * 1.7), 0) / 8;
+  }
 }

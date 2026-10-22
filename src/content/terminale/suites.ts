@@ -7,6 +7,7 @@ export const SUITES: ChapterDef = {
   title: 'Suites et raisonnement par récurrence',
   region: 'Escalier des Récurrences',
   theme: 'automne',
+  terrain: 'montagne',
   skills: SUITES_SKILLS,
   creatures: [
     creature('tle-marchon', 'Marchon', 'Il ne monte jamais deux marches à la fois : il calcule chaque terme à partir du précédent.', ['tle-terme-recurrence', 'tle-terme-geometrique'], { shape: 'bete', hue: 30, symbol: 'u' }),

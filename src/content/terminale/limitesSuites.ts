@@ -7,6 +7,7 @@ export const LIMITES_SUITES: ChapterDef = {
   title: 'Limites de suites',
   region: 'Plage de l’Infini',
   theme: 'plage',
+  terrain: 'archipel',
   skills: LIMITES_SUITES_SKILLS,
   creatures: [
     creature('tle-vaguelim', 'Vaguelim', 'Une vague qui se rapproche toujours plus d’une ligne qu’elle ne franchit jamais.', ['tle-limite-qn', 'tle-limite-point-fixe'], { shape: 'poisson', hue: 200, symbol: 'ℓ' }),

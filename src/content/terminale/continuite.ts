@@ -7,6 +7,7 @@ export const CONTINUITE: ChapterDef = {
   title: 'Continuité',
   region: 'Vallée Continue',
   theme: 'prairie',
+  terrain: 'riviere',
   skills: CONTINUITE_SKILLS,
   creatures: [
     creature('tle-pontinu', 'Pontinu', 'Une chenille qui relie les deux rives sans jamais faire de saut.', ['tle-tvi-encadrement', 'tle-continuite-morceaux'], { shape: 'insecte', hue: 110, symbol: '∫' }),

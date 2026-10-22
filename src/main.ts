@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { play, setLevels, setMusic, unlockAudio } from './audio/sound';
 import { GRADES, chapterById, gradeById } from './content';
-import type { ChapterDef, CreatureDef, GradeId } from './content/types';
+import type { ChapterDef, CreatureDef, GradeId, TerrainId } from './content/types';
 import { Rng } from './exercises/rng';
 import type { Level } from './exercises/types';
 import { creatureSvg } from './game/creatureArt';
+import { directionWord } from './game/map';
 import { type SaveData, clearSave, loadSave, newSave, speciesCaught, storeSave } from './game/save';
 import { loadSettings, storeSettings } from './game/settings';
 import { WorldScene } from './game/WorldScene';
@@ -34,7 +35,7 @@ const speciesForBoss = (c: ChapterDef) => Math.min(3, c.creatures.length);
 const regionCaught = () => speciesCaught(save, chapter.creatures.map((c) => c.id));
 
 /**
- * Créatures d'une zone de niveau donné : les premières du chapitre au sud (niveau 1),
+ * Créatures d'une zone de niveau donné : les premières du chapitre près du départ (niveau 1),
  * les dernières au nord (niveau 3), avec un recouvrement pour varier les rencontres.
  */
 function zoneCreatures(c: ChapterDef, level: Level): CreatureDef[] {
@@ -159,12 +160,31 @@ async function fight(creature: CreatureDef, boss: boolean, level: Level): Promis
   persist();
 }
 
+/** Le panneau du milieu du chemin, selon le relief. */
+const FURTHER: Record<TerrainId, string> = {
+  riviere: 'Au-delà de ce pont',
+  foret: 'Plus profond dans la forêt',
+  montagne: 'Plus haut sur ce sentier',
+  cote: 'Le long de la côte',
+  archipel: 'Sur les îles suivantes',
+  marais: 'Au cœur du marais',
+  desert: 'Plus loin dans les dunes',
+  canyon: 'Dans les salles suivantes',
+  lac: 'En faisant le tour du lac',
+};
+
+/** Où trouver l'arène, vue du départ : « au nord-est ». */
+const arenaWhere = () => {
+  const map = world.regionMap;
+  return map ? directionWord(map.start, map.arena) : 'au bout du chemin';
+};
+
 function signLines(index: number): string[] {
   const n = speciesForBoss(chapter);
   return [
-    [`Bienvenue dans la région ${chapter.region}. Chapitre : ${chapter.title}.`, 'Les hautes herbes du sud abritent les créatures les plus faciles.'],
-    ['Au nord de ce pont, les plateaux et leurs créatures de niveau 2.'],
-    ['Les pentes du nord-est sont réservées aux aventuriers aguerris (niveau 3).'],
+    [`Bienvenue dans la région ${chapter.region}. Chapitre : ${chapter.title}.`, 'Les hautes herbes les plus proches abritent les créatures les plus faciles.'],
+    [`${FURTHER[world.regionMap?.terrain ?? 'riviere']}, des créatures de niveau 2.`],
+    ['Les coins les plus reculés de la région sont réservés aux aventuriers aguerris (niveau 3).'],
     [`Arène de ${chapter.boss.name}, gardien de la région. Il ne combat que ceux qui ont capturé ${n} espèces d’ici.`],
   ][index];
 }
@@ -184,14 +204,14 @@ const world = new WorldScene({
           chapter.guide ?? [
             `Bienvenue dans la région ${chapter.region}${save.pseudo ? `, ${save.pseudo}` : ''} ! Ici, on travaille le chapitre « ${chapter.title} ».`,
             'Dans les hautes herbes vivent des créatures. Pour en capturer une, il faut répondre juste à ses questions.',
-            `Capture ${needed} espèces différentes, puis va défier ${boss}, le gardien de la région, au nord-est.`,
+            `Capture ${needed} espèces différentes, puis va défier ${boss}, le gardien de la région, ${arenaWhere()}.`,
             'Déplace-toi avec les flèches (ou ZQSD), ou en maintenant le doigt sur l’écran. V ouvre la carte de l’île, C ton carnet, P les paramètres.',
           ],
         );
       } else if (save.badges.includes(chapter.id)) {
         await showDialog(GUIDE_NAME, ['Tu as battu le gardien de cette région ! Complète ton carnet ou ouvre la carte de l’île (V) pour changer de région.']);
       } else if (species >= needed) {
-        await showDialog(GUIDE_NAME, [`Tu es prêt. ${boss} t’attend dans son arène, au nord-est.`]);
+        await showDialog(GUIDE_NAME, [`Tu es prêt. ${boss} t’attend dans son arène, ${arenaWhere()}.`]);
       } else {
         await showDialog(GUIDE_NAME, [`Tu as capturé ${species} espèce(s) sur ${needed}. Continue !`]);
       }

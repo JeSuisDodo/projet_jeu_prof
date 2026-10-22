@@ -7,6 +7,7 @@ export const POSITIONS: ChapterDef = {
   title: 'Positions relatives de droites',
   region: 'Col des Parallèles',
   theme: 'neige',
+  terrain: 'montagne',
   skills: POSITIONS_SKILLS,
   creatures: [
     creature('secantin', 'Sécantin', 'Un oiseau des neiges qui vole là où deux pistes se croisent.', ['2nde-position-droites', '2nde-intersection'], 'oiseau', 190, '×'),

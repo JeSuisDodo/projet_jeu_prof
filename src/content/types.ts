@@ -24,6 +24,18 @@ export type ThemeId =
   | 'automne' // rivière, feuilles rousses
   | 'nuit'; // eau étoilée, lucioles
 
+/** Relief de la carte d'une région, indépendant des couleurs du thème. */
+export type TerrainId =
+  | 'riviere' // plaine traversée par une rivière, ponts et plateaux
+  | 'foret' // forêt dense, clairières et ruisseau
+  | 'montagne' // chemin en lacets entre les massifs, arène au sommet
+  | 'cote' // mer à l'est, plages et îles reliées par des ponts
+  | 'archipel' // îles au milieu de l'eau (ou du ciel), longues passerelles
+  | 'marais' // mares partout, pontons
+  | 'desert' // dunes ouvertes, mesas rocheuses et oasis
+  | 'canyon' // grottes et gorges : salles reliées par des couloirs
+  | 'lac'; // grand lac central, île de l'arène et chemin qui en fait le tour
+
 /** Silhouette de base d'une créature, dessinée par le jeu (pas besoin d'image). */
 export type CreatureShape = 'blob' | 'oiseau' | 'bete' | 'plante' | 'golem' | 'poisson' | 'spectre' | 'insecte';
 
@@ -56,6 +68,8 @@ export interface ChapterDef {
   /** Nom de la région dans le jeu : « Prairie des Affines ». */
   region: string;
   theme: ThemeId;
+  /** Relief de la carte (facultatif : sinon un relief accordé au thème). */
+  terrain?: TerrainId;
   /** Compétences du chapitre. Leurs `id` doivent être uniques dans tout le jeu (préfixer aussi). */
   skills: Skill[];
   /**

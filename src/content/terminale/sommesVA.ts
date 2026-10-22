@@ -7,6 +7,7 @@ export const SOMMES_VA: ChapterDef = {
   title: 'Sommes de variables aléatoires, concentration et loi des grands nombres',
   region: 'Cratère des Grands Nombres',
   theme: 'volcan',
+  terrain: 'canyon',
   skills: SOMMES_VA_SKILLS,
   creatures: [
     creature('tle-esperix', 'Espérix', 'Une braise qui calcule la moyenne pondérée de ses étincelles.', ['tle-esperance-loi', 'tle-esperance-lineaire'], { shape: 'blob', hue: 20, symbol: 'E' }),

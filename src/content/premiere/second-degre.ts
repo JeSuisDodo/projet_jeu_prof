@@ -12,6 +12,7 @@ export const SECOND_DEGRE: ChapterDef = {
   title: 'Second degré',
   region: 'Volcan du Second degré',
   theme: 'volcan',
+  terrain: 'riviere',
   skills: SECOND_DEGRE_SKILLS,
   creatures: [
     creature('parabolux', { shape: 'bete', hue: 25 }),

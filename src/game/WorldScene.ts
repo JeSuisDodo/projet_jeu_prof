@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import type { Level } from '../exercises/types';
 import type { ChapterDef, ThemeId } from '../content/types';
-import { BLOCKING, CRATER, GUIDE, MAP_H, MAP_W, type RegionMap, SIGNS, START, TILE, Tile, buildMap, seedFor } from './map';
+import { buildMap, terrainOf } from './layouts';
+import { BLOCKING, MAP_H, MAP_W, type RegionMap, TILE, Tile, seedFor } from './map';
 import { paintTerrain } from './terrain';
 import { play } from '../audio/sound';
 import { FACINGS, type Facing, makeTextures } from './textures';
@@ -14,7 +15,7 @@ export interface WorldHooks {
   talkToGuide: () => Promise<void>;
   approachBoss: () => Promise<void>;
   bossDefeated: () => boolean;
-  /** Index du panneau dans SIGNS : son texte dépend de la région. */
+  /** Index du panneau dans `RegionMap.signs` : son texte dépend de la région. */
   readSign: (index: number) => Promise<void>;
   /** Réglage « réduire les animations » (par défaut celui du système). */
   isCalm: () => boolean;
@@ -52,6 +53,11 @@ export class WorldScene extends Phaser.Scene {
     super('world');
   }
 
+  /** Carte de la région en cours (pour les répliques qui parlent du chemin). */
+  get regionMap(): RegionMap | undefined {
+    return this.map;
+  }
+
   private chapter!: ChapterDef;
   private theme!: Theme;
   /** Préfixe des textures et animations du thème (« volcan-grass-0 »). */
@@ -81,22 +87,23 @@ export class WorldScene extends Phaser.Scene {
     this.calm = this.hooks.isCalm();
     makeTextures(this, this.t, this.theme);
     this.makeAnimations();
-    this.map = buildMap(seedFor(this.chapter.id));
+    this.map = buildMap(seedFor(this.chapter.id), terrainOf(this.chapter));
+    const { guide, arena } = this.map;
     this.drawTiles();
 
-    this.guide = this.add.sprite((GUIDE.x + 0.5) * TILE, (GUIDE.y + 0.75) * TILE, 'guide-0').setOrigin(0.5, 0.94);
+    this.guide = this.add.sprite((guide.x + 0.5) * TILE, (guide.y + 0.75) * TILE, 'guide-0').setOrigin(0.5, 0.94);
     this.guide.play('guide-idle');
     this.guide.setDepth(this.guide.y);
     this.bubble = this.add.image(this.guide.x, this.guide.y - 30, 'bubble').setDepth(10_000);
 
-    this.boss = this.add.sprite((CRATER.x + 0.5) * TILE, (CRATER.y + 0.75) * TILE, `${this.t}-boss-0`).setOrigin(0.5, 0.94);
+    this.boss = this.add.sprite((arena.x + 0.5) * TILE, (arena.y + 0.75) * TILE, `${this.t}-boss-0`).setOrigin(0.5, 0.94);
     this.boss.play(`${this.t}-boss-idle`);
     this.boss.setDepth(this.boss.y);
     this.boss.setVisible(!this.hooks.bossDefeated());
 
     // En développement seulement : ?depart=40,20 place le personnage ailleurs, pour tester une zone.
     const debugStart = import.meta.env.DEV ? new URLSearchParams(location.search).get('depart')?.split(',').map(Number) : undefined;
-    const start = debugStart?.length === 2 ? { x: debugStart[0], y: debugStart[1] } : START;
+    const start = debugStart?.length === 2 ? { x: debugStart[0], y: debugStart[1] } : this.map.start;
     this.player = this.add.sprite((start.x + 0.5) * TILE, (start.y + 0.5) * TILE, 'hero-down-idle-0').setOrigin(0.5, 0.92);
     this.player.play('hero-down-idle');
 
@@ -142,6 +149,9 @@ export class WorldScene extends Phaser.Scene {
    */
   private drawTiles(): void {
     paintTerrain(this, this.map.tiles, this.theme).setDepth(-1);
+    // Sur les grandes étendues (mer, archipel), une case de liquide sur deux suffit pour les remous.
+    const liquid = this.map.tiles.flat().filter((t) => t === Tile.Lava).length;
+    const sparse = liquid > 900;
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
         const t = this.map.tiles[y][x];
@@ -153,7 +163,7 @@ export class WorldScene extends Phaser.Scene {
           const s = this.add.sprite(px + TILE / 2, bottom + 2, `${this.t}-grass-0`).setOrigin(0.5, 0.95).setDepth(bottom);
           if (!this.calm) s.play({ key: `${this.t}-grass-sway`, startFrame: (x + y) % 4 });
           this.grassSprites.set(`${x},${y}`, s);
-        } else if (t === Tile.Lava) {
+        } else if (t === Tile.Lava && (!sparse || (x + y) % 2 === 0)) {
           const s = this.add.sprite(px, py, `${this.t}-lava-0`).setOrigin(0).setDepth(0);
           if (!this.calm) s.play({ key: `${this.t}-lava-bubble`, startFrame: (x * 7 + y * 3) % 3 });
           this.lavaSprites.push(s);
@@ -226,7 +236,7 @@ export class WorldScene extends Phaser.Scene {
     if (this.theme.smoke)
       this.ambience.push(
         this.add
-          .particles((CRATER.x + 0.5) * TILE, (CRATER.y - 1) * TILE, 'smoke', {
+          .particles((this.map.arena.x + 0.5) * TILE, (this.map.arena.y - 1) * TILE, 'smoke', {
             x: { min: -40, max: 40 },
             lifespan: 3000,
             speedY: { min: -30, max: -12 },
@@ -416,7 +426,7 @@ export class WorldScene extends Phaser.Scene {
     }
     this.nearGuide = near;
 
-    const sign = SIGNS.findIndex(
+    const sign = this.map.signs.findIndex(
       (sp) => Phaser.Math.Distance.Between(this.player.x, this.player.y, (sp.x + 0.5) * TILE, (sp.y + 0.5) * TILE) < 40,
     );
     if (sign >= 0 && (sign !== this.nearSign || interact)) void this.hooks.readSign(sign);

@@ -7,6 +7,7 @@ export const INFORMATION_CHIFFREE: ChapterDef = {
   title: 'Information chiffrée',
   region: 'Bazar des Pourcentages',
   theme: 'desert',
+  terrain: 'desert',
   skills: INFORMATION_CHIFFREE_SKILLS,
   creatures: [
     creature('proportionnel', 'Proportionnel', 'Un blob marchand qui sait toujours quelle part du gâteau revient à chacun.', ['2nde-proportion', '2nde-proportion-proportion'], 'blob', 50, '%'),

@@ -172,6 +172,7 @@ export const EXPONENTIELLE: ChapterDef = {
   title: 'Fonction exponentielle',
   region: 'Désert Exponentiel',
   theme: 'desert',
+  terrain: 'desert',
   skills: [proprietes, equation, inequation, derivee, variations],
   creatures: [
     {

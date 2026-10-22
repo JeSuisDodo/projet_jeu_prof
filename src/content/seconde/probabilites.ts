@@ -7,6 +7,7 @@ export const PROBABILITES: ChapterDef = {
   title: 'Probabilités et échantillonnage',
   region: 'Bois du Hasard',
   theme: 'nuit',
+  terrain: 'foret',
   skills: PROBABILITES_SKILLS,
   creatures: [
     creature('desou', 'Désou', 'Un blob à six faces qui roule au hasard dans les feuilles.', ['2nde-deux-des', '2nde-proba-simple'], 'blob', 260, '⚀'),

@@ -151,6 +151,7 @@ export const PROBABILITES_CONDITIONNELLES: ChapterDef = {
   title: 'Probabilités conditionnelles',
   region: 'Marais des Hasards',
   theme: 'marais',
+  terrain: 'marais',
   skills: [tableau, intersection, totales, inversion, independance],
   creatures: [
     {

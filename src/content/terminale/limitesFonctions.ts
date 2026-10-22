@@ -7,6 +7,7 @@ export const LIMITES_FONCTIONS: ChapterDef = {
   title: 'Limites de fonctions',
   region: 'Falaises des Asymptotes',
   theme: 'neige',
+  terrain: 'cote',
   skills: LIMITES_FONCTIONS_SKILLS,
   creatures: [
     creature('tle-falaisard', 'Falaisard', 'Un bouquetin qui grimpe sans fin le long d’une asymptote verticale.', ['tle-limite-en-a', 'tle-asymptotes'], { shape: 'bete', hue: 200, symbol: '|' }),

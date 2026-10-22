@@ -14,6 +14,7 @@ Chaque classe est une **île**, chaque chapitre du manuel une **région** de l'�
 Un chapitre = un fichier qui exporte un `ChapterDef` :
 
 - `id`, `title`, `region`, `theme` (voir `ThemeId`) ;
+- `terrain` (facultatif, voir `TerrainId`) : relief de la carte (rivière, forêt, montagne, côte, archipel, marais, désert, canyon, lac). Évitez deux régions voisines d'une même île avec le même relief ;
 - `skills` : des `Skill` (type de `src/exercises/types.ts`) ; les réponses possibles sont
   `number`, `set`, `pair` et `choice` (utiliser `makeChoice` pour un QCM) ; textes en LaTeX entre `$…$` ;
 - `creatures` : 3 à 6 `CreatureDef`, de la plus simple à la plus difficile, chacune avec ses

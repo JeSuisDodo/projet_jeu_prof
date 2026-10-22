@@ -7,6 +7,7 @@ export const DROITES: ChapterDef = {
   title: 'Équations de droites',
   region: 'Vallée des Droites',
   theme: 'automne',
+  terrain: 'riviere',
   skills: DROITES_SKILLS,
   creatures: [
     creature('pentou', 'Pentou', 'Un blob qui glisse le long des pentes : plus elles sont raides, plus son coefficient est grand.', ['2nde-coef-directeur', '2nde-point-droite'], 'blob', 30, 'm'),
