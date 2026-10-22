@@ -36,22 +36,27 @@ export function runBattle(creature: Creature, level: Level, save: SaveData, onCh
       resolve(result);
     };
 
-    const head = () => {
+    const head = (appear = false, lostHeart = -1) => {
       const el = h('div', 'battle-head');
+      const hearts = Array.from({ length: maxHp }, (_, i) =>
+        i < hp ? '<span>♥</span>' : `<span class="${i === lostHeart ? 'lost' : ''}">♡</span>`,
+      ).join('');
       el.innerHTML = `
-        <div class="portrait">${creature.svg}</div>
+        <div class="portrait ${appear ? 'appear' : ''}"><div class="creature">${creature.svg}</div></div>
         <div>
           <div class="muted">${creature.boss ? 'Combat de gardien' : 'Une créature sauvage surgit !'}</div>
           <h2>${creature.name} <small class="muted">niv. ${creature.boss ? 3 : level}</small></h2>
-          <div class="hearts" aria-label="${hp} cœurs sur ${maxHp}">${'♥'.repeat(hp)}${'♡'.repeat(maxHp - hp)}</div>
+          <div class="hearts" aria-label="${hp} cœurs sur ${maxHp}">${hearts}</div>
         </div>`;
       return el;
     };
 
+    let firstQuestion = true;
     const ask = () => {
       const skill = skillById(pickSkill(save, creature.skills, rng));
       const ex = skill.generate(rng, creature.boss ? 3 : level);
-      panel.replaceChildren(head());
+      panel.replaceChildren(head(firstQuestion));
+      firstQuestion = false;
       panel.append(h('div', 'skill', `Compétence : ${skill.name}`));
       panel.append(h('div', 'question', renderMath(ex.prompt)));
 
@@ -74,7 +79,7 @@ export function runBattle(creature: Creature, level: Level, save: SaveData, onCh
           buttons[ex.answer.correct]?.classList.add('right');
           if (!ok && typeof response === 'number') buttons[response]?.classList.add('wrong');
         }
-        showResult(ex, ok, feedback, actions);
+        showResult(ex, ok, zone, feedback, actions);
       };
 
       buildInput(ex, zone, submit);
@@ -92,13 +97,22 @@ export function runBattle(creature: Creature, level: Level, save: SaveData, onCh
       zone.querySelector<HTMLElement>('input, button')?.focus();
     };
 
-    const showResult = (ex: Exercise, ok: boolean, feedback: HTMLElement, actions: HTMLElement) => {
+    const showResult = (ex: Exercise, ok: boolean, zone: HTMLElement, feedback: HTMLElement, actions: HTMLElement) => {
       actions.replaceChildren();
       const next = h('button', '', 'Continuer') as HTMLButtonElement;
       if (ok) {
         hp--;
-        panel.querySelector('.battle-head')?.replaceWith(head());
-        panel.querySelector('.portrait')?.classList.add('hit');
+        panel.querySelector('.battle-head')?.replaceWith(head(false, hp));
+        const portrait = panel.querySelector('.portrait');
+        portrait?.classList.add(hp === 0 ? 'captured' : 'hit');
+        if (hp === 0 && portrait) {
+          // Gerbe d'étincelles autour de la créature capturée.
+          for (let i = 0; i < 10; i++) {
+            const spark = h('span', 'spark');
+            spark.style.setProperty('--angle', `${i * 36}deg`);
+            portrait.append(spark);
+          }
+        }
         if (hp === 0) {
           const base = creature.boss ? 60 : 10 * level;
           const xp = usedHint ? Math.round(base * 0.6) : base;
@@ -112,6 +126,8 @@ export function runBattle(creature: Creature, level: Level, save: SaveData, onCh
           next.onclick = ask;
         }
       } else {
+        panel.querySelector('.portrait')?.classList.add('fled');
+        zone.querySelector('form')?.classList.add('wrong');
         feedback.className = 'feedback bad';
         feedback.innerHTML =
           `<strong>Pas tout à fait…</strong> ${creature.name} s'enfuit. Voici la correction :` +
