@@ -21,6 +21,9 @@ Une seule région jouable : **le Volcan du Second degré (1re spécialité)**.
   factorisation, seconde racine, inéquation, extremum.
 - Les compétences ratées reviennent plus souvent, celles réussies récemment moins.
 - Carnet (touche C) : créatures capturées et taux de réussite par compétence.
+- Animations : marche et respiration des personnages, herbe qui ondule et se plie au passage,
+  lave qui bouillonne, braises et fumée du cratère, transition de combat, apparition, coups,
+  capture et fuite des créatures. Le réglage système « réduire les animations » est respecté.
 - Sauvegarde dans le navigateur (`localStorage`). Pas encore de comptes ni d'espace professeur.
 
 ## Lancer le jeu
@@ -45,7 +48,7 @@ GitHub Actions*.
 | Dossier | Rôle |
 | --- | --- |
 | `src/exercises` | Modèles d'exercices, saisie des réponses (entiers, décimaux, fractions), vérification. |
-| `src/game` | Carte, créatures, sauvegarde et scène Phaser de l'exploration. |
+| `src/game` | Carte, créatures, sauvegarde, textures animées et scène Phaser de l'exploration. |
 | `src/ui` | Écrans HTML par-dessus le jeu : accueil, combat, carnet, dialogues. |
 | `tests` | Tests Vitest : chaque modèle est essayé sur des centaines de tirages. |
 

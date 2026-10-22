@@ -36,6 +36,15 @@ function renderHud(): void {
   hud.append(btn);
 }
 
+/** Petit message qui monte et s'efface au-dessus du jeu. */
+function showToast(text: string): void {
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = text;
+  document.body.append(toast);
+  setTimeout(() => toast.remove(), 2600);
+}
+
 function showJournal(): void {
   if (busy) return;
   openJournal(save, () => {
@@ -61,6 +70,7 @@ async function fight(creatureId: string, level: Level): Promise<void> {
   if (result.captured) {
     save.captures[creature.id] = (save.captures[creature.id] ?? 0) + 1;
     save.xp += result.xp;
+    showToast(`+${result.xp} XP · ${creature.name} capturé`);
     if (creature.boss && !save.badges.includes('volcan')) save.badges.push('volcan');
   }
   persist();

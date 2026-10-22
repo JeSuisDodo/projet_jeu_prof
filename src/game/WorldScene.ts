@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { Level } from '../exercises/types';
 import { BLOCKING, CRATER, GUIDE, MAP_H, MAP_W, type RegionMap, START, TILE, Tile, buildMap } from './map';
+import { makeTextures } from './textures';
 
 /** Ce que la scène demande à l'interface (combats, dialogues), qui vit en dehors de Phaser. */
 export interface WorldHooks {
@@ -13,42 +14,61 @@ export interface WorldHooks {
 
 const SPEED = 150;
 const ENCOUNTER_CHANCE = 0.12;
-const TILE_TEXTURES: Record<Tile, string> = {
+const STATIC_TEXTURES: Partial<Record<Tile, string>> = {
   [Tile.Ground]: 'ground',
-  [Tile.Grass]: 'grass',
   [Tile.Rock]: 'rock',
-  [Tile.Lava]: 'lava',
   [Tile.Path]: 'path',
   [Tile.Crater]: 'crater',
   [Tile.Bridge]: 'bridge',
 };
 
+/** Réglage système « réduire les animations » : on garde le jeu, sans particules ni mouvements décoratifs. */
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+
 export class WorldScene extends Phaser.Scene {
   private map!: RegionMap;
-  private player!: Phaser.GameObjects.Image;
-  private boss!: Phaser.GameObjects.Image;
+  private player!: Phaser.GameObjects.Sprite;
+  private guide!: Phaser.GameObjects.Sprite;
+  private bubble!: Phaser.GameObjects.Image;
+  private boss!: Phaser.GameObjects.Sprite;
+  private grassSprites = new Map<string, Phaser.GameObjects.Sprite>();
+  private leaves?: Phaser.GameObjects.Particles.ParticleEmitter;
+  private dust?: Phaser.GameObjects.Particles.ParticleEmitter;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private grassWalked = 0;
+  private dustWalked = 0;
+  private lastTile = '';
   private cooldownUntil = 0;
+  private encountering = false;
   private nearGuide = false;
   private nearBoss = false;
+  private calm = false;
 
   constructor(private hooks: WorldHooks) {
     super('world');
   }
 
   create(): void {
-    this.makeTextures();
+    this.calm = reducedMotion();
+    makeTextures(this);
+    this.makeAnimations();
     this.map = buildMap();
-    for (let y = 0; y < MAP_H; y++)
-      for (let x = 0; x < MAP_W; x++)
-        this.add.image(x * TILE, y * TILE, TILE_TEXTURES[this.map.tiles[y][x]]).setOrigin(0);
+    this.drawTiles();
 
-    this.add.image((GUIDE.x + 0.5) * TILE, (GUIDE.y + 0.5) * TILE, 'guide').setOrigin(0.5, 0.75);
-    this.boss = this.add.image((CRATER.x + 0.5) * TILE, (CRATER.y + 0.5) * TILE, 'boss').setOrigin(0.5, 0.75);
-    this.refreshBoss();
-    this.player = this.add.image((START.x + 0.5) * TILE, (START.y + 0.5) * TILE, 'hero').setOrigin(0.5, 0.85);
-    this.player.setDepth(10);
+    this.guide = this.add.sprite((GUIDE.x + 0.5) * TILE, (GUIDE.y + 0.5) * TILE, 'guide-0').setOrigin(0.5, 0.75);
+    this.guide.play('guide-idle');
+    this.guide.setDepth(this.guide.y);
+    this.bubble = this.add.image(this.guide.x, this.guide.y - 30, 'bubble').setDepth(10_000);
+
+    this.boss = this.add.sprite((CRATER.x + 0.5) * TILE, (CRATER.y + 0.5) * TILE, 'boss-0').setOrigin(0.5, 0.75);
+    this.boss.play('boss-idle');
+    this.boss.setDepth(this.boss.y);
+    this.boss.setVisible(!this.hooks.bossDefeated());
+
+    this.player = this.add.sprite((START.x + 0.5) * TILE, (START.y + 0.5) * TILE, 'hero-idle-0').setOrigin(0.5, 0.85);
+    this.player.play('hero-idle');
+
+    if (!this.calm) this.addAmbience();
 
     const cam = this.cameras.main;
     cam.setBounds(0, 0, MAP_W * TILE, MAP_H * TILE);
@@ -56,6 +76,7 @@ export class WorldScene extends Phaser.Scene {
     const fitZoom = () => cam.setZoom(Math.min(window.innerWidth, window.innerHeight) < 640 ? 1 : 1.5);
     fitZoom();
     this.scale.on('resize', fitZoom);
+    if (!this.calm) cam.fadeIn(600);
 
     // Sans capture : les touches restent utilisables dans les champs de réponse.
     this.keys = this.input.keyboard!.addKeys('UP,DOWN,LEFT,RIGHT,Z,Q,S,D,W,A,E,SPACE', false) as Record<
@@ -64,14 +85,105 @@ export class WorldScene extends Phaser.Scene {
     >;
   }
 
-  /** Cache le gardien une fois battu. */
-  refreshBoss(): void {
-    this.boss.setVisible(!this.hooks.bossDefeated());
+  private makeAnimations(): void {
+    const frames = (prefix: string, n: number) =>
+      Array.from({ length: n }, (_, i) => ({ key: `${prefix}-${i}` }));
+    this.anims.create({ key: 'hero-idle', frames: frames('hero-idle', 2), frameRate: 2, repeat: -1 });
+    this.anims.create({ key: 'hero-walk', frames: frames('hero-walk', 4), frameRate: 9, repeat: -1 });
+    this.anims.create({ key: 'guide-idle', frames: frames('guide', 2), frameRate: 1.5, repeat: -1 });
+    this.anims.create({ key: 'boss-idle', frames: frames('boss', 2), frameRate: 2, repeat: -1 });
+    this.anims.create({ key: 'grass-sway', frames: [0, 1, 0, 2].map((i) => ({ key: `grass-${i}` })), frameRate: 2, repeat: -1 });
+    this.anims.create({ key: 'lava-bubble', frames: frames('lava', 3), frameRate: 3, repeat: -1 });
+  }
+
+  private drawTiles(): void {
+    for (let y = 0; y < MAP_H; y++)
+      for (let x = 0; x < MAP_W; x++) {
+        const t = this.map.tiles[y][x];
+        const px = x * TILE;
+        const py = y * TILE;
+        if (t === Tile.Grass) {
+          // Origine en bas pour que l'herbe se plie depuis sa base quand on la traverse.
+          const s = this.add.sprite(px + TILE / 2, py + TILE, 'grass-0').setOrigin(0.5, 1);
+          if (!this.calm) s.play({ key: 'grass-sway', startFrame: (x + y) % 4 });
+          this.grassSprites.set(`${x},${y}`, s);
+        } else if (t === Tile.Lava) {
+          const s = this.add.sprite(px, py, 'lava-0').setOrigin(0);
+          if (!this.calm) s.play({ key: 'lava-bubble', startFrame: (x * 7 + y * 3) % 3 });
+        } else this.add.image(px, py, STATIC_TEXTURES[t]!).setOrigin(0);
+      }
+  }
+
+  /** Braises au-dessus de la lave, fumée du cratère, bulle de la gardienne, souffle du gardien. */
+  private addAmbience(): void {
+    const lavaTiles: [number, number][] = [];
+    this.map.tiles.forEach((row, y) => row.forEach((t, x) => t === Tile.Lava && lavaTiles.push([x, y])));
+    this.add
+      .particles(0, 0, 'ember', {
+        emitZone: {
+          type: 'random',
+          source: {
+            getRandomPoint: (point: Phaser.Types.Math.Vector2Like) => {
+              const [x, y] = lavaTiles[Math.floor(Math.random() * lavaTiles.length)];
+              point.x = (x + Math.random()) * TILE;
+              point.y = (y + Math.random()) * TILE;
+              return point;
+            },
+          },
+        } as Phaser.Types.GameObjects.Particles.EmitZoneData,
+        lifespan: { min: 900, max: 1900 },
+        speedY: { min: -45, max: -15 },
+        speedX: { min: -10, max: 10 },
+        scale: { start: 0.9, end: 0 },
+        alpha: { start: 1, end: 0 },
+        frequency: 25,
+        blendMode: Phaser.BlendModes.ADD,
+      })
+      .setDepth(9_000);
+
+    this.add
+      .particles((CRATER.x + 0.5) * TILE, (CRATER.y - 1) * TILE, 'smoke', {
+        x: { min: -40, max: 40 },
+        lifespan: 3000,
+        speedY: { min: -30, max: -12 },
+        speedX: { min: -6, max: 6 },
+        scale: { start: 0.6, end: 2.2 },
+        alpha: { start: 0.45, end: 0 },
+        frequency: 260,
+      })
+      .setDepth(9_001);
+
+    this.leaves = this.add
+      .particles(0, 0, 'leaf', {
+        speed: { min: 30, max: 70 },
+        angle: { min: 220, max: 320 },
+        gravityY: 160,
+        lifespan: 450,
+        scale: { start: 1, end: 0.4 },
+        emitting: false,
+      })
+      .setDepth(9_002);
+
+    this.dust = this.add
+      .particles(0, 0, 'dust', {
+        speed: { min: 8, max: 22 },
+        angle: { min: 180, max: 360 },
+        lifespan: 380,
+        scale: { start: 0.9, end: 0.2 },
+        alpha: { start: 0.7, end: 0 },
+        emitting: false,
+      })
+      .setDepth(5);
+
+    this.tweens.add({ targets: this.bubble, y: this.bubble.y - 5, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.tweens.add({ targets: this.boss, scaleX: 1.04, scaleY: 0.97, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
   }
 
   update(_time: number, deltaMs: number): void {
-    if (this.hooks.isBusy()) {
+    this.player.setDepth(this.player.y);
+    if (this.hooks.isBusy() || this.encountering) {
       this.input.keyboard!.resetKeys();
+      this.player.play('hero-idle', true);
       return;
     }
     const k = this.keys;
@@ -93,6 +205,7 @@ export class WorldScene extends Phaser.Scene {
       }
     }
 
+    let moved = 0;
     if (dx !== 0 || dy !== 0) {
       const len = Math.hypot(dx, dy);
       const step = (SPEED * deltaMs) / 1000;
@@ -101,8 +214,10 @@ export class WorldScene extends Phaser.Scene {
       this.tryMove(0, (dy / len) * step);
       if (dx < 0) this.player.setFlipX(true);
       else if (dx > 0) this.player.setFlipX(false);
-      this.afterStep(Math.hypot(this.player.x - before.x, this.player.y - before.y));
+      moved = Math.hypot(this.player.x - before.x, this.player.y - before.y);
     }
+    this.player.play(moved > 0 ? 'hero-walk' : 'hero-idle', true);
+    if (moved > 0) this.afterStep(moved);
 
     this.checkNpcs(Phaser.Input.Keyboard.JustDown(k.E) || Phaser.Input.Keyboard.JustDown(k.SPACE));
   }
@@ -127,118 +242,102 @@ export class WorldScene extends Phaser.Scene {
   private afterStep(moved: number): void {
     const tx = Math.floor(this.player.x / TILE);
     const ty = Math.floor(this.player.y / TILE);
+    const key = `${tx},${ty}`;
     const zone = this.map.zoneAt(tx, ty);
+
+    if (key !== this.lastTile) {
+      this.lastTile = key;
+      if (zone) this.rustle(key);
+    }
+    if (!zone) {
+      this.dustWalked += moved;
+      if (this.dustWalked > 22) {
+        this.dustWalked = 0;
+        this.dust?.explode(2, this.player.x, this.player.y);
+      }
+    }
+
     if (!zone || this.time.now < this.cooldownUntil) return;
     this.grassWalked += moved;
     if (this.grassWalked < TILE) return;
     this.grassWalked -= TILE;
     if (Math.random() < ENCOUNTER_CHANCE) {
       this.grassWalked = 0;
-      this.cameras.main.flash(250, 255, 255, 255);
-      void this.hooks.encounter(zone.creatures, zone.level).then(() => {
-        this.cooldownUntil = this.time.now + 1500;
-      });
+      void this.startEncounter(zone.creatures, zone.level);
     }
   }
 
+  /** L'herbe se plie et lâche quelques brins quand on la traverse. */
+  private rustle(key: string): void {
+    const s = this.grassSprites.get(key);
+    if (!s || this.calm) return;
+    this.tweens.add({ targets: s, scaleY: 0.75, angle: Phaser.Math.Between(-12, 12), duration: 90, yoyo: true, ease: 'Quad.out' });
+    this.leaves?.explode(4, s.x, s.y - TILE / 2);
+  }
+
+  /** Transition avant le combat : l'écran tremble, flashe et zoome brièvement. */
+  private async startEncounter(creatures: string[], level: Level): Promise<void> {
+    this.encountering = true;
+    const cam = this.cameras.main;
+    if (!this.calm) {
+      const zoom = cam.zoom;
+      cam.shake(300, 0.006);
+      cam.flash(300, 255, 255, 255);
+      cam.zoomTo(zoom * 1.25, 300, 'Quad.easeIn');
+      await new Promise((r) => this.time.delayedCall(320, r));
+      cam.zoomTo(zoom, 200);
+    }
+    await this.hooks.encounter(creatures, level);
+    this.encountering = false;
+    this.cooldownUntil = this.time.now + 1500;
+  }
+
   private checkNpcs(interact: boolean): void {
-    const guideDist = Phaser.Math.Distance.Between(this.player.x, this.player.y, (GUIDE.x + 0.5) * TILE, (GUIDE.y + 0.5) * TILE);
+    const guideDist = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.guide.x, this.guide.y);
     const near = guideDist < 44;
-    if ((near && !this.nearGuide) || (near && interact)) void this.hooks.talkToGuide();
+    if ((near && !this.nearGuide) || (near && interact)) {
+      this.bubble.setVisible(false);
+      void this.hooks.talkToGuide();
+    }
     this.nearGuide = near;
 
-    if (!this.boss.visible) return;
+    if (!this.boss.visible || !this.boss.active) return;
     const bossNear = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y) < 40;
-    if ((bossNear && !this.nearBoss) || (bossNear && interact))
-      void this.hooks.approachBoss().then(() => this.refreshBoss());
+    if ((bossNear && !this.nearBoss) || (bossNear && interact)) {
+      if (!this.calm) this.cameras.main.shake(250, 0.004);
+      void this.hooks.approachBoss().then(() => {
+        if (this.hooks.bossDefeated()) this.defeatBoss();
+      });
+    }
     this.nearBoss = bossNear;
   }
 
-  /** Dessine toutes les textures du jeu : aucun fichier d'image n'est nécessaire. */
-  private makeTextures(): void {
-    const g = this.add.graphics();
-    const speckle = (seed: number, color: number, count: number, size: number) => {
-      let s = seed;
-      for (let i = 0; i < count; i++) {
-        s = (s * 9301 + 49297) % 233280;
-        const x = (s / 233280) * TILE;
-        s = (s * 9301 + 49297) % 233280;
-        const y = (s / 233280) * TILE;
-        g.fillStyle(color, 1).fillRect(Math.floor(x), Math.floor(y), size, size);
-      }
-    };
-    const tile = (key: string, draw: () => void) => {
-      g.clear();
-      draw();
-      g.generateTexture(key, TILE, TILE);
-    };
-
-    tile('ground', () => {
-      g.fillStyle(0x5b4a43).fillRect(0, 0, TILE, TILE);
-      speckle(1, 0x6d5a52, 10, 2);
-      speckle(2, 0x4a3c36, 6, 2);
+  /** Le gardien vaincu tourne sur lui-même et disparaît dans un nuage d'étincelles. */
+  private defeatBoss(): void {
+    this.boss.active = false;
+    if (this.calm) {
+      this.boss.setVisible(false);
+      return;
+    }
+    this.add
+      .particles(this.boss.x, this.boss.y - 20, 'spark', {
+        speed: { min: 60, max: 160 },
+        lifespan: 700,
+        scale: { start: 1, end: 0 },
+        blendMode: Phaser.BlendModes.ADD,
+        emitting: false,
+      })
+      .setDepth(10_001)
+      .explode(30);
+    this.tweens.killTweensOf(this.boss);
+    this.tweens.add({
+      targets: this.boss,
+      angle: 360,
+      scale: 0,
+      alpha: 0,
+      duration: 900,
+      ease: 'Back.in',
+      onComplete: () => this.boss.setVisible(false),
     });
-    tile('grass', () => {
-      g.fillStyle(0x5c7f2e).fillRect(0, 0, TILE, TILE);
-      g.lineStyle(2, 0x86a83f);
-      for (let i = 0; i < 6; i++) {
-        const x = 3 + i * 5;
-        g.lineBetween(x, 28, x + 2, 14 + (i % 3) * 3);
-      }
-      speckle(3, 0x3f5b1f, 6, 2);
-    });
-    tile('rock', () => {
-      g.fillStyle(0x5b4a43).fillRect(0, 0, TILE, TILE);
-      g.fillStyle(0x2f2826).fillRoundedRect(2, 4, 28, 26, 8);
-      g.fillStyle(0x4a403c).fillRoundedRect(6, 6, 16, 10, 5);
-    });
-    tile('lava', () => {
-      g.fillStyle(0xd9480f).fillRect(0, 0, TILE, TILE);
-      g.fillStyle(0xff922b).fillCircle(9, 10, 5).fillCircle(24, 22, 6);
-      g.fillStyle(0xffd43b).fillCircle(9, 10, 2).fillCircle(24, 22, 2);
-    });
-    tile('path', () => {
-      g.fillStyle(0x9c8466).fillRect(0, 0, TILE, TILE);
-      speckle(4, 0xb39b7a, 8, 2);
-      speckle(5, 0x7f6a51, 6, 2);
-    });
-    tile('crater', () => {
-      g.fillStyle(0x7a3b2e).fillRect(0, 0, TILE, TILE);
-      speckle(6, 0xa34a32, 8, 3);
-    });
-    tile('bridge', () => {
-      g.fillStyle(0xd9480f).fillRect(0, 0, TILE, TILE);
-      g.fillStyle(0x8b5a2b).fillRect(0, 2, TILE, 28);
-      g.lineStyle(2, 0x5c3a1a);
-      for (let x = 0; x <= TILE; x += 8) g.lineBetween(x, 2, x, 30);
-    });
-
-    g.clear();
-    g.fillStyle(0x000000, 0.25).fillEllipse(12, 27, 18, 6);
-    g.fillStyle(0x1c7ed6).fillRoundedRect(5, 12, 14, 13, 4);
-    g.fillStyle(0xffd8a8).fillCircle(12, 8, 6);
-    g.fillStyle(0x5c3a1a).fillRect(6, 1, 12, 4);
-    g.fillStyle(0x212529).fillRect(13, 7, 2, 2);
-    g.fillStyle(0xfab005).fillRect(4, 14, 3, 8);
-    g.generateTexture('hero', 24, 30);
-
-    g.clear();
-    g.fillStyle(0x000000, 0.25).fillEllipse(12, 27, 18, 6);
-    g.fillStyle(0x2b8a3e).fillTriangle(12, 8, 3, 27, 21, 27);
-    g.fillStyle(0xffd8a8).fillCircle(12, 8, 6);
-    g.fillStyle(0xf8f9fa).fillRect(6, 1, 12, 4);
-    g.generateTexture('guide', 24, 30);
-
-    g.clear();
-    g.fillStyle(0x000000, 0.3).fillEllipse(24, 54, 40, 10);
-    g.fillStyle(0x495057).fillRoundedRect(8, 14, 32, 38, 8);
-    g.fillStyle(0x343a40).fillRoundedRect(13, 2, 22, 16, 5);
-    g.fillStyle(0xff6b6b).fillCircle(19, 10, 2.5).fillCircle(29, 10, 2.5);
-    g.lineStyle(3, 0xff922b);
-    g.beginPath();
-    g.arc(24, 22, 10, 0.2, Math.PI - 0.2);
-    g.strokePath();
-    g.generateTexture('boss', 48, 58);
-    g.destroy();
   }
 }

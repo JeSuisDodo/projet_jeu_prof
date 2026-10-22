@@ -7,7 +7,7 @@ export function showDialog(who: string, lines: string[]): Promise<void> {
     let i = 0;
     const box = h('div', 'dialog');
     const render = () => {
-      box.innerHTML = `<div class="who">${who}</div><div>${renderMath(lines[i])}</div>
+      box.innerHTML = `<div class="who">${who}</div><div class="line">${renderMath(lines[i])}</div>
         <div class="help">${i < lines.length - 1 ? 'Suite ▸' : 'Fermer ▸'} (Entrée ou clic)</div>`;
     };
     const next = () => {
