@@ -17,7 +17,7 @@ interface Layout {
   signs: Point[];
   roads: [number, number][][];
   /** Densités du décor semé sur le sol nu. */
-  decor: { tree: number; cliffTree: number; boulder: number; flowers: number };
+  decor: { tree: number; cliffTree: number; boulder: number; flowers: number; forest?: number };
   /** Nombre maximal de plateaux en hauteur (3 par défaut ; aucun dans les grottes). */
   plateaus?: number;
 }
@@ -210,7 +210,7 @@ function archipel(c: Canvas): Layout {
       [[60, 30], [60, 35]],
       [[24, 24], [37, 24], [37, 14]],
     ],
-    decor: { tree: 0.05, cliffTree: 0, boulder: 0.02, flowers: 0.08 },
+    decor: { tree: 0.05, cliffTree: 0, boulder: 0.02, flowers: 0.08, forest: 0 },
   };
 }
 
@@ -307,7 +307,7 @@ function desert(c: Canvas): Layout {
       [[36, 16], [22, 16]],
       [[52, 25], [66, 25]],
     ],
-    decor: { tree: 0.015, cliffTree: 0.03, boulder: 0.03, flowers: 0.015 },
+    decor: { tree: 0.015, cliffTree: 0.03, boulder: 0.03, flowers: 0.015, forest: 0.35 },
   };
 }
 
@@ -342,7 +342,7 @@ function canyon(c: Canvas): Layout {
     zones,
     signs: [{ x: 12, y: 57 }, { x: 37, y: 43 }, { x: 51, y: 35 }, { x: 61, y: 19 }],
     roads: [[[START.x, START.y], [22, START.y], [22, 48], [34, 48], [34, 40], [48, 40], [48, 32], [66, 32], [66, 30], [63, 30], entrance(arena)]],
-    decor: { tree: 0.01, cliffTree: 0, boulder: 0.05, flowers: 0.04 },
+    decor: { tree: 0.01, cliffTree: 0, boulder: 0.05, flowers: 0.04, forest: 0 },
     plateaus: 0,
   };
 }
@@ -575,6 +575,23 @@ function finish(c: Canvas, L: Layout): boolean[][] {
   const raised = c.tiles.map((row) => row.map(() => false));
   const cliff = new Set<number>();
   for (const { plan } of plateauSites(c, L)) raisePlateau(c, plan, raised, cliff);
+
+  // Forêts de grands arbres : une lisière dense au pied des bords de la carte, et des bosquets qui
+  // séparent les zones d'herbes. La réparation plus bas rouvre un passage si l'un d'eux bouche l'accès.
+  const forest = L.decor.forest ?? 0.8;
+  const grove = (x: number, y: number) =>
+    L.zones.some((zone) => {
+      const d = Math.hypot(x - zone.cx, y - zone.cy);
+      return d > zone.r + 2 && d < zone.r + 3.5;
+    });
+  for (let y = 0; y < MAP_H; y++)
+    for (let x = 0; x < MAP_W; x++) {
+      if (c.get(x, y) !== Tile.Ground || raised[y][x]) continue;
+      const edge = Math.min(x, y, MAP_W - 1 - x, MAP_H - 1 - y);
+      const belt = 6.5 + 1.5 * Math.sin(x / 4 + y / 6);
+      const p = edge < belt ? forest : grove(x, y) ? forest * 0.4 : 0;
+      if (rng.next() < p) c.set(x, y, Tile.Tree);
+    }
 
   for (let y = 0; y < MAP_H; y++)
     for (let x = 0; x < MAP_W; x++) {

@@ -171,7 +171,16 @@ export class WorldScene extends Phaser.Scene {
           if (!this.calm) s.play({ key: `${this.t}-lava-bubble`, startFrame: (x * 7 + y * 3) % 3 });
           this.lavaSprites.push(s);
         } else if (t === Tile.Tree) {
-          this.add.image(px + TILE / 2, bottom - 2, (x * 3 + y * 5) % 4 === 0 ? `${this.t}-tree-1` : `${this.t}-tree-0`).setOrigin(0.5, 0.92).setDepth(bottom);
+          // En forêt dense, de grands arbres dont les feuillages se chevauchent.
+          let around = 0;
+          for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && this.map.tiles[y + dy]?.[x + dx] === Tile.Tree) around++;
+          const big = around >= 3;
+          const shift = big ? (((x * 7 + y * 13) % 5) - 2) * 1.5 : 0;
+          this.add
+            .image(px + TILE / 2 + shift, bottom - 2, (x * 3 + y * 5) % 4 === 0 ? `${this.t}-tree-1` : `${this.t}-tree-0`)
+            .setOrigin(0.5, 0.92)
+            .setScale(big ? 1.45 + ((x + y * 3) % 3) * 0.08 : 1)
+            .setDepth(bottom);
         } else if (t === Tile.Boulder) {
           this.add.image(px + TILE / 2, py + TILE / 2, 'boulder').setDepth(bottom - 4);
         } else if (t === Tile.Sign) {
