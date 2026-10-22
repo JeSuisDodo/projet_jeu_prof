@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import type { Level } from '../exercises/types';
-import { BLOCKING, CRATER, GUIDE, MAP_H, MAP_W, type RegionMap, START, TILE, Tile, buildMap } from './map';
-import { makeTextures } from './textures';
+import { BLOCKING, CRATER, GUIDE, MAP_H, MAP_W, type RegionMap, SIGNS, START, TILE, Tile, buildMap } from './map';
+import { paintTerrain } from './terrain';
+import { FACINGS, type Facing, makeTextures } from './textures';
 
 /** Ce que la scène demande à l'interface (combats, dialogues), qui vit en dehors de Phaser. */
 export interface WorldHooks {
@@ -10,17 +11,11 @@ export interface WorldHooks {
   talkToGuide: () => Promise<void>;
   approachBoss: () => Promise<void>;
   bossDefeated: () => boolean;
+  readSign: (lines: string[]) => Promise<void>;
 }
 
 const SPEED = 150;
 const ENCOUNTER_CHANCE = 0.12;
-const STATIC_TEXTURES: Partial<Record<Tile, string>> = {
-  [Tile.Ground]: 'ground',
-  [Tile.Rock]: 'rock',
-  [Tile.Path]: 'path',
-  [Tile.Crater]: 'crater',
-  [Tile.Bridge]: 'bridge',
-};
 
 /** Réglage système « réduire les animations » : on garde le jeu, sans particules ni mouvements décoratifs. */
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
@@ -42,6 +37,8 @@ export class WorldScene extends Phaser.Scene {
   private encountering = false;
   private nearGuide = false;
   private nearBoss = false;
+  private nearSign = -1;
+  private facing: Facing = 'down';
   private calm = false;
 
   constructor(private hooks: WorldHooks) {
@@ -55,18 +52,21 @@ export class WorldScene extends Phaser.Scene {
     this.map = buildMap();
     this.drawTiles();
 
-    this.guide = this.add.sprite((GUIDE.x + 0.5) * TILE, (GUIDE.y + 0.5) * TILE, 'guide-0').setOrigin(0.5, 0.75);
+    this.guide = this.add.sprite((GUIDE.x + 0.5) * TILE, (GUIDE.y + 0.75) * TILE, 'guide-0').setOrigin(0.5, 0.94);
     this.guide.play('guide-idle');
     this.guide.setDepth(this.guide.y);
     this.bubble = this.add.image(this.guide.x, this.guide.y - 30, 'bubble').setDepth(10_000);
 
-    this.boss = this.add.sprite((CRATER.x + 0.5) * TILE, (CRATER.y + 0.5) * TILE, 'boss-0').setOrigin(0.5, 0.75);
+    this.boss = this.add.sprite((CRATER.x + 0.5) * TILE, (CRATER.y + 0.75) * TILE, 'boss-0').setOrigin(0.5, 0.94);
     this.boss.play('boss-idle');
     this.boss.setDepth(this.boss.y);
     this.boss.setVisible(!this.hooks.bossDefeated());
 
-    this.player = this.add.sprite((START.x + 0.5) * TILE, (START.y + 0.5) * TILE, 'hero-idle-0').setOrigin(0.5, 0.85);
-    this.player.play('hero-idle');
+    // En développement seulement : ?depart=40,20 place le personnage ailleurs, pour tester une zone.
+    const debugStart = import.meta.env.DEV ? new URLSearchParams(location.search).get('depart')?.split(',').map(Number) : undefined;
+    const start = debugStart?.length === 2 ? { x: debugStart[0], y: debugStart[1] } : START;
+    this.player = this.add.sprite((start.x + 0.5) * TILE, (start.y + 0.5) * TILE, 'hero-down-idle-0').setOrigin(0.5, 0.92);
+    this.player.play('hero-down-idle');
 
     if (!this.calm) this.addAmbience();
 
@@ -88,29 +88,44 @@ export class WorldScene extends Phaser.Scene {
   private makeAnimations(): void {
     const frames = (prefix: string, n: number) =>
       Array.from({ length: n }, (_, i) => ({ key: `${prefix}-${i}` }));
-    this.anims.create({ key: 'hero-idle', frames: frames('hero-idle', 2), frameRate: 2, repeat: -1 });
-    this.anims.create({ key: 'hero-walk', frames: frames('hero-walk', 4), frameRate: 9, repeat: -1 });
+    for (const f of FACINGS) {
+      this.anims.create({ key: `hero-${f}-idle`, frames: frames(`hero-${f}-idle`, 2), frameRate: 2, repeat: -1 });
+      this.anims.create({ key: `hero-${f}-walk`, frames: frames(`hero-${f}-walk`, 4), frameRate: 9, repeat: -1 });
+    }
     this.anims.create({ key: 'guide-idle', frames: frames('guide', 2), frameRate: 1.5, repeat: -1 });
     this.anims.create({ key: 'boss-idle', frames: frames('boss', 2), frameRate: 2, repeat: -1 });
     this.anims.create({ key: 'grass-sway', frames: [0, 1, 0, 2].map((i) => ({ key: `grass-${i}` })), frameRate: 2, repeat: -1 });
     this.anims.create({ key: 'lava-bubble', frames: frames('lava', 3), frameRate: 3, repeat: -1 });
   }
 
+  /**
+   * Le décor fixe est peint une fois dans une texture ; par-dessus, les objets en volume
+   * (buissons, arbres, rochers, panneaux) sont triés par profondeur avec les personnages,
+   * pour que l'on passe derrière eux.
+   */
   private drawTiles(): void {
+    paintTerrain(this, this.map.tiles).setDepth(-1);
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
         const t = this.map.tiles[y][x];
         const px = x * TILE;
         const py = y * TILE;
+        const bottom = py + TILE;
         if (t === Tile.Grass) {
-          // Origine en bas pour que l'herbe se plie depuis sa base quand on la traverse.
-          const s = this.add.sprite(px + TILE / 2, py + TILE, 'grass-0').setOrigin(0.5, 1);
+          // Origine en bas pour que le buisson se plie depuis sa base quand on le traverse.
+          const s = this.add.sprite(px + TILE / 2, bottom + 2, 'grass-0').setOrigin(0.5, 0.95).setDepth(bottom);
           if (!this.calm) s.play({ key: 'grass-sway', startFrame: (x + y) % 4 });
           this.grassSprites.set(`${x},${y}`, s);
         } else if (t === Tile.Lava) {
-          const s = this.add.sprite(px, py, 'lava-0').setOrigin(0);
+          const s = this.add.sprite(px, py, 'lava-0').setOrigin(0).setDepth(0);
           if (!this.calm) s.play({ key: 'lava-bubble', startFrame: (x * 7 + y * 3) % 3 });
-        } else this.add.image(px, py, STATIC_TEXTURES[t]!).setOrigin(0);
+        } else if (t === Tile.Tree) {
+          this.add.image(px + TILE / 2, bottom - 2, (x * 3 + y * 5) % 4 === 0 ? 'tree-1' : 'tree-0').setOrigin(0.5, 0.92).setDepth(bottom);
+        } else if (t === Tile.Boulder) {
+          this.add.image(px + TILE / 2, py + TILE / 2, 'boulder').setDepth(bottom - 4);
+        } else if (t === Tile.Sign) {
+          this.add.image(px + TILE / 2, py + TILE / 2, 'sign').setDepth(bottom - 2);
+        }
       }
   }
 
@@ -183,7 +198,7 @@ export class WorldScene extends Phaser.Scene {
     this.player.setDepth(this.player.y);
     if (this.hooks.isBusy() || this.encountering) {
       this.input.keyboard!.resetKeys();
-      this.player.play('hero-idle', true);
+      this.player.play(`hero-${this.facing}-idle`, true);
       return;
     }
     const k = this.keys;
@@ -212,11 +227,12 @@ export class WorldScene extends Phaser.Scene {
       const before = { x: this.player.x, y: this.player.y };
       this.tryMove((dx / len) * step, 0);
       this.tryMove(0, (dy / len) * step);
-      if (dx < 0) this.player.setFlipX(true);
-      else if (dx > 0) this.player.setFlipX(false);
+      this.facing = Math.abs(dx) > Math.abs(dy) ? 'side' : dy < 0 ? 'up' : 'down';
+      // Le profil est dessiné tourné vers la droite.
+      this.player.setFlipX(this.facing === 'side' && dx < 0);
       moved = Math.hypot(this.player.x - before.x, this.player.y - before.y);
     }
-    this.player.play(moved > 0 ? 'hero-walk' : 'hero-idle', true);
+    this.player.play(`hero-${this.facing}-${moved > 0 ? 'walk' : 'idle'}`, true);
     if (moved > 0) this.afterStep(moved);
 
     this.checkNpcs(Phaser.Input.Keyboard.JustDown(k.E) || Phaser.Input.Keyboard.JustDown(k.SPACE));
@@ -300,6 +316,12 @@ export class WorldScene extends Phaser.Scene {
       void this.hooks.talkToGuide();
     }
     this.nearGuide = near;
+
+    const sign = SIGNS.findIndex(
+      (sp) => Phaser.Math.Distance.Between(this.player.x, this.player.y, (sp.x + 0.5) * TILE, (sp.y + 0.5) * TILE) < 40,
+    );
+    if (sign >= 0 && (sign !== this.nearSign || interact)) void this.hooks.readSign(SIGNS[sign].lines);
+    this.nearSign = sign;
 
     if (!this.boss.visible || !this.boss.active) return;
     const bossNear = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y) < 40;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLOCKING, CRATER, GRASS_ZONES, MAP_H, MAP_W, START, Tile, buildMap } from '../src/game/map';
+import { BLOCKING, CRATER, GRASS_ZONES, GUIDE, MAP_H, MAP_W, SIGNS, START, Tile, buildMap } from '../src/game/map';
 
 /** Cases atteignables à pied depuis le départ. */
 function reachable(tiles: Tile[][]) {
@@ -32,6 +32,17 @@ describe('carte du Volcan', () => {
     for (const zone of GRASS_ZONES) {
       const grass = [...ok].map((k) => k.split(',').map(Number)).filter(([x, y]) => map.zoneAt(x, y) === zone);
       expect(grass.length, `zone ${zone.cx},${zone.cy}`).toBeGreaterThan(5);
+    }
+  });
+
+  it('on peut parler à la gardienne et lire chaque panneau', () => {
+    const ok = reachable(map.tiles);
+    const besideReachable = (x: number, y: number) =>
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => ok.has(`${x + dx},${y + dy}`));
+    expect(besideReachable(GUIDE.x, GUIDE.y)).toBe(true);
+    for (const s of SIGNS) {
+      expect(map.tiles[s.y][s.x]).toBe(Tile.Sign);
+      expect(besideReachable(s.x, s.y), `panneau ${s.x},${s.y}`).toBe(true);
     }
   });
 });

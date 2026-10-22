@@ -10,9 +10,12 @@ professeur suivra la progression de ses élèves.
 Une seule région jouable : **le Volcan du Second degré (1re spécialité)**.
 
 - Écran d'accueil : choix de la classe (seule la 1re spécialité est ouverte) et du pseudo.
-- Carte explorable de 48 × 36 cases, dessinée par le code (aucune image à fournir).
+- Carte explorable de 80 × 60 cases, dessinée par le code (aucune image à fournir) :
+  rivière de lave et son bras nord, trois ponts, plateaux rocheux, forêt, chemins, panneaux
+  à lire. Le décor a du relief : falaises avec leur face éclairée et leur ombre, lave en
+  contrebas, buissons et arbres qui débordent sur la case du dessus, angles arrondis.
   Flèches, ZQSD ou WASD au clavier ; doigt maintenu sur l'écran au téléphone.
-- 7 zones de hautes herbes, de niveau 1 (au sud) à 3 (au pied du cratère).
+- 11 zones de hautes herbes, de niveau 1 (plaine du sud) à 3 (pentes du volcan).
 - 5 créatures et un gardien, Trinomax, qu'on peut défier après avoir capturé 3 espèces.
 - Combat = exercice : chaque bonne réponse retire un cœur, une erreur fait fuir la créature
   et affiche la correction pas à pas. Un indice est disponible (moins d'expérience gagnée).
@@ -21,6 +24,7 @@ Une seule région jouable : **le Volcan du Second degré (1re spécialité)**.
   factorisation, seconde racine, inéquation, extremum.
 - Les compétences ratées reviennent plus souvent, celles réussies récemment moins.
 - Carnet (touche C) : créatures capturées et taux de réussite par compétence.
+- Personnages détaillés (héros vu de face, de dos et de profil) et créatures redessinées.
 - Animations : marche et respiration des personnages, herbe qui ondule et se plie au passage,
   lave qui bouillonne, braises et fumée du cratère, transition de combat, apparition, coups,
   capture et fuite des créatures. Le réglage système « réduire les animations » est respecté.
@@ -48,7 +52,7 @@ GitHub Actions*.
 | Dossier | Rôle |
 | --- | --- |
 | `src/exercises` | Modèles d'exercices, saisie des réponses (entiers, décimaux, fractions), vérification. |
-| `src/game` | Carte, créatures, sauvegarde, textures animées et scène Phaser de l'exploration. |
+| `src/game` | Carte (`map.ts`), décor peint en relief (`terrain.ts`), créatures, sauvegarde, textures animées et scène Phaser de l'exploration. |
 | `src/ui` | Écrans HTML par-dessus le jeu : accueil, combat, carnet, dialogues. |
 | `tests` | Tests Vitest : chaque modèle est essayé sur des centaines de tirages. |
 
