@@ -9,7 +9,10 @@ import type { Skill } from '../exercises/types';
  * liste `chapters` du `GradeDef` de la classe.
  */
 
-export type GradeId = '2nde' | '1re-spe' | 'tle-spe';
+export type GradeId = '6e' | '5e' | '4e' | '3e' | '2nde' | '1re-spe' | 'tle-spe';
+
+/** Cycle d'une classe : l'accueil range les îles en « Collège » puis « Lycée ». */
+export type Stage = 'college' | 'lycee';
 
 /** Ambiance graphique d'une région : couleurs du sol, de la végétation, du « liquide » et des particules. */
 export type ThemeId =
@@ -94,8 +97,9 @@ export interface ChapterDef {
 
 export interface GradeDef {
   id: GradeId;
-  /** « Seconde », « 1re spécialité », « Terminale spécialité ». */
+  /** « 6e », « Seconde », « 1re spécialité », « Terminale spécialité ». */
   name: string;
+  stage: Stage;
   /** Nom de l'île : « Île des Fondations ». */
   island: string;
   /** Chapitres dans l'ordre du manuel. Une classe sans chapitre apparaît « Bientôt » à l'accueil. */

@@ -15,6 +15,7 @@ import { VARIABLES_ALEATOIRES } from './variables-aleatoires';
 export const PREMIERE: GradeDef = {
   id: '1re-spe',
   name: '1re spécialité',
+  stage: 'lycee',
   island: 'Île des Variations',
   chapters: [SECOND_DEGRE, SUITES_NUMERIQUES, SUITES_ARITH_GEO, DERIVATION, APPLICATIONS_DERIVATION, EXPONENTIELLE, TRIGONOMETRIE, PRODUIT_SCALAIRE, GEOMETRIE_REPEREE, PROBABILITES_CONDITIONNELLES, VARIABLES_ALEATOIRES],
 };

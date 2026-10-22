@@ -17,6 +17,7 @@ import { VECTEURS } from './vecteurs';
 export const SECONDE: GradeDef = {
   id: '2nde',
   name: 'Seconde',
+  stage: 'lycee',
   island: 'Île des Fondations',
   chapters: [
     ENSEMBLES,
