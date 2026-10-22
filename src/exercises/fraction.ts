@@ -36,6 +36,8 @@ function clean(raw: string): string {
     .replace(/[«»"“”„'‘’`´{}[\]()∅%€]/g, ' ')
     .replace(/\b[a-z]\s*_?\s*[0-9₀-₉]?\s*=/g, ' ')
     .replace(/[.\s]+$/, '')
+    // Unité tapée après le nombre : « 12 cm », « 3,5 m² », « 45° », « 2 h ».
+    .replace(/(\d)\s*(?:[kh]?m|dam|dm|cm|mm|[kcdm]?g|[kcdm]?l|ha|min|h|s|°|euros?)(?:²|³|2|3)?$/, '$1')
     .trim();
 }
 
