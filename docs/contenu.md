@@ -8,7 +8,7 @@ Chaque classe est une **île**, chaque chapitre du manuel une **région** de l'�
 | Classe | Dossier | Liste à compléter |
 | --- | --- | --- |
 | 6e | `src/content/sixieme/` (exercices dans `src/exercises/sixieme/`) | `SIXIEME.chapters` |
-| 5e | `src/content/cinquieme/` | `CINQUIEME.chapters` |
+| 5e | `src/content/cinquieme/` (exercices dans `src/exercises/cinquieme/`) | `CINQUIEME.chapters` |
 | 4e | `src/content/quatrieme/` | `QUATRIEME.chapters` |
 | 3e | `src/content/troisieme/` | `TROISIEME.chapters` |
 | Seconde | `src/content/seconde/` (exercices possibles dans `src/exercises/seconde/`) | `SECONDE.chapters` dans `src/content/seconde/index.ts` |
