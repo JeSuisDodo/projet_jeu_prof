@@ -29,7 +29,7 @@ describe('Terminale', () => {
   });
 
   for (const skill of skills)
-    it(`${skill.id} : mauvaise réponse refusée, textes propres, tirage reproductible`, () => {
+    it(`${skill.id} : mauvaise réponse refusée, textes propres, tirage reproductible`, async () => {
       for (const level of [1, 2, 3] as Level[])
         for (let seed = 1; seed <= 200; seed++) {
           const ex = skill.generate(new Rng(seed * 104729 + level), level);
@@ -44,6 +44,9 @@ describe('Terminale', () => {
             for (const m of t.matchAll(/\$([^$]+)\$/g)) expect(() => katex.renderToString(m[1], { throwOnError: true }), `${where} : ${m[1]}`).not.toThrow();
         }
       expect(skill.generate(new Rng(42), 2)).toEqual(skill.generate(new Rng(42), 2));
+      // Rend la main à la boucle d'événements : sans cela, ce fichier calcule plus de 60 s d'affilée
+      // sur les machines de CI et le dialogue entre vitest et son worker expire (« Timeout calling onTaskUpdate »).
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
 });
 
