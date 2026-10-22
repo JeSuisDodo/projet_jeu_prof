@@ -141,12 +141,41 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, rai
     for (const [px, pw] of pieces(x0, w, 3, 7, 7)) rock(px, y0, pw - 1, top - 1, stone.mid, stone.light);
     for (const [px, pw] of pieces(x0, w, 11, 8, 8)) rock(px, y0 + top, pw - 1, h - top - 1, stone.deep, stone.mid);
   };
-  /** Paroi vue de côté : des rochers empilés, côté éclairé (ouest) ou à l'ombre (est). */
-  const column = (x0: number, y0: number, w: number, h: number, lit: boolean) => {
-    g.fillStyle(stone.line).fillRect(x0, y0, w, h);
-    for (const [py, ph] of pieces(y0, h, lit ? 5 : 9, 6, 6)) {
-      const inset = hash(py * 0.71) < 0.5 ? 1 : 0;
-      rock(x0 + 1 + (lit ? inset : 0), py, w - 2 - inset, ph - 1, lit ? stone.mid : stone.deep, lit ? stone.light : stone.mid);
+  /**
+   * Flanc vu de côté : un talus en pente qui descend du rebord vers le sol d'en bas, strié de
+   * couches de roche en biais. `outer` est le côté qui donne sur le vide ; l'ouest est éclairé.
+   * `top` et `bottom` arrondissent les angles du talus côté vide.
+   */
+  const slope = (x0: number, y0: number, w: number, h: number, outer: 'W' | 'E', top: number, bottom: number) => {
+    const lit = outer === 'W';
+    const out = lit ? x0 : x0 + w;
+    const inn = lit ? x0 + w : x0;
+    const corner = (t: number, b: number) => (lit ? { tl: t, bl: b, tr: 0, br: 0 } : { tr: t, br: b, tl: 0, bl: 0 });
+    g.fillStyle(stone.line).fillRoundedRect(x0, y0, w, h, corner(top, bottom));
+    g.fillStyle(lit ? stone.mid : stone.deep).fillRoundedRect(lit ? x0 + 1 : x0, y0, w - 1, h, corner(Math.max(0, top - 1), Math.max(0, bottom - 1)));
+    // Le haut du talus, près du rebord, prend plus de lumière que le pied.
+    const band = Math.round(w * 0.55);
+    g.fillStyle(lit ? stone.light : stone.mid).fillRect(lit ? inn - band : inn, y0 + top * 0.7, band, h - top * 0.7 - bottom * 0.7);
+    const foot = Math.round(w * 0.22);
+    g.fillStyle(lit ? stone.deep : shade(stone.deep, -0.2)).fillRect(lit ? out + 1 : out - foot, y0 + top, foot, h - top - bottom);
+    // Couches de roche en biais : elles plongent vers le vide.
+    g.lineStyle(2, shade(lit ? stone.mid : stone.deep, -0.4), 0.8);
+    for (let k = -w; k < h; k += 6) {
+      const ya = y0 + k;
+      const yb = ya + w * 0.7;
+      // Découpe du segment dans le talus, hors des angles arrondis.
+      const t0 = Math.max(0, (y0 + top - ya) / (yb - ya));
+      const t1 = Math.min(1, (y0 + h - bottom - 1 - ya) / (yb - ya));
+      if (t1 <= t0) continue;
+      g.lineBetween(inn + (out - inn) * t0, ya + (yb - ya) * t0, inn + (out - inn) * t1, ya + (yb - ya) * t1);
+    }
+    // Lèvre du rebord côté plateau, et petits éboulis au pied côté vide.
+    g.fillStyle(lit ? shade(stone.light, 0.15) : stone.light).fillRect(lit ? inn - 3 : inn, y0 + (top ? 2 : 0), 3, h - (top ? 2 : 0));
+    g.fillStyle(stone.line).fillRect(lit ? inn - 4 : inn + 3, y0 + (top ? 2 : 0), 1, h - (top ? 2 : 0));
+    for (const [py, ph] of pieces(y0 + top, h - top - bottom, lit ? 5 : 9, 6, 7)) {
+      if (ph < 5) continue;
+      const bw = 3 + Math.floor(hash(py * 0.37) * 3);
+      rock(lit ? out + 1 : out - bw - 1, py + 1, bw, ph - 2, lit ? stone.deep : shade(stone.deep, -0.15), stone.mid);
     }
   };
 
@@ -311,7 +340,7 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, rai
   });
 
   // 10. Rebords des plateaux : un épais bourrelet de pierres qui suit tout le contour. Au sud, il
-  // surmonte une paroi en arcade ; à l'est et à l'ouest, des blocs empilés ; au nord, une simple
+  // surmonte une paroi en arcade ; à l'est et à l'ouest, un talus en pente ; au nord, une simple
   // rangée de pierres. Une corniche ou un escalier voisin prolonge la falaise : pas de paroi de ce côté.
   const low = (t: Tile, x: number, y: number) => !isRock(t) && t !== Tile.Ledge && t !== Tile.Stairs && !up(x, y);
   each(Tile.Rock, (x, y, px, py) => {
@@ -322,14 +351,23 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme, rai
     const north = low(at(x, y - 1), x, y - 1);
     g.fillStyle(T.ground).fillRect(px, py, TILE, TILE);
     g.fillStyle(0xffffff, 0.15).fillRect(px, py, TILE, TILE);
-    const W = 12;
-    if (north) ridge(px, py, TILE, 9);
-    if (west) column(px, py + (north ? 4 : 0), W, TILE - (north ? 4 : 0), true);
-    if (east) column(px + TILE - W, py + (north ? 4 : 0), W, TILE - (north ? 4 : 0), false);
+    // Talus en pente sur les flancs, angles largement arrondis là où deux faces se rejoignent.
+    const W = TILE - 6;
+    const R = 16;
+    const free = (side: boolean, corner: boolean, ox: number, oy: number) => {
+      if (side && corner) g.fillStyle(T.ground).fillRect(ox, oy, R, R);
+    };
+    free(west, north, px, py);
+    free(west, south, px, py + TILE - R);
+    free(east, north, px + TILE - R, py);
+    free(east, south, px + TILE - R, py + TILE - R);
+    if (west) slope(px, py, W, TILE, 'W', north ? R : 0, south ? R : 0);
+    if (east) slope(px + TILE - W, py, W, TILE, 'E', north ? R : 0, south ? R : 0);
+    if (north) ridge(px + (west ? W - 4 : 0), py, TILE - (west ? W - 4 : 0) - (east ? W - 4 : 0), 9, west, east);
     if (south) {
-      // Les angles s'arrondissent : la paroi se retire d'un cran du côté où le plateau s'arrête.
-      const l = west ? 3 : 0;
-      const r = east ? 3 : 0;
+      // La paroi de face part du pied des talus voisins.
+      const l = west ? W - 3 : 0;
+      const r = east ? W - 3 : 0;
       ridge(px + l, py + 3, TILE - l - r, 8, l > 0, r > 0);
       wall(px + l, py + 11, TILE - l - r, TILE - 12);
       g.fillStyle(stone.line).fillRect(px + l, py + TILE - 2, TILE - l - r, 2);
