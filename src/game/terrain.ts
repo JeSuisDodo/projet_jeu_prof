@@ -1,12 +1,13 @@
 import type Phaser from 'phaser';
 import { MAP_H, MAP_W, TILE, Tile } from './map';
+import { type Theme, shade } from './themes';
 
 /**
  * Peint le décor fixe de la carte dans une seule texture : sol, chemins, falaises en relief,
  * fosses de lave, ponts, cratère. Les angles exposés sont arrondis et chaque élément a ses
  * ombres et ses reflets, pour donner du volume.
  */
-export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][]): Phaser.GameObjects.RenderTexture {
+export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][], T: Theme): Phaser.GameObjects.RenderTexture {
   const g = scene.make.graphics({}, false);
   const at = (x: number, y: number) => (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H ? Tile.Rock : tiles[y][x]);
   const isLavaLike = (t: Tile) => t === Tile.Lava || t === Tile.Bridge;
@@ -52,18 +53,18 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][]): Phaser.GameO
     return { c, l, rr, t, b };
   };
 
-  // 1. Sol : prairie de cendres, taches de lumière et touffes d'herbe rase.
-  g.fillStyle(0x7d985a).fillRect(0, 0, MAP_W * TILE, MAP_H * TILE);
+  // 1. Sol : taches de lumière et touffes d'herbe rase.
+  g.fillStyle(T.ground).fillRect(0, 0, MAP_W * TILE, MAP_H * TILE);
   each(
     (t) => t !== Tile.Rock,
     (_x, _y, px, py) => {
-      if (rand() < 0.3) g.fillStyle(rand() < 0.5 ? 0x8aa565 : 0x718c50, 0.6).fillCircle(px + rand() * TILE, py + rand() * TILE, 10 + rand() * 8);
+      if (rand() < 0.3) g.fillStyle(rand() < 0.5 ? shade(T.ground, 0.1) : shade(T.ground, -0.1), 0.6).fillCircle(px + rand() * TILE, py + rand() * TILE, 10 + rand() * 8);
     },
   );
   each(
     (t) => t === Tile.Ground || t === Tile.Grass || t === Tile.Flowers,
     (_x, _y, px, py) => {
-      g.lineStyle(1, 0xa9c47c, 0.9);
+      g.lineStyle(1, shade(T.ground, 0.3), 0.9);
       for (let i = 0; i < 2; i++) {
         const tx = px + 4 + rand() * 22;
         const ty = py + 6 + rand() * 20;
@@ -72,24 +73,24 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][]): Phaser.GameO
     },
   );
 
-  // 2. Sol roussi et lueur orangée autour de la lave et du cratère.
+  // 2. Sol assombri et lueur autour du liquide et de l'arène.
   each(
     (t) => t === Tile.Lava || t === Tile.Crater,
     (_x, _y, px, py) => {
-      g.fillStyle(0x7a5a3c, 0.16).fillCircle(px + 16, py + 16, 44);
-      g.fillStyle(0xff8c1a, 0.1).fillCircle(px + 16, py + 16, 28);
+      g.fillStyle(shade(T.liquidDeep, 0.2), 0.16).fillCircle(px + 16, py + 16, 44);
+      g.fillStyle(T.glow, 0.1).fillCircle(px + 16, py + 16, 28);
     },
   );
 
   // 3. Chemins de terre battue, bords arrondis, cailloux.
   const isPath = (t: Tile) => t === Tile.Path;
   each(Tile.Path, (x, y, px, py) => {
-    solid(x, y, isPath, 0x9b7f5b, 0xcdb38d, 12);
-    for (let i = 0; i < 3; i++) g.fillStyle(rand() < 0.5 ? 0xb39673 : 0xe2cfad).fillRect(px + 4 + rand() * 24, py + 4 + rand() * 24, 2, 2);
+    solid(x, y, isPath, shade(T.path, -0.25), T.path, 12);
+    for (let i = 0; i < 3; i++) g.fillStyle(rand() < 0.5 ? shade(T.path, -0.12) : shade(T.path, 0.25)).fillRect(px + 4 + rand() * 24, py + 4 + rand() * 24, 2, 2);
   });
 
   // 4. Fleurs et cailloux.
-  const petals = [0xfff3bf, 0xffc9c9, 0xd0bfff, 0xffd8a8];
+  const petals = T.petals;
   each(Tile.Flowers, (_x, _y, px, py) => {
     for (let i = 0; i < 3; i++) {
       const fx = px + 6 + rand() * 20;
@@ -106,31 +107,31 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][]): Phaser.GameO
     }
   });
 
-  // 5. Cratère : sol brûlé, fissures incandescentes.
+  // 5. Arène du gardien : sol sombre, fissures lumineuses.
   const isCrater = (t: Tile) => t === Tile.Crater;
   each(Tile.Crater, (x, y, px, py) => {
-    solid(x, y, isCrater, 0x3b1a14, 0x5a2e24, 12);
-    g.lineStyle(2, 0xff6b2c, 0.8);
+    solid(x, y, isCrater, shade(T.arena, -0.4), T.arena, 12);
+    g.lineStyle(2, T.glow, 0.8);
     const sx = px + 4 + rand() * 18;
     const sy = py + 4 + rand() * 18;
     g.lineBetween(sx, sy, sx + 6, sy + 5).lineBetween(sx + 6, sy + 5, sx + 4, sy + 11);
-    g.fillStyle(0x7a3b2e).fillRect(px + rand() * 26, py + rand() * 26, 4, 3);
+    g.fillStyle(shade(T.arena, 0.2)).fillRect(px + rand() * 26, py + rand() * 26, 4, 3);
   });
 
-  // 6. Fosses de lave : creusées dans le sol, paroi sombre au fond, rebord éclairé devant.
+  // 6. Fosses de liquide : creusées dans le sol, paroi sombre au fond, rebord éclairé devant.
   each(isLavaLike, (x, y, px, py) => {
-    const { c } = solid(x, y, isLavaLike, 0x3b1a10, 0xd9480f, 14);
+    const { c } = solid(x, y, isLavaLike, shade(T.liquidDeep, -0.3), T.liquid, 14);
     if (!isLavaLike(at(x, y - 1))) {
       // Paroi intérieure du fond de la fosse, vue en perspective.
-      g.fillStyle(0x4a1d0f).fillRoundedRect(px, py, TILE, 10, { tl: c.tl ? 10 : 0, tr: c.tr ? 10 : 0, bl: 0, br: 0 });
-      g.fillStyle(0x8a3412).fillRect(px + (c.tl ? 7 : 0), py + 10, TILE - (c.tl ? 7 : 0) - (c.tr ? 7 : 0), 3);
+      g.fillStyle(T.liquidDeep).fillRoundedRect(px, py, TILE, 10, { tl: c.tl ? 10 : 0, tr: c.tr ? 10 : 0, bl: 0, br: 0 });
+      g.fillStyle(shade(T.liquid, -0.4)).fillRect(px + (c.tl ? 7 : 0), py + 10, TILE - (c.tl ? 7 : 0) - (c.tr ? 7 : 0), 3);
     }
     if (!isLavaLike(at(x, y + 1)))
-      g.fillStyle(0xffd8a8, 0.75).fillRect(px + (c.bl ? 11 : 0), py + TILE - 3, TILE - (c.bl ? 11 : 0) - (c.br ? 11 : 0), 2);
-    if (rand() < 0.5) g.fillStyle(0xe8590c).fillEllipse(px + 8 + rand() * 16, py + 14 + rand() * 12, 12, 4);
+      g.fillStyle(shade(T.liquidLight, 0.4), 0.75).fillRect(px + (c.bl ? 11 : 0), py + TILE - 3, TILE - (c.bl ? 11 : 0) - (c.br ? 11 : 0), 2);
+    if (rand() < 0.5) g.fillStyle(shade(T.liquid, 0.12)).fillEllipse(px + 8 + rand() * 16, py + 14 + rand() * 12, 12, 4);
   });
 
-  // 7. Ponts de bois, avec garde-corps et ombre portée sur la lave.
+  // 7. Ponts de bois, avec garde-corps et ombre portée sur le liquide.
   each(Tile.Bridge, (x, y, px, py) => {
     // Un pont dont une extrémité (en haut ou en bas) donne sur la lave se traverse d'ouest en est.
     const end = (dy: number) => {
@@ -173,32 +174,32 @@ export function paintTerrain(scene: Phaser.Scene, tiles: Tile[][]): Phaser.GameO
   // 9. Falaises : dessus clair aux plaques de roche, paroi striée au sud, flancs ombrés.
   each(Tile.Rock, (x, y, px, py) => {
     const faceSouth = !isRock(at(x, y + 1));
-    const { c } = solid(x, y, isRock, 0x5e3b29, 0xc59c76, 12);
+    const { c } = solid(x, y, isRock, shade(T.rock, -0.55), T.rock, 12);
     // Plaques de roche sur le dessus, éclairées en haut à gauche.
     for (let i = 0; i < 3; i++) {
       const rx = px + 2 + rand() * 20;
       const ry = py + 2 + rand() * (faceSouth ? 6 : 20);
       const w = 8 + rand() * 6;
-      g.fillStyle(0xa97f5b).fillRoundedRect(rx + 1, ry + 1, w, 6, 3);
-      g.fillStyle(0xdcb994).fillRoundedRect(rx, ry, w, 5, 3);
+      g.fillStyle(shade(T.rock, -0.15)).fillRoundedRect(rx + 1, ry + 1, w, 6, 3);
+      g.fillStyle(shade(T.rock, 0.15)).fillRoundedRect(rx, ry, w, 5, 3);
     }
-    if (!isRock(at(x, y - 1))) g.fillStyle(0xeed6b6).fillRect(px + (c.tl ? 8 : 2), py + 2, TILE - (c.tl ? 8 : 2) - (c.tr ? 8 : 2), 2);
-    if (!isRock(at(x + 1, y))) g.fillStyle(0x8a5f43).fillRect(px + TILE - 7, py + (c.tr ? 10 : 0), 5, TILE - (c.tr ? 10 : 0) - (c.br ? 10 : 0));
-    if (!isRock(at(x - 1, y))) g.fillStyle(0xe2c4a0).fillRect(px + 2, py + (c.tl ? 10 : 0), 3, TILE - (c.tl ? 10 : 0) - (c.bl ? 10 : 0));
+    if (!isRock(at(x, y - 1))) g.fillStyle(shade(T.rock, 0.35)).fillRect(px + (c.tl ? 8 : 2), py + 2, TILE - (c.tl ? 8 : 2) - (c.tr ? 8 : 2), 2);
+    if (!isRock(at(x + 1, y))) g.fillStyle(shade(T.rock, -0.32)).fillRect(px + TILE - 7, py + (c.tr ? 10 : 0), 5, TILE - (c.tr ? 10 : 0) - (c.br ? 10 : 0));
+    if (!isRock(at(x - 1, y))) g.fillStyle(shade(T.rock, 0.2)).fillRect(px + 2, py + (c.tl ? 10 : 0), 3, TILE - (c.tl ? 10 : 0) - (c.bl ? 10 : 0));
     if (faceSouth) {
       // Paroi vue de face : la falaise a de la hauteur.
       const top = py + 12;
-      g.fillStyle(0x4a2f22).fillRoundedRect(px, top, TILE, TILE - 12, { tl: 0, tr: 0, bl: c.bl, br: c.br });
-      g.fillStyle(0x82553b).fillRoundedRect(px + (isRock(at(x - 1, y)) ? 0 : 2), top, TILE - (isRock(at(x - 1, y)) ? 0 : 2) - (isRock(at(x + 1, y)) ? 0 : 2), TILE - 15, {
+      g.fillStyle(shade(T.rock, -0.65)).fillRoundedRect(px, top, TILE, TILE - 12, { tl: 0, tr: 0, bl: c.bl, br: c.br });
+      g.fillStyle(shade(T.rock, -0.38)).fillRoundedRect(px + (isRock(at(x - 1, y)) ? 0 : 2), top, TILE - (isRock(at(x - 1, y)) ? 0 : 2) - (isRock(at(x + 1, y)) ? 0 : 2), TILE - 15, {
         tl: 0,
         tr: 0,
         bl: Math.max(0, c.bl - 2),
         br: Math.max(0, c.br - 2),
       });
-      g.fillStyle(0xa06a48).fillRect(px, top, TILE, 2);
-      g.lineStyle(2, 0x5e3b29);
+      g.fillStyle(shade(T.rock, -0.22)).fillRect(px, top, TILE, 2);
+      g.lineStyle(2, shade(T.rock, -0.55));
       for (let k = 5; k < TILE; k += 8) g.lineBetween(px + k, top + 4, px + k - 1, py + TILE - 5);
-      g.lineStyle(1, 0xb07a55);
+      g.lineStyle(1, shade(T.rock, -0.15));
       for (let k = 8; k < TILE; k += 8) g.lineBetween(px + k, top + 4, px + k, top + 10);
     }
   });

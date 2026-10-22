@@ -1,10 +1,14 @@
 import type Phaser from 'phaser';
+import type { ThemeId } from '../content/types';
 import { TILE } from './map';
+import { type Theme, shade } from './themes';
 
 /**
  * Dessine toutes les textures des objets avec le code : aucun fichier d'image n'est nécessaire.
  * Le décor fixe (sol, falaises, lave) est peint à part, dans terrain.ts.
  * Les éléments animés ont plusieurs images (frames) : herbe-0, herbe-1…
+ * Les textures du décor dépendent du thème de la région et sont préfixées par son nom
+ * (« neige-grass-0 ») ; chacune n'est dessinée qu'une fois, à la première visite.
  */
 
 const OUTLINE = 0x2b1d16;
@@ -23,9 +27,10 @@ interface Part {
   outline?: boolean;
 }
 
-export function makeTextures(scene: Phaser.Scene): void {
+export function makeTextures(scene: Phaser.Scene, theme: ThemeId, T: Theme): void {
   const g = scene.add.graphics();
   const texture = (key: string, w: number, h: number, draw: () => void) => {
+    if (scene.textures.exists(key)) return;
     g.clear();
     draw();
     g.generateTexture(key, w, h);
@@ -41,7 +46,7 @@ export function makeTextures(scene: Phaser.Scene): void {
 
   // Hautes herbes : un buisson de feuilles en volume, trois positions pour onduler.
   [0, 2, -2].forEach((sway, frame) =>
-    texture(`grass-${frame}`, TILE, 40, () => {
+    texture(`${theme}-grass-${frame}`, TILE, 40, () => {
       shadow(16, 36, 28, 8, 0.28);
       const leaf = (angle: number, len: number, color: number, vein: number) => {
         const a = (angle * Math.PI) / 180;
@@ -59,29 +64,29 @@ export function makeTextures(scene: Phaser.Scene): void {
           { x: tx, y: ty },
           { x: mx + nx, y: my + ny },
         ];
-        g.lineStyle(2, 0x173d17).strokePoints(pts, true);
+        g.lineStyle(2, shade(T.bush, -0.6)).strokePoints(pts, true);
         g.fillStyle(color).fillPoints(pts, true);
         g.lineStyle(1, vein).lineBetween(bx, by, (bx + tx * 2) / 3, (by + ty * 2) / 3);
       };
-      for (const a of [-75, -45, 45, 75]) leaf(a, 18, 0x2f7d32, 0x51cf66);
-      for (const a of [-25, 25]) leaf(a, 22, 0x37913b, 0x69db7c);
-      leaf(0, 24, 0x40a047, 0x8ce99a);
-      for (const a of [-55, 55]) leaf(a, 13, 0x4cb052, 0x8ce99a);
+      for (const a of [-75, -45, 45, 75]) leaf(a, 18, shade(T.bush, -0.15), shade(T.bush, 0.3));
+      for (const a of [-25, 25]) leaf(a, 22, T.bush, shade(T.bush, 0.4));
+      leaf(0, 24, shade(T.bush, 0.1), shade(T.bush, 0.5));
+      for (const a of [-55, 55]) leaf(a, 13, shade(T.bush, 0.2), shade(T.bush, 0.5));
     }),
   );
 
-  // Lave : bulles et reflets transparents posés sur la fosse peinte dans le décor.
+  // Liquide : bulles et reflets transparents posés sur la fosse peinte dans le décor.
   const bubbleSets = [
     [9, 11, 4, 23, 21, 5],
     [10, 10, 5, 22, 22, 3],
     [8, 12, 2, 24, 20, 6],
   ];
   bubbleSets.forEach(([x1, y1, r1, x2, y2, r2], frame) =>
-    texture(`lava-${frame}`, TILE, TILE, () => {
-      g.fillStyle(0xffa94d, 0.55).fillRect(2, 14 + frame * 3, 12 + frame * 3, 2);
-      g.fillStyle(0xff922b).fillCircle(x1, y1, r1).fillCircle(x2, y2, r2);
-      g.fillStyle(0xffd43b).fillCircle(x1 - r1 / 3, y1 - r1 / 3, r1 / 2.5).fillCircle(x2 - r2 / 3, y2 - r2 / 3, r2 / 2.5);
-      g.lineStyle(1, 0xb83a0a, 0.8).strokeCircle(x1, y1, r1).strokeCircle(x2, y2, r2);
+    texture(`${theme}-lava-${frame}`, TILE, TILE, () => {
+      g.fillStyle(T.liquidLight, 0.55).fillRect(2, 14 + frame * 3, 12 + frame * 3, 2);
+      g.fillStyle(shade(T.liquid, 0.25)).fillCircle(x1, y1, r1).fillCircle(x2, y2, r2);
+      g.fillStyle(shade(T.liquidLight, 0.3)).fillCircle(x1 - r1 / 3, y1 - r1 / 3, r1 / 2.5).fillCircle(x2 - r2 / 3, y2 - r2 / 3, r2 / 2.5);
+      g.lineStyle(1, shade(T.liquid, -0.3), 0.8).strokeCircle(x1, y1, r1).strokeCircle(x2, y2, r2);
     }),
   );
 
@@ -96,8 +101,8 @@ export function makeTextures(scene: Phaser.Scene): void {
       g.fillStyle(mid).fillCircle(14, 17, 10).fillCircle(22, 22, 6).fillCircle(9, 24, 5);
       g.fillStyle(light).fillCircle(11, 13, 5).fillCircle(18, 11, 3).fillCircle(7, 21, 2);
     });
-  tree('tree-0', 0x2b6b2f, 0x3f9142, 0x8ce99a);
-  tree('tree-1', 0x9c4a14, 0xd9731a, 0xffc078);
+  tree(`${theme}-tree-0`, shade(T.tree, -0.3), T.tree, shade(T.tree, 0.5));
+  tree(`${theme}-tree-1`, shade(T.treeAlt, -0.3), T.treeAlt, shade(T.treeAlt, 0.5));
 
   texture('boulder', TILE, TILE, () => {
     shadow(16, 27, 28, 8);
@@ -202,7 +207,7 @@ export function makeTextures(scene: Phaser.Scene): void {
   );
 
   [0, 1].forEach((frame) =>
-    texture(`boss-${frame}`, 56, 64, () => {
+    texture(`${theme}-boss-${frame}`, 56, 64, () => {
       shadow(28, 60, 46, 10, 0.35);
       parts([
         { x: 2, y: 22 - frame * 2, w: 10, h: 24, r: 5, color: 0x495057 },
@@ -215,12 +220,12 @@ export function makeTextures(scene: Phaser.Scene): void {
       g.fillStyle(0x868e96).fillRoundedRect(13, 19, 14, 8, 4);
       g.fillStyle(frame ? 0xffa8a8 : 0xff6b6b).fillCircle(23, 11, frame ? 3.5 : 3).fillCircle(33, 11, frame ? 3.5 : 3);
       g.fillStyle(0xffffff).fillCircle(22, 10, 1).fillCircle(32, 10, 1);
-      // Fissures de magma et parabole gravée sur le torse.
-      g.lineStyle(3, frame ? 0xffc078 : 0xff922b);
+      // Fissures lumineuses et arc gravé sur le torse.
+      g.lineStyle(3, frame ? shade(T.bossGlow, 0.4) : T.bossGlow);
       g.beginPath();
       g.arc(28, 28, 11, 0.25, Math.PI - 0.25);
       g.strokePath();
-      g.lineStyle(2, 0xff6b2c, 0.9).lineBetween(14, 40, 19, 44).lineBetween(42, 38, 37, 45);
+      g.lineStyle(2, T.bossGlow, 0.9).lineBetween(14, 40, 19, 44).lineBetween(42, 38, 37, 45);
     }),
   );
 
@@ -232,14 +237,14 @@ export function makeTextures(scene: Phaser.Scene): void {
   });
 
   // Particules.
-  texture('ember', 6, 6, () => {
-    g.fillStyle(0xffd43b).fillCircle(3, 3, 3);
+  texture(`${theme}-particle`, 6, 6, () => {
+    g.fillStyle(T.particle).fillCircle(3, 3, 3);
   });
   texture('smoke', 16, 16, () => {
     g.fillStyle(0x868e96, 0.6).fillCircle(8, 8, 8);
   });
-  texture('leaf', 4, 4, () => {
-    g.fillStyle(0x94d82d).fillRect(0, 0, 4, 4);
+  texture(`${theme}-leaf`, 4, 4, () => {
+    g.fillStyle(shade(T.bush, 0.35)).fillRect(0, 0, 4, 4);
   });
   texture('dust', 6, 6, () => {
     g.fillStyle(0xe9dcc5, 0.85).fillCircle(3, 3, 3);

@@ -1,18 +1,21 @@
 import Phaser from 'phaser';
 import type { Level } from '../exercises/types';
-import { BLOCKING, CRATER, GUIDE, MAP_H, MAP_W, type RegionMap, SIGNS, START, TILE, Tile, buildMap } from './map';
+import type { ChapterDef, ThemeId } from '../content/types';
+import { BLOCKING, CRATER, GUIDE, MAP_H, MAP_W, type RegionMap, SIGNS, START, TILE, Tile, buildMap, seedFor } from './map';
 import { paintTerrain } from './terrain';
 import { play } from '../audio/sound';
 import { FACINGS, type Facing, makeTextures } from './textures';
+import { THEMES, type Theme } from './themes';
 
 /** Ce que la scène demande à l'interface (combats, dialogues), qui vit en dehors de Phaser. */
 export interface WorldHooks {
   isBusy: () => boolean;
-  encounter: (zoneCreatures: string[], level: Level) => Promise<void>;
+  encounter: (level: Level) => Promise<void>;
   talkToGuide: () => Promise<void>;
   approachBoss: () => Promise<void>;
   bossDefeated: () => boolean;
-  readSign: (lines: string[]) => Promise<void>;
+  /** Index du panneau dans SIGNS : son texte dépend de la région. */
+  readSign: (index: number) => Promise<void>;
   /** Réglage « réduire les animations » (par défaut celui du système). */
   isCalm: () => boolean;
 }
@@ -49,11 +52,36 @@ export class WorldScene extends Phaser.Scene {
     super('world');
   }
 
+  private chapter!: ChapterDef;
+  private theme!: Theme;
+  /** Préfixe des textures et animations du thème (« volcan-grass-0 »). */
+  private t: ThemeId = 'volcan';
+
+  /** La scène redémarre à chaque changement de région, avec le chapitre en paramètre. */
+  init(data: { chapter: ChapterDef }): void {
+    this.chapter = data.chapter;
+    this.theme = THEMES[data.chapter.theme];
+    this.t = data.chapter.theme;
+    this.grassSprites = new Map();
+    this.lavaSprites = [];
+    this.ambience = [];
+    this.leaves = undefined;
+    this.dust = undefined;
+    this.grassWalked = 0;
+    this.dustWalked = 0;
+    this.lastTile = '';
+    this.encountering = false;
+    this.nearGuide = false;
+    this.nearBoss = false;
+    this.nearSign = -1;
+    this.facing = 'down';
+  }
+
   create(): void {
     this.calm = this.hooks.isCalm();
-    makeTextures(this);
+    makeTextures(this, this.t, this.theme);
     this.makeAnimations();
-    this.map = buildMap();
+    this.map = buildMap(seedFor(this.chapter.id));
     this.drawTiles();
 
     this.guide = this.add.sprite((GUIDE.x + 0.5) * TILE, (GUIDE.y + 0.75) * TILE, 'guide-0').setOrigin(0.5, 0.94);
@@ -61,8 +89,8 @@ export class WorldScene extends Phaser.Scene {
     this.guide.setDepth(this.guide.y);
     this.bubble = this.add.image(this.guide.x, this.guide.y - 30, 'bubble').setDepth(10_000);
 
-    this.boss = this.add.sprite((CRATER.x + 0.5) * TILE, (CRATER.y + 0.75) * TILE, 'boss-0').setOrigin(0.5, 0.94);
-    this.boss.play('boss-idle');
+    this.boss = this.add.sprite((CRATER.x + 0.5) * TILE, (CRATER.y + 0.75) * TILE, `${this.t}-boss-0`).setOrigin(0.5, 0.94);
+    this.boss.play(`${this.t}-boss-idle`);
     this.boss.setDepth(this.boss.y);
     this.boss.setVisible(!this.hooks.bossDefeated());
 
@@ -80,6 +108,7 @@ export class WorldScene extends Phaser.Scene {
     const fitZoom = () => cam.setZoom(Math.min(window.innerWidth, window.innerHeight) < 640 ? 1 : 1.5);
     fitZoom();
     this.scale.on('resize', fitZoom);
+    this.events.once('shutdown', () => this.scale.off('resize', fitZoom));
     if (!this.calm) cam.fadeIn(600);
 
     // Sans capture : les touches restent utilisables dans les champs de réponse.
@@ -92,14 +121,18 @@ export class WorldScene extends Phaser.Scene {
   private makeAnimations(): void {
     const frames = (prefix: string, n: number) =>
       Array.from({ length: n }, (_, i) => ({ key: `${prefix}-${i}` }));
+    // Les animations sont globales : on ne crée que celles qui manquent (nouveau thème).
+    const anim = (key: string, list: { key: string }[], frameRate: number) => {
+      if (!this.anims.exists(key)) this.anims.create({ key, frames: list, frameRate, repeat: -1 });
+    };
     for (const f of FACINGS) {
-      this.anims.create({ key: `hero-${f}-idle`, frames: frames(`hero-${f}-idle`, 2), frameRate: 2, repeat: -1 });
-      this.anims.create({ key: `hero-${f}-walk`, frames: frames(`hero-${f}-walk`, 4), frameRate: 9, repeat: -1 });
+      anim(`hero-${f}-idle`, frames(`hero-${f}-idle`, 2), 2);
+      anim(`hero-${f}-walk`, frames(`hero-${f}-walk`, 4), 9);
     }
-    this.anims.create({ key: 'guide-idle', frames: frames('guide', 2), frameRate: 1.5, repeat: -1 });
-    this.anims.create({ key: 'boss-idle', frames: frames('boss', 2), frameRate: 2, repeat: -1 });
-    this.anims.create({ key: 'grass-sway', frames: [0, 1, 0, 2].map((i) => ({ key: `grass-${i}` })), frameRate: 2, repeat: -1 });
-    this.anims.create({ key: 'lava-bubble', frames: frames('lava', 3), frameRate: 3, repeat: -1 });
+    anim('guide-idle', frames('guide', 2), 1.5);
+    anim(`${this.t}-boss-idle`, frames(`${this.t}-boss`, 2), 2);
+    anim(`${this.t}-grass-sway`, [0, 1, 0, 2].map((i) => ({ key: `${this.t}-grass-${i}` })), 2);
+    anim(`${this.t}-lava-bubble`, frames(`${this.t}-lava`, 3), 3);
   }
 
   /**
@@ -108,7 +141,7 @@ export class WorldScene extends Phaser.Scene {
    * pour que l'on passe derrière eux.
    */
   private drawTiles(): void {
-    paintTerrain(this, this.map.tiles).setDepth(-1);
+    paintTerrain(this, this.map.tiles, this.theme).setDepth(-1);
     for (let y = 0; y < MAP_H; y++)
       for (let x = 0; x < MAP_W; x++) {
         const t = this.map.tiles[y][x];
@@ -117,15 +150,15 @@ export class WorldScene extends Phaser.Scene {
         const bottom = py + TILE;
         if (t === Tile.Grass) {
           // Origine en bas pour que le buisson se plie depuis sa base quand on le traverse.
-          const s = this.add.sprite(px + TILE / 2, bottom + 2, 'grass-0').setOrigin(0.5, 0.95).setDepth(bottom);
-          if (!this.calm) s.play({ key: 'grass-sway', startFrame: (x + y) % 4 });
+          const s = this.add.sprite(px + TILE / 2, bottom + 2, `${this.t}-grass-0`).setOrigin(0.5, 0.95).setDepth(bottom);
+          if (!this.calm) s.play({ key: `${this.t}-grass-sway`, startFrame: (x + y) % 4 });
           this.grassSprites.set(`${x},${y}`, s);
         } else if (t === Tile.Lava) {
-          const s = this.add.sprite(px, py, 'lava-0').setOrigin(0).setDepth(0);
-          if (!this.calm) s.play({ key: 'lava-bubble', startFrame: (x * 7 + y * 3) % 3 });
+          const s = this.add.sprite(px, py, `${this.t}-lava-0`).setOrigin(0).setDepth(0);
+          if (!this.calm) s.play({ key: `${this.t}-lava-bubble`, startFrame: (x * 7 + y * 3) % 3 });
           this.lavaSprites.push(s);
         } else if (t === Tile.Tree) {
-          this.add.image(px + TILE / 2, bottom - 2, (x * 3 + y * 5) % 4 === 0 ? 'tree-1' : 'tree-0').setOrigin(0.5, 0.92).setDepth(bottom);
+          this.add.image(px + TILE / 2, bottom - 2, (x * 3 + y * 5) % 4 === 0 ? `${this.t}-tree-1` : `${this.t}-tree-0`).setOrigin(0.5, 0.92).setDepth(bottom);
         } else if (t === Tile.Boulder) {
           this.add.image(px + TILE / 2, py + TILE / 2, 'boulder').setDepth(bottom - 4);
         } else if (t === Tile.Sign) {
@@ -134,47 +167,79 @@ export class WorldScene extends Phaser.Scene {
       }
   }
 
-  /** Braises au-dessus de la lave, fumée du cratère, bulle de la gardienne, souffle du gardien. */
+  /** Particules du thème (braises, bulles, flocons…), fumée de l'arène, bulle de la gardienne, souffle du gardien. */
   private addAmbience(): void {
-    const lavaTiles: [number, number][] = [];
-    this.map.tiles.forEach((row, y) => row.forEach((t, x) => t === Tile.Lava && lavaTiles.push([x, y])));
-    const embers = this.add
-      .particles(0, 0, 'ember', {
-        emitZone: {
-          type: 'random',
-          source: {
-            getRandomPoint: (point: Phaser.Types.Math.Vector2Like) => {
-              const [x, y] = lavaTiles[Math.floor(Math.random() * lavaTiles.length)];
-              point.x = (x + Math.random()) * TILE;
-              point.y = (y + Math.random()) * TILE;
-              return point;
-            },
+    const tex = `${this.t}-particle`;
+    const kind = this.theme.ambience;
+    const random = (pick: (p: Phaser.Types.Math.Vector2Like) => void) =>
+      ({
+        type: 'random',
+        source: {
+          getRandomPoint: (point: Phaser.Types.Math.Vector2Like) => {
+            pick(point);
+            return point;
           },
-        } as Phaser.Types.GameObjects.Particles.EmitZoneData,
-        lifespan: { min: 900, max: 1900 },
-        speedY: { min: -45, max: -15 },
+        },
+      }) as Phaser.Types.GameObjects.Particles.EmitZoneData;
+    let particles: Phaser.GameObjects.Particles.ParticleEmitter;
+    if (kind === 'embers' || kind === 'bubbles' || kind === 'sparkles' || kind === 'spray') {
+      // Elles montent du liquide.
+      const liquid: [number, number][] = [];
+      this.map.tiles.forEach((row, y) => row.forEach((t, x) => t === Tile.Lava && liquid.push([x, y])));
+      const slow = kind === 'bubbles';
+      particles = this.add.particles(0, 0, tex, {
+        emitZone: random((p) => {
+          const [x, y] = liquid[Math.floor(Math.random() * liquid.length)];
+          p.x = (x + Math.random()) * TILE;
+          p.y = (y + Math.random()) * TILE;
+        }),
+        lifespan: slow ? { min: 600, max: 1200 } : { min: 900, max: 1900 },
+        speedY: slow ? { min: -12, max: -4 } : kind === 'spray' ? { min: -60, max: -30 } : { min: -45, max: -15 },
         speedX: { min: -10, max: 10 },
-        scale: { start: 0.9, end: 0 },
+        scale: slow ? { start: 0.4, end: 1.1 } : { start: 0.9, end: 0 },
         alpha: { start: 1, end: 0 },
-        frequency: 25,
-        blendMode: Phaser.BlendModes.ADD,
-      })
-      .setDepth(9_000);
+        frequency: slow ? 60 : 25,
+        blendMode: kind === 'bubbles' ? Phaser.BlendModes.NORMAL : Phaser.BlendModes.ADD,
+      });
+    } else {
+      // Elles flottent dans tout le champ de vision : neige, feuilles, poussière, lucioles, papillons.
+      const view = this.cameras.main.worldView;
+      const falling = kind === 'snow' || kind === 'leaves';
+      particles = this.add.particles(0, 0, kind === 'leaves' ? `${this.t}-leaf` : tex, {
+        emitZone: random((p) => {
+          p.x = view.x + Math.random() * view.width;
+          p.y = view.y + Math.random() * view.height * (falling ? 0.6 : 1);
+        }),
+        lifespan: { min: 2500, max: 4500 },
+        speedY: falling ? { min: 18, max: 45 } : { min: -8, max: 8 },
+        speedX: kind === 'dust' ? { min: 25, max: 60 } : { min: -14, max: 14 },
+        rotate: kind === 'leaves' ? { min: 0, max: 360 } : 0,
+        scale: kind === 'snow' ? { min: 0.4, max: 1 } : kind === 'dust' ? { start: 1.2, end: 0.2 } : { min: 0.5, max: 0.9 },
+        alpha: kind === 'fireflies' ? { values: [0, 1, 0.2, 1, 0] } : { start: 0.9, end: 0 },
+        frequency: kind === 'snow' ? 40 : kind === 'dust' ? 90 : 160,
+        blendMode: kind === 'fireflies' ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL,
+      });
+    }
+    particles.setDepth(9_000);
+    this.ambience = [particles];
 
-    const smoke = this.add
-      .particles((CRATER.x + 0.5) * TILE, (CRATER.y - 1) * TILE, 'smoke', {
-        x: { min: -40, max: 40 },
-        lifespan: 3000,
-        speedY: { min: -30, max: -12 },
-        speedX: { min: -6, max: 6 },
-        scale: { start: 0.6, end: 2.2 },
-        alpha: { start: 0.45, end: 0 },
-        frequency: 260,
-      })
-      .setDepth(9_001);
+    if (this.theme.smoke)
+      this.ambience.push(
+        this.add
+          .particles((CRATER.x + 0.5) * TILE, (CRATER.y - 1) * TILE, 'smoke', {
+            x: { min: -40, max: 40 },
+            lifespan: 3000,
+            speedY: { min: -30, max: -12 },
+            speedX: { min: -6, max: 6 },
+            scale: { start: 0.6, end: 2.2 },
+            alpha: { start: 0.45, end: 0 },
+            frequency: 260,
+          })
+          .setDepth(9_001),
+      );
 
     this.leaves = this.add
-      .particles(0, 0, 'leaf', {
+      .particles(0, 0, `${this.t}-leaf`, {
         speed: { min: 30, max: 70 },
         angle: { min: 220, max: 320 },
         gravityY: 160,
@@ -195,12 +260,10 @@ export class WorldScene extends Phaser.Scene {
       })
       .setDepth(5);
 
-    this.ambience = [
-      embers,
-      smoke,
+    this.ambience.push(
       this.tweens.add({ targets: this.bubble, y: this.bubble.y - 5, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' }),
       this.tweens.add({ targets: this.boss, scaleX: 1.04, scaleY: 0.97, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' }),
-    ];
+    );
   }
 
   /** Change le réglage en cours de partie : le décor s'arrête ou reprend vie sans recharger. */
@@ -209,10 +272,10 @@ export class WorldScene extends Phaser.Scene {
     this.calm = calm;
     this.grassSprites.forEach((s, key) => {
       const [x, y] = key.split(',').map(Number);
-      if (calm) s.stop().setTexture('grass-0');
-      else s.play({ key: 'grass-sway', startFrame: (x + y) % 4 });
+      if (calm) s.stop().setTexture(`${this.t}-grass-0`);
+      else s.play({ key: `${this.t}-grass-sway`, startFrame: (x + y) % 4 });
     });
-    this.lavaSprites.forEach((s) => (calm ? s.stop().setTexture('lava-0') : s.play('lava-bubble')));
+    this.lavaSprites.forEach((s) => (calm ? s.stop().setTexture(`${this.t}-lava-0`) : s.play(`${this.t}-lava-bubble`)));
     if (!calm && this.ambience.length === 0) return this.addAmbience();
     for (const a of this.ambience) {
       if (a instanceof Phaser.Tweens.Tween) {
@@ -314,7 +377,7 @@ export class WorldScene extends Phaser.Scene {
     this.grassWalked -= TILE;
     if (Math.random() < ENCOUNTER_CHANCE) {
       this.grassWalked = 0;
-      void this.startEncounter(zone.creatures, zone.level);
+      void this.startEncounter(zone.level);
     }
   }
 
@@ -327,7 +390,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   /** Transition avant le combat : l'écran tremble, flashe et zoome brièvement. */
-  private async startEncounter(creatures: string[], level: Level): Promise<void> {
+  private async startEncounter(level: Level): Promise<void> {
     this.encountering = true;
     play('encounter');
     const cam = this.cameras.main;
@@ -339,7 +402,7 @@ export class WorldScene extends Phaser.Scene {
       await new Promise((r) => this.time.delayedCall(320, r));
       cam.zoomTo(zoom, 200);
     }
-    await this.hooks.encounter(creatures, level);
+    await this.hooks.encounter(level);
     this.encountering = false;
     this.cooldownUntil = this.time.now + 1500;
   }
@@ -356,7 +419,7 @@ export class WorldScene extends Phaser.Scene {
     const sign = SIGNS.findIndex(
       (sp) => Phaser.Math.Distance.Between(this.player.x, this.player.y, (sp.x + 0.5) * TILE, (sp.y + 0.5) * TILE) < 40,
     );
-    if (sign >= 0 && (sign !== this.nearSign || interact)) void this.hooks.readSign(SIGNS[sign].lines);
+    if (sign >= 0 && (sign !== this.nearSign || interact)) void this.hooks.readSign(sign);
     this.nearSign = sign;
 
     if (!this.boss.visible || !this.boss.active) return;

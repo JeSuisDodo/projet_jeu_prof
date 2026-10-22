@@ -1,11 +1,18 @@
 import { play } from '../audio/sound';
 import { Rng } from '../exercises/rng';
-import { skillById } from '../exercises/secondDegre';
+import { skillById } from '../content';
 import { type Exercise, type Level, type Response, checkAnswer } from '../exercises/types';
-import type { Creature } from '../game/creatures';
 import { type SaveData, pickSkill, recordAttempt } from '../game/save';
 import { renderMath } from './math';
 import { h, hideOverlay, showOverlay } from './overlay';
+
+/** La créature affrontée, prête à afficher. */
+export interface Foe {
+  name: string;
+  svg: string;
+  skills: string[];
+  boss: boolean;
+}
 
 export interface BattleResult {
   captured: boolean;
@@ -22,7 +29,7 @@ const INPUT_HELP: Record<string, string> = {
  * Un combat : chaque bonne réponse retire un cœur à la créature, une erreur la fait fuir
  * en affichant la correction. Chaque réponse est enregistrée dans la progression.
  */
-export function runBattle(creature: Creature, level: Level, save: SaveData, onChange: () => void): Promise<BattleResult> {
+export function runBattle(creature: Foe, level: Level, save: SaveData, onChange: () => void): Promise<BattleResult> {
   return new Promise((resolve) => {
     const rng = new Rng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
     const maxHp = creature.boss ? 4 : level;
