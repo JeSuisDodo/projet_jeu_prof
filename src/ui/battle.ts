@@ -2,6 +2,7 @@ import { play } from '../audio/sound';
 import { Rng } from '../exercises/rng';
 import { skillById } from '../content';
 import type { Rarity } from '../content/types';
+import { restatesPrompt } from '../exercises/expression';
 import { type Exercise, type Response, checkAnswer } from '../exercises/types';
 import { RARITY, type RarityInfo, starsOf } from '../game/rarity';
 import { type SaveData, pickSkill, recordAttempt } from '../game/save';
@@ -24,9 +25,9 @@ export interface BattleResult {
 }
 
 const INPUT_HELP: Record<string, string> = {
-  number: 'Un entier, un décimal ou une fraction, par exemple -3, 2,5 ou 7/3.',
+  number: 'Un nombre (-3, 2,5, 7/3) ou un calcul exact (4!, 2^5, 4×3×2×1, C(5,2)).',
   set: 'Sépare les solutions par un point-virgule, par exemple « -2 ; 5/3 ». Écris « aucune » s’il n’y en a pas.',
-  pair: 'Entiers, décimaux ou fractions.',
+  pair: 'Nombres, fractions ou calculs exacts.',
 };
 
 /** Le gardien : quatre questions de niveau 3, indice permis. */
@@ -97,6 +98,14 @@ export function runBattle(creature: Foe, save: SaveData, onChange: () => void): 
       let answered = false;
       const submit = (response: Response) => {
         if (answered) return;
+        // Recopier le calcul demandé ne compte pas comme une réponse : on redemande le résultat.
+        const typed = typeof response === 'string' ? [response] : Array.isArray(response) ? response : [];
+        if (typed.some((r) => restatesPrompt(ex.prompt, r))) {
+          feedback.className = 'feedback hint';
+          feedback.innerHTML = 'C’est le calcul de l’énoncé : effectue-le et donne le résultat.';
+          zone.querySelector<HTMLInputElement>('input')?.select();
+          return;
+        }
         answered = true;
         const ok = checkAnswer(ex.answer, response);
         recordAttempt(save, ex.skill, ok);
