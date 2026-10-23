@@ -1,3 +1,5 @@
+import { evalExpression } from './expression';
+
 /** Nombre rationnel exact, toujours réduit et de dénominateur positif. */
 export interface Frac {
   n: number;
@@ -28,12 +30,15 @@ export function fracLatex(f: Frac): string {
   return `${f.n < 0 ? '-' : ''}\\frac{${Math.abs(f.n)}}{${f.d}}`;
 }
 
-/** Retire ce qui entoure souvent une réponse : guillemets, crochets, parenthèses, point final, « x = ». */
-function clean(raw: string): string {
+/**
+ * Retire ce qui entoure souvent une réponse : guillemets, crochets, parenthèses, point final, « x = ».
+ * Pour un calcul, les parenthèses sont gardées.
+ */
+function clean(raw: string, keepBrackets = false): string {
   return raw
     .toLowerCase()
     .replace(/[−–—]/g, '-')
-    .replace(/[«»"“”„'‘’`´{}[\]()∅%€]/g, ' ')
+    .replace(keepBrackets ? /[«»"“”„'‘’`´∅%€]/g : /[«»"“”„'‘’`´{}[\]()∅%€]/g, ' ')
     .replace(/\b[a-z]\s*_?\s*[0-9₀-₉]?\s*=/g, ' ')
     .replace(/[.\s]+$/, '')
     // Unité tapée après le nombre : « 12 cm », « 3,5 m² », « 45° », « 2 h ».
@@ -41,8 +46,15 @@ function clean(raw: string): string {
     .trim();
 }
 
-/** Lit une réponse d'élève : entier, décimal (point ou virgule) ou fraction « a/b ». */
+/**
+ * Lit une réponse d'élève : entier, décimal (point ou virgule), fraction « a/b », ou calcul exact
+ * comme « 4! », « 4×3×2×1 », « 2^10 » ou « C(5,2) ».
+ */
 export function parseFrac(raw: string): Frac | null {
+  return parseLiteral(raw) ?? evalExpression(clean(raw, true));
+}
+
+function parseLiteral(raw: string): Frac | null {
   const s = clean(raw).replace(/\s+/g, '').replace(',', '.');
   const asFraction = /^([+-]?\d+)\/([+-]?\d+)$/.exec(s);
   if (asFraction) {
@@ -76,7 +88,7 @@ function parseParts(parts: string[]): Frac[] | null {
  * « 2,5 » reste ambigu (2,5 ou {2 ; 5}) : les deux lectures sont proposées.
  */
 export function parseFracLists(raw: string): Frac[][] {
-  const s = clean(raw).replace(/\b(et|ou)\b|\s\/\s|\|/g, ';');
+  const s = clean(raw, true).replace(/\b(et|ou)\b|\s\/\s|\|/g, ';');
   if (s === '' || /^(aucun|vide|pas de solution|impossible)/.test(s)) return [[]];
   const splits = s.includes(';') ? [s.split(';')] : [[s], s.split(','), s.split(/\s+/), s.split(/[,\s]+/)];
   const lists: Frac[][] = [];
