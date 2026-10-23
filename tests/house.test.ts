@@ -43,7 +43,7 @@ describe('Maison du savoir', () => {
 
 describe('intérieur de la maison', () => {
   it.each([2, 4, 6, 7])('avec %i PNJ, chacun est accessible depuis la porte', async (n) => {
-    const { ROOM_DOOR, ROOM_H, ROOM_W, npcSpots, roomBlocking } = await import('../src/game/room');
+    const { ROOM_DOOR, ROOM_H, ROOM_W, stationsFor, roomBlocking } = await import('../src/game/room');
     const grid = roomBlocking(n);
     const seen = grid.map((row) => row.map(() => false));
     const stack = [[ROOM_DOOR.x, ROOM_DOOR.y]];
@@ -58,12 +58,12 @@ describe('intérieur de la maison', () => {
         stack.push([nx, ny]);
       }
     }
-    const spots = npcSpots(n);
-    expect(spots).toHaveLength(n);
-    spots.forEach((s, i) => {
-      // Devant le pupitre d'un spécialiste, devant le sage.
-      const front = i === n - 1 ? { x: s.x, y: s.y + 1 } : { x: s.x, y: s.y + 2 };
-      expect(seen[front.y][front.x], `PNJ ${i}`).toBe(true);
+    const stations = stationsFor(n);
+    expect(stations).toHaveLength(n);
+    stations.forEach((s, i) => {
+      // La case d'où l'on parle est libre, accessible, et à deux pas au plus du PNJ.
+      expect(seen[s.talk.y][s.talk.x], `PNJ ${i} (${s.kind})`).toBe(true);
+      expect(Math.hypot(s.talk.x - s.npc.x, s.talk.y - s.npc.y)).toBeLessThanOrEqual(2);
     });
   });
 });
