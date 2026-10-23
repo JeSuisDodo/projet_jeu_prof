@@ -1,7 +1,7 @@
 import { GRADES, gradeById } from '../content';
 import type { GradeId } from '../content/types';
 import { summarize, sinceText } from '../online/progress';
-import type { Backend, ClassDetail, StudentRow, Teacher } from '../online/types';
+import { type Backend, type ClassDetail, EmailToConfirm, type StudentRow, type Teacher } from '../online/types';
 import { MIN_TEACHER_PASSWORD, inviteLink, parseNames } from '../online/util';
 import { attempt, button, field, messageBox, say } from './form';
 import { escapeHtml } from './math';
@@ -32,6 +32,12 @@ export function teacherFlow(backend: Backend): Promise<void> {
       resolve();
     };
 
+    /** Où sont enregistrées les parties : en ligne (partagées) ou sur cet appareil seulement. */
+    const modeBadge = () =>
+      backend.mode === 'online'
+        ? '<span class="mode-badge" title="Les élèves peuvent rejoindre depuis n’importe quel appareil.">En ligne</span>'
+        : '<span class="mode-badge demo" title="Les parties restent dans ce navigateur : les élèves ne peuvent pas les rejoindre depuis un autre appareil.">Mode démo</span>';
+
     function auth(mode: 'login' | 'signup' = 'login'): void {
       const panel = h('div', 'panel account');
       panel.innerHTML = `<h2>Espace professeur</h2>
@@ -61,12 +67,19 @@ export function teacherFlow(backend: Backend): Promise<void> {
       form.onsubmit = async (e) => {
         e.preventDefault();
         let teacher: Teacher | undefined;
+        let pending: EmailToConfirm | undefined;
         const ok = await attempt(go, box, async () => {
-          teacher = name
-            ? await backend.signUpTeacher(name.input.value, email.input.value, pass.input.value)
-            : await backend.signInTeacher(email.input.value, pass.input.value);
+          try {
+            teacher = name
+              ? await backend.signUpTeacher(name.input.value, email.input.value, pass.input.value)
+              : await backend.signInTeacher(email.input.value, pass.input.value);
+          } catch (e) {
+            if (!(e instanceof EmailToConfirm)) throw e;
+            pending = e;
+          }
         });
-        if (ok) void dashboard(teacher!);
+        if (pending) confirmAddress(pending);
+        else if (ok) void dashboard(teacher!);
       };
       panel.append(tabs, form);
       if (backend.mode === 'demo')
@@ -75,9 +88,37 @@ export function teacherFlow(backend: Backend): Promise<void> {
       (name ?? email).input.focus();
     }
 
+    /** Après l'inscription : le code reçu par e-mail (ou le lien de l'e-mail) confirme l'adresse. */
+    function confirmAddress(pending: EmailToConfirm): void {
+      const panel = h('div', 'panel account');
+      panel.innerHTML = `<h2>Confirme ton adresse</h2>
+        <p>${escapeHtml(pending.message)}</p>
+        <p class="muted">Tape le code reçu par e-mail à <strong>${escapeHtml(pending.email)}</strong>. Tu peux aussi cliquer sur le lien de l’e-mail : le jeu s’ouvrira, et tu n’auras plus qu’à te connecter.</p>`;
+      const form = document.createElement('form');
+      const code = field('Code reçu par e-mail', 'text', 'otp', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '10', placeholder: '123456' });
+      code.input.classList.add('code-input');
+      const box = messageBox();
+      const go = button('Confirmer');
+      go.type = 'submit';
+      const resend = button('Renvoyer un code', 'secondary', async () => {
+        if (await attempt(resend, box, () => backend.resendConfirmation(pending.email))) say(box, 'Nouvel e-mail envoyé. Le dernier code reçu est le bon.', 'info');
+      });
+      const actions = h('div', 'row actions');
+      actions.append(button('Retour', 'secondary', () => auth('login')), resend, go);
+      form.append(code.wrap, box, actions);
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        let teacher: Teacher | undefined;
+        if (await attempt(go, box, async () => void (teacher = await backend.confirmEmail(pending.email, code.input.value)))) void dashboard(teacher!);
+      };
+      panel.append(form);
+      showOverlay(panel);
+      code.input.focus();
+    }
+
     async function dashboard(teacher: Teacher): Promise<void> {
       const panel = h('div', 'panel account wide');
-      panel.innerHTML = `<h2>Bonjour ${escapeHtml(teacher.name)} !</h2><p class="muted">Tes parties. Chaque partie a un niveau et sa liste d’élèves.</p>`;
+      panel.innerHTML = `<h2>Bonjour ${escapeHtml(teacher.name)} ! ${modeBadge()}</h2><p class="muted">Tes parties. Chaque partie a un niveau et sa liste d’élèves.</p>`;
       const list = h('div', 'class-list', '<p class="muted">Chargement…</p>');
       const box = messageBox();
       const actions = h('div', 'row actions');
@@ -122,7 +163,13 @@ export function teacherFlow(backend: Backend): Promise<void> {
       const name = field('Nom de la partie', 'text', 'name', { maxlength: '60', placeholder: 'ex. 3e B – 2026', required: '' });
       let grade: GradeId = GRADES.find((g) => g.chapters.length)!.id;
       const pickerTitle = h('h3', '', 'Niveau');
-      const picker = gradePicker(grade, (g) => (grade = g));
+      const chosen = h('p', 'chosen-grade');
+      const showChosen = () => (chosen.textContent = `Niveau choisi : ${gradeById(grade).name} (${gradeById(grade).island})`);
+      const picker = gradePicker(grade, (g) => {
+        grade = g;
+        showChosen();
+      });
+      showChosen();
       const namesLabel = h('label', 'field');
       namesLabel.append(h('span', '', 'Élèves : un prénom et nom par ligne (copier-coller depuis un tableur possible)'));
       const area = document.createElement('textarea');
@@ -141,11 +188,12 @@ export function teacherFlow(backend: Backend): Promise<void> {
       go.type = 'submit';
       const actions = h('div', 'row actions');
       actions.append(button('Annuler', 'secondary', () => void dashboard(teacher)), go);
-      form.append(name.wrap, pickerTitle, picker, namesLabel, preview, box, actions);
+      form.append(name.wrap, pickerTitle, picker, chosen, namesLabel, preview, box, actions);
       form.onsubmit = async (e) => {
         e.preventDefault();
         const names = parseNames(area.value);
         if (!names.length) return say(box, 'Ajoute au moins un élève à la liste.');
+        if (!window.confirm(`Créer « ${name.input.value.trim()} » en ${gradeById(grade).name} avec ${names.length} élève${names.length > 1 ? 's' : ''} ?`)) return;
         let id = '';
         if (await attempt(go, box, async () => void (id = (await backend.createClass(name.input.value, grade, names)).id))) void showClass(teacher, id);
       };
@@ -165,7 +213,7 @@ export function teacherFlow(backend: Backend): Promise<void> {
       const grade = gradeById(detail.grade);
       const link = inviteLink(detail.code);
       const panel = h('div', 'panel account wide');
-      panel.innerHTML = `<h2>${escapeHtml(detail.name)}</h2>
+      panel.innerHTML = `<h2>${escapeHtml(detail.name)} ${modeBadge()}</h2>
         <p class="muted">${grade.name} · ${grade.island} · ${grade.chapters.length} régions</p>`;
 
       const invite = h('div', 'invite');

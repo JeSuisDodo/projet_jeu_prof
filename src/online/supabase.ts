@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
 import type { GradeId } from '../content/types';
 import type { SaveData } from '../game/save';
-import { AccountError, AccountNotice, type Backend, type ClassDetail, type ClassInfo, type Roster, type StudentSession, type Teacher } from './types';
+import { AccountError, EmailToConfirm, type Backend, type ClassDetail, type ClassInfo, type Roster, type StudentSession, type Teacher } from './types';
 import { byName, checkStudentPassword, checkTeacherPassword, cleanName, normalizeCode, validEmail } from './util';
 
 /** Messages de Supabase traduits pour l'utilisateur. */
@@ -10,10 +10,10 @@ function explain(error: { message: string } | null): never | void {
   if (!error) return;
   const m = error.message;
   if (/invalid login credentials/i.test(m)) throw new AccountError('Adresse ou mot de passe incorrect.');
-  if (/email not confirmed/i.test(m)) throw new AccountError('Confirme d’abord ton adresse : clique sur le lien reçu par e-mail.');
   if (/already registered|already been registered/i.test(m)) throw new AccountError('Un compte existe déjà avec cette adresse.');
   if (/anonymous sign-ins are disabled/i.test(m)) throw new AccountError('Les connexions élèves ne sont pas activées sur le serveur (voir docs/comptes.md).');
-  if (/rate limit/i.test(m)) throw new AccountError('Trop de demandes d’un coup : réessaie dans une minute.');
+  if (/expired|invalid.*(otp|token)|token.*(expired|invalid)/i.test(m)) throw new AccountError('Code incorrect ou expiré. Vérifie le dernier e-mail reçu, ou demande un nouveau code.');
+  if (/rate limit|security purposes/i.test(m)) throw new AccountError('Trop de demandes d’un coup : réessaie dans une minute.');
   if (/failed to fetch|network/i.test(m)) throw new AccountError('Pas de connexion au serveur. Vérifie ta connexion Internet.');
   if (/duplicate key/i.test(m)) throw new AccountError('Ce nom est déjà dans la liste.');
   throw new AccountError(m);
@@ -65,15 +65,32 @@ export class SupabaseBackend implements Backend {
     const redirect = location.href.split(/[?#]/)[0];
     const { data, error } = await this.db.auth.signUp({ email, password, options: { data: { name }, emailRedirectTo: redirect } });
     explain(error);
-    if (!data.session) throw new AccountNotice(`Compte créé ! Un e-mail de confirmation a été envoyé à ${email}. Clique sur le lien, puis connecte-toi.`);
+    if (!data.session) throw new EmailToConfirm(`Compte créé ! Un e-mail de confirmation a été envoyé à ${email}.`, email);
     return { id: data.session.user.id, name, email };
   }
 
   async signInTeacher(email: string, password: string): Promise<Teacher> {
     if ((await this.user())?.is_anonymous) await this.db.auth.signOut();
-    const { error } = await this.db.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+    email = email.trim().toLowerCase();
+    const { error } = await this.db.auth.signInWithPassword({ email, password });
+    if (error && /email not confirmed/i.test(error.message))
+      throw new EmailToConfirm('Ton adresse e-mail n’est pas encore confirmée.', email);
     explain(error);
     return (await this.currentTeacher())!;
+  }
+
+  async confirmEmail(email: string, code: string): Promise<Teacher> {
+    const token = code.replace(/\s/g, '');
+    if (!/^\d{6,10}$/.test(token)) throw new AccountError('Le code reçu par e-mail est fait de chiffres.');
+    let { error } = await this.db.auth.verifyOtp({ email, token, type: 'email' });
+    // Selon la version du serveur, la confirmation d'inscription attend le type « signup ».
+    if (error) ({ error } = await this.db.auth.verifyOtp({ email, token, type: 'signup' }));
+    explain(error);
+    return (await this.currentTeacher())!;
+  }
+
+  async resendConfirmation(email: string): Promise<void> {
+    explain((await this.db.auth.resend({ type: 'signup', email, options: { emailRedirectTo: location.href.split(/[?#]/)[0] } })).error);
   }
 
   async signOut(): Promise<void> {

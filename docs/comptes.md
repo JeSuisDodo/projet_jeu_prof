@@ -5,7 +5,9 @@ Le menu principal propose trois entrées : **Je suis élève**, **Je suis profes
 
 ## Le parcours
 
-1. Le professeur crée un compte (nom, e-mail, mot de passe), puis une **partie** : un nom,
+1. Le professeur crée un compte (nom, e-mail, mot de passe). Si Supabase demande de confirmer
+   l'adresse, le jeu affiche un écran pour taper le code reçu par e-mail (ou on clique sur le
+   lien de l'e-mail). Il crée ensuite une **partie** : un nom,
    un niveau (6e à L3) et la liste de ses élèves, un « Prénom Nom » par ligne (un copier-coller
    depuis un tableur marche).
 2. La partie reçoit un **code** de 6 caractères et un **lien d'invitation**
@@ -21,6 +23,8 @@ Le menu principal propose trois entrées : **Je suis élève**, **Je suis profes
    gardée), retirer un élève ou supprimer la partie.
 
 ## Mode démo et mode en ligne
+
+Une étiquette à côté du titre de l'espace professeur indique **En ligne** ou **Mode démo**.
 
 Tant que Supabase n'est pas configuré, le jeu est en **mode démo** : comptes, parties et
 progression restent dans le navigateur (`localStorage`). Pratique pour essayer le parcours :
