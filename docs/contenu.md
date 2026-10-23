@@ -43,7 +43,7 @@ réponse refusée) dans `tests/`.
 
 ## Cours de la Maison du savoir
 
-Chaque région a une **Maison du savoir**, posée près du départ. Dedans, un PNJ par créature
+Chaque région a une **Maison du savoir**, posée près du départ. On y entre par la porte : c'est une salle de classe où l'on se déplace (`src/game/HouseScene.ts`, plan dans `src/game/room.ts`) et où l'on parle aux PNJ. Dedans, un PNJ par créature
 explique les notions sur lesquelles elle interroge, et un sage reprend toutes les notions du
 chapitre avant le combat contre le gardien. Chaque notion montre son cours (s'il est écrit), puis un
 exemple corrigé tiré par le générateur de la compétence (facile, moyen ou difficile).

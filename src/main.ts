@@ -8,6 +8,7 @@ import { directionWord } from './game/map';
 import { RARITY, pickEncounter, rarityOf } from './game/rarity';
 import { type SaveData, clearSave, freshest, loadSave, newSave, speciesCaught, storeSave, studentSlot } from './game/save';
 import { loadSettings, storeSettings } from './game/settings';
+import { HouseScene } from './game/HouseScene';
 import { WorldScene } from './game/WorldScene';
 import { getBackend } from './online';
 import type { Backend, StudentSession } from './online/types';
@@ -15,7 +16,7 @@ import { codeFromUrl } from './online/util';
 import { runBattle } from './ui/battle';
 import { showDialog } from './ui/dialog';
 import { runHome } from './ui/home';
-import { openHouse } from './ui/house';
+import { openTeacher } from './ui/house';
 import { openJournal } from './ui/journal';
 import { escapeHtml } from './ui/math';
 import { hideOverlay, overlayOpen } from './ui/overlay';
@@ -165,7 +166,11 @@ function travel(grade: GradeId, chapterId: string): void {
   save.region = chapterId;
   chapter = next;
   persist();
-  if (game) world.scene.restart({ chapter });
+  if (game) {
+    // Changer de région depuis l'intérieur de la maison : on en sort d'abord.
+    if (game.scene.isActive('house') || game.scene.isPaused('house')) game.scene.stop('house');
+    world.scene.restart({ chapter });
+  }
   showToast(`${chapter.region} · ${chapter.title}`);
 }
 
@@ -282,11 +287,13 @@ const world = new WorldScene({
       play('sign');
       return showDialog('Panneau', signLines(index));
     }),
-  enterHouse: () =>
-    exclusive(async () => {
-      play('sign');
-      await openHouse(chapter, save, persist);
-    }),
+  isCalm: () => settings.calm,
+});
+
+/** L'intérieur de la Maison du savoir de la région en cours. */
+const house = new HouseScene({
+  isBusy: () => busy || overlayOpen(),
+  talk: (index) => exclusive(() => openTeacher(chapter, save, index, persist)),
   isCalm: () => settings.calm,
 });
 
@@ -391,6 +398,7 @@ async function boot(): Promise<void> {
     scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
   });
   game.scene.add('world', world, true, { chapter });
+  game.scene.add('house', house, false);
 }
 
 void boot();
