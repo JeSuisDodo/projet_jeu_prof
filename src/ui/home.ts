@@ -20,9 +20,19 @@ function roleCard(kind: 'eleve' | 'prof', title: string, text: string, onClick: 
  * Accueil : décor animé, choix Élève / Professeur, ou jeu libre sans compte.
  * Rend ce qu'il faut lancer ; l'espace professeur ramène ici quand on le quitte.
  */
-export async function runHome(backend: Promise<Backend>, inviteCode: string | null, freeSave: SaveData | null): Promise<HomeResult> {
+export async function runHome(
+  backend: Promise<Backend>,
+  inviteCode: string | null,
+  freeSave: SaveData | null,
+  emailLink: { error: string } | null = null,
+): Promise<HomeResult> {
   openMenu();
   const hideMain = () => setMenuScreen();
+  if (emailLink) {
+    // Arrivée par le lien de confirmation de l'e-mail : direction l'espace professeur.
+    hideMain();
+    await teacherFlow(await backend, emailLink.error);
+  }
   for (;;) {
     if (inviteCode) {
       // Arrivée par un lien d'invitation : direction la liste des noms.

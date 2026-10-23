@@ -323,12 +323,27 @@ function chooseStartRegion(): Promise<void> {
   );
 }
 
+/**
+ * Arrivée par le lien de confirmation reçu par e-mail : Supabase ajoute à l'adresse la session
+ * (#access_token=…) ou une erreur (#error_description=…, lien expiré par exemple).
+ */
+function emailLinkFromUrl(): { error: string } | null {
+  const hash = new URLSearchParams(location.hash.slice(1));
+  if (hash.has('access_token') || new URLSearchParams(location.search).has('code')) return { error: '' };
+  const error = hash.get('error_description');
+  if (!error) return null;
+  history.replaceState(null, '', location.pathname);
+  return { error: /expired|invalid/i.test(error) ? 'Ce lien de confirmation a expiré. Connecte-toi pour en recevoir un nouveau.' : error };
+}
+
 async function boot(): Promise<void> {
   applySettings();
+  // À lire avant que Supabase ne nettoie l'adresse.
+  const emailLink = emailLinkFromUrl();
   const invite = codeFromUrl();
   const backendReady = getBackend();
   const existing = loadSave();
-  const home = await runHome(backendReady, invite, existing);
+  const home = await runHome(backendReady, invite, existing, emailLink);
   unlockAudio();
   // Le code d'invitation ne doit pas resservir au prochain rechargement.
   if (invite) history.replaceState(null, '', location.pathname);

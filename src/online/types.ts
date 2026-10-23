@@ -63,8 +63,11 @@ export interface Backend {
   currentTeacher(): Promise<Teacher | null>;
   signUpTeacher(name: string, email: string, password: string): Promise<Teacher>;
   signInTeacher(email: string, password: string): Promise<Teacher>;
-  /** Code à 6 chiffres reçu par e-mail après l'inscription (mode en ligne). */
-  confirmEmail(email: string, code: string): Promise<Teacher>;
+  /**
+   * Après l'inscription, attend que le lien de confirmation reçu par e-mail soit cliqué
+   * (dans ce navigateur ou sur un autre appareil), puis connecte le professeur.
+   */
+  waitForConfirmation(email: string, password: string, signal: AbortSignal): Promise<Teacher>;
   resendConfirmation(email: string): Promise<void>;
   signOut(): Promise<void>;
   listClasses(): Promise<(ClassInfo & { total: number; joined: number })[]>;
@@ -91,7 +94,7 @@ export class AccountError extends Error {}
 /** Message de réussite qui interrompt le parcours (« confirme ton adresse e-mail »). */
 export class AccountNotice extends AccountError {}
 
-/** Le compte existe mais l'adresse e-mail doit d'abord être confirmée (code ou lien reçu). */
+/** Le compte existe mais l'adresse e-mail doit d'abord être confirmée (lien reçu par e-mail). */
 export class EmailToConfirm extends AccountNotice {
   constructor(
     message: string,

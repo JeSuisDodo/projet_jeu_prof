@@ -79,14 +79,43 @@ export class SupabaseBackend implements Backend {
     return (await this.currentTeacher())!;
   }
 
-  async confirmEmail(email: string, code: string): Promise<Teacher> {
-    const token = code.replace(/\s/g, '');
-    if (!/^\d{6,10}$/.test(token)) throw new AccountError('Le code reçu par e-mail est fait de chiffres.');
-    let { error } = await this.db.auth.verifyOtp({ email, token, type: 'email' });
-    // Selon la version du serveur, la confirmation d'inscription attend le type « signup ».
-    if (error) ({ error } = await this.db.auth.verifyOtp({ email, token, type: 'signup' }));
-    explain(error);
-    return (await this.currentTeacher())!;
+  waitForConfirmation(email: string, password: string, signal: AbortSignal): Promise<Teacher> {
+    return new Promise((resolve, reject) => {
+      let over = false;
+      const finish = async () => {
+        if (over) return;
+        const teacher = await this.currentTeacher();
+        if (!teacher || over) return;
+        over = true;
+        stop();
+        resolve(teacher);
+      };
+      // Lien cliqué dans ce navigateur : l'autre onglet ouvre la session, partagée entre onglets.
+      // (Pas d'appel à Supabase dans ce rappel : on attend le tour suivant.)
+      const { data } = this.db.auth.onAuthStateChange((_event, session) => {
+        if (session && !session.user.is_anonymous) setTimeout(() => void finish(), 0);
+      });
+      // Lien cliqué ailleurs (téléphone…) : on retente la connexion de temps en temps.
+      // Toutes les 12 s, pour rester sous la limite de connexions de Supabase.
+      const retry = async () => {
+        const { error } = await this.db.auth.signInWithPassword({ email, password });
+        if (!error) void finish();
+      };
+      const timer = setInterval(() => void retry(), 12_000);
+      const check = () => void retry();
+      window.addEventListener('focus', check);
+      const stop = () => {
+        clearInterval(timer);
+        window.removeEventListener('focus', check);
+        data.subscription.unsubscribe();
+      };
+      signal.addEventListener('abort', () => {
+        if (over) return;
+        over = true;
+        stop();
+        reject(new AccountError('Attente annulée.'));
+      });
+    });
   }
 
   async resendConfirmation(email: string): Promise<void> {

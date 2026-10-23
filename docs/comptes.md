@@ -6,8 +6,9 @@ Le menu principal propose trois entrées : **Je suis élève**, **Je suis profes
 ## Le parcours
 
 1. Le professeur crée un compte (nom, e-mail, mot de passe). Si Supabase demande de confirmer
-   l'adresse, le jeu affiche un écran pour taper le code reçu par e-mail (ou on clique sur le
-   lien de l'e-mail). Il crée ensuite une **partie** : un nom,
+   l'adresse, le jeu affiche un écran d'attente : dès que le lien de l'e-mail est cliqué (sur
+   le même appareil ou un autre), l'espace professeur s'ouvre tout seul. Le lien ouvre aussi
+   directement l'espace professeur. Il crée ensuite une **partie** : un nom,
    un niveau (6e à L3) et la liste de ses élèves, un « Prénom Nom » par ligne (un copier-coller
    depuis un tableur marche).
 2. La partie reçoit un **code** de 6 caractères et un **lien d'invitation**

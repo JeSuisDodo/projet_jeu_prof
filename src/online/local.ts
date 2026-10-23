@@ -122,7 +122,7 @@ export class LocalBackend implements Backend {
     return { id: t.id, name: t.name, email: t.email };
   }
 
-  async confirmEmail(): Promise<Teacher> {
+  async waitForConfirmation(): Promise<Teacher> {
     throw new AccountError('Pas de confirmation par e-mail en mode démo.');
   }
 
