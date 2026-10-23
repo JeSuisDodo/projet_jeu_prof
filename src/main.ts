@@ -15,6 +15,7 @@ import { codeFromUrl } from './online/util';
 import { runBattle } from './ui/battle';
 import { showDialog } from './ui/dialog';
 import { runHome } from './ui/home';
+import { openHouse } from './ui/house';
 import { openJournal } from './ui/journal';
 import { escapeHtml } from './ui/math';
 import { hideOverlay, overlayOpen } from './ui/overlay';
@@ -224,6 +225,7 @@ function signLines(index: number): string[] {
   return [
     [
       `Bienvenue dans la région ${chapter.region}. Chapitre : ${chapter.title}.`,
+      'La Maison du savoir, juste à côté, explique chaque notion de la région avec un exemple corrigé.',
       'Les hautes herbes les plus proches abritent surtout des créatures communes, aux questions faciles. Les rares et les légendaires se cachent plus loin et sont plus coriaces.',
       ...(hasPlateaus() ? ['Des escaliers mènent aux plateaux. Pour redescendre plus vite, saute d’une corniche vers le sud !'] : []),
     ],
@@ -249,6 +251,7 @@ const world = new WorldScene({
             `Bienvenue dans la région ${chapter.region}${save.pseudo ? `, ${save.pseudo}` : ''} ! Ici, on travaille le chapitre « ${chapter.title} ».`,
             'Dans les hautes herbes vivent des créatures. Pour en capturer une, il faut répondre juste à ses questions.',
             `Capture ${needed} espèces différentes, puis va défier ${boss}, le gardien de la région, ${arenaWhere()}.`,
+            'Une question te bloque ? Entre dans la Maison du savoir, ici même : ses habitants t’expliqueront tout ce que les créatures demandent.',
             'Déplace-toi avec les flèches (ou ZQSD), ou en maintenant le doigt sur l’écran. V ouvre la carte de l’île, C ton carnet, P les paramètres.',
           ],
         );
@@ -257,7 +260,7 @@ const world = new WorldScene({
       } else if (species >= needed) {
         await showDialog(GUIDE_NAME, [`Tu es prêt. ${boss} t’attend dans son arène, ${arenaWhere()}.`]);
       } else {
-        await showDialog(GUIDE_NAME, [`Tu as capturé ${species} espèce(s) sur ${needed}. Continue !`]);
+        await showDialog(GUIDE_NAME, [`Tu as capturé ${species} espèce(s) sur ${needed}. Continue ! Si une notion te résiste, la Maison du savoir est juste à côté.`]);
       }
     }),
   approachBoss: () =>
@@ -278,6 +281,11 @@ const world = new WorldScene({
     exclusive(() => {
       play('sign');
       return showDialog('Panneau', signLines(index));
+    }),
+  enterHouse: () =>
+    exclusive(async () => {
+      play('sign');
+      await openHouse(chapter, save, persist);
     }),
   isCalm: () => settings.calm,
 });

@@ -431,7 +431,7 @@ export function reachableFrom(tiles: Tile[][], from: Point): boolean[][] {
  * deviennent chemin (pont sur le liquide, escalier dans la falaise d'un plateau).
  */
 function connect(c: Canvas, ok: boolean[][], target: Point, cliff: Set<number>): void {
-  const cost = (t: Tile) => (t === Tile.Sign ? Infinity : BLOCKING.has(t) ? 8 : 1);
+  const cost = (t: Tile) => (t === Tile.Sign || t === Tile.House ? Infinity : BLOCKING.has(t) ? 8 : 1);
   const dist = c.tiles.map((row) => row.map(() => Infinity));
   const prev = new Map<number, number>();
   const key = (x: number, y: number) => y * MAP_W + x;
@@ -563,7 +563,55 @@ function raisePlateau(c: Canvas, plan: PlateauPlan, raised: boolean[][], cliff: 
   }
 }
 
-function finish(c: Canvas, L: Layout): boolean[][] {
+/** Largeur et hauteur de la Maison du savoir, en cases. */
+export const HOUSE_W = 3;
+export const HOUSE_H = 3;
+
+/**
+ * Pose la Maison du savoir près du départ, sur un terrain libre (sol, arbres, rochers, fleurs) :
+ * jamais sur les herbes, le liquide, un chemin, un plateau ni l'arène. Rend la case de sa porte.
+ */
+function placeHouse(c: Canvas, L: Layout, raised: boolean[][]): Point {
+  const near = (p: Point, x: number, y: number, d: number) => Math.abs(p.x - x) <= d && Math.abs(p.y - y) <= d;
+  const free = (allowRock: boolean) => (x: number, y: number) => {
+    if (onBorder(x, y) || raised[y]?.[x] !== false) return false;
+    if (near(L.start, x, y, 2) || near(L.guide, x, y, 1) || L.signs.some((s) => near(s, x, y, 1))) return false;
+    const t = c.get(x, y);
+    return t === Tile.Ground || t === Tile.Tree || t === Tile.Boulder || t === Tile.Flowers || (allowRock && t === Tile.Rock);
+  };
+  // La maison et une case de marge tout autour, porte comprise (au sud).
+  const fits = (hx: number, hy: number, ok: (x: number, y: number) => boolean) => {
+    for (let y = hy - 1; y <= hy + HOUSE_H; y++) for (let x = hx - 1; x <= hx + HOUSE_W; x++) if (!ok(x, y)) return false;
+    return true;
+  };
+  // Au plus près de la gardienne ; creuser dans la roche ne sert que s'il n'y a pas de place à côté.
+  const soft = free(false);
+  const hard = free(true);
+  let best: Point | null = null;
+  let bestD = Infinity;
+  for (let hy = 3; hy < MAP_H - HOUSE_H - 3; hy++)
+    for (let hx = 3; hx < MAP_W - HOUSE_W - 3; hx++) {
+      const d = Math.hypot(hx + 1 - L.guide.x, hy + HOUSE_H - L.guide.y);
+      if (d >= bestD) continue;
+      if (fits(hx, hy, soft)) [best, bestD] = [{ x: hx, y: hy }, d];
+      else if (d + 10 < bestD && fits(hx, hy, hard)) [best, bestD] = [{ x: hx, y: hy }, d + 10];
+    }
+  if (best) {
+    for (let y = best.y - 1; y <= best.y + HOUSE_H; y++)
+      for (let x = best.x - 1; x <= best.x + HOUSE_W; x++)
+        c.set(x, y, x >= best.x && x < best.x + HOUSE_W && y >= best.y && y < best.y + HOUSE_H ? Tile.House : Tile.Ground);
+    // Une allée part de la porte vers le sud et rejoint le chemin s'il passe tout près.
+    const door = { x: best.x + 1, y: best.y + HOUSE_H - 1 };
+    for (let y = door.y + 1; y <= door.y + 5 && c.get(door.x, y) === Tile.Ground; y++) {
+      if (y > door.y + 1 && ![1, 2, 3].some((k) => c.get(door.x, y + k) === Tile.Path)) break;
+      c.set(door.x, y, Tile.Path);
+    }
+    return door;
+  }
+  throw new Error('Pas de place pour la Maison du savoir');
+}
+
+function finish(c: Canvas, L: Layout): { raised: boolean[][]; house: Point } {
   const { rng } = c;
   // Bordure toujours fermée, même si une clairière ou une île la déborde.
   for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) if (onBorder(x, y) && !BLOCKING.has(c.get(x, y))) c.set(x, y, Tile.Rock);
@@ -605,6 +653,8 @@ function finish(c: Canvas, L: Layout): boolean[][] {
       else if (r < tree + boulder + flowers) c.set(x, y, Tile.Flowers);
     }
 
+  const house = placeHouse(c, L, raised);
+
   // Autour du départ, de la gardienne et des panneaux : rien ne bloque.
   const clear = (cx: number, cy: number, r: number) => {
     for (let y = cy - r; y <= cy + r; y++)
@@ -633,7 +683,8 @@ function finish(c: Canvas, L: Layout): boolean[][] {
     return best;
   };
   const beside = (p: Point): Point => [{ x: p.x, y: p.y + 1 }, { x: p.x - 1, y: p.y }, { x: p.x + 1, y: p.y }, { x: p.x, y: p.y - 1 }].find((q) => !onBorder(q.x, q.y))!;
-  const targets = [{ x: L.arena.x, y: L.arena.y }, ...L.zones.map(zoneCell), beside(L.guide), ...L.signs.map(beside)];
+  const doorstep = { x: house.x, y: house.y + 1 };
+  const targets = [{ x: L.arena.x, y: L.arena.y }, ...L.zones.map(zoneCell), beside(L.guide), ...L.signs.map(beside), doorstep];
   for (const target of targets) {
     const ok = reachableFrom(c.tiles, L.start);
     if (!ok[target.y][target.x]) connect(c, ok, target, cliff);
@@ -659,16 +710,16 @@ function finish(c: Canvas, L: Layout): boolean[][] {
   for (let y = 1; y < MAP_H - 1; y++)
     for (let x = 1; x < MAP_W - 1; x++) if (ledge(x, y) && (ledge(x - 1, y) || ledge(x + 1, y))) ledges.push({ x, y });
   for (const p of ledges) c.set(p.x, p.y, Tile.Ledge);
-  return raised;
+  return { raised, house };
 }
 
 /** Retourne la carte de gauche à droite : chaque relief existe dans les deux sens. */
-function mirror(c: Canvas, L: Layout, raised: boolean[][]): Layout {
+function mirror(c: Canvas, L: Layout, raised: boolean[][], house: Point): { L: Layout; house: Point } {
   for (const row of c.tiles) row.reverse();
   for (const row of raised) row.reverse();
   const fx = (p: Point) => ({ x: MAP_W - 1 - p.x, y: p.y });
   const open: Side = L.arena.open === 'E' ? 'W' : L.arena.open === 'W' ? 'E' : L.arena.open;
-  return {
+  const flipped = {
     ...L,
     start: fx(L.start),
     guide: fx(L.guide),
@@ -676,15 +727,18 @@ function mirror(c: Canvas, L: Layout, raised: boolean[][]): Layout {
     zones: L.zones.map((zone) => ({ ...zone, cx: MAP_W - 1 - zone.cx })),
     signs: L.signs.map(fx),
   };
+  // La porte est au milieu de la maison : elle reste au milieu une fois la carte retournée.
+  return { L: flipped, house: fx(house) };
 }
 
 export function buildMap(seed: number, terrain: TerrainId = 'riviere'): RegionMap {
   const rng = new Rng(seed);
   const c = new Canvas(rng);
   let L = LAYOUTS[terrain](c);
-  const raised = finish(c, L);
+  const { raised, house: door } = finish(c, L);
+  let house = door;
   // La région d'origine (graine par défaut) garde son sens ; les autres sont retournées une fois sur deux.
-  if (seed !== 2026 && rng.next() < 0.5) L = mirror(c, L, raised);
+  if (seed !== 2026 && rng.next() < 0.5) ({ L, house } = mirror(c, L, raised, door));
   const zones = L.zones;
   const zoneAt = (x: number, y: number) => {
     if (c.tiles[y]?.[x] !== Tile.Grass) return null;
@@ -696,5 +750,5 @@ export function buildMap(seed: number, terrain: TerrainId = 'riviere'): RegionMa
     }
     return best;
   };
-  return { terrain, tiles: c.tiles, zones, start: L.start, guide: L.guide, arena: L.arena, signs: L.signs, raised, zoneAt };
+  return { terrain, tiles: c.tiles, zones, start: L.start, guide: L.guide, arena: L.arena, signs: L.signs, house, raised, zoneAt };
 }

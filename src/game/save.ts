@@ -20,6 +20,8 @@ export interface SaveData {
   skills: Record<string, SkillStats>;
   /** Régions dont le gardien a été battu (identifiants de chapitre). */
   badges: string[];
+  /** Cours lus à la Maison du savoir : nombre de lectures par compétence (absent des vieilles sauvegardes). */
+  lessons?: Record<string, number>;
 }
 
 const KEY = 'mathoria-save-v1';
@@ -84,7 +86,8 @@ export function clearSave(): void {
 }
 
 /** Mesure de l'avancement, pour garder la plus avancée de deux sauvegardes (en ligne ou sur l'appareil). */
-export const progressScore = (save: SaveData) => save.xp + Object.values(save.skills).reduce((n, s) => n + s.attempts, 0);
+export const progressScore = (save: SaveData) =>
+  save.xp + Object.values(save.skills).reduce((n, s) => n + s.attempts, 0) + Object.values(save.lessons ?? {}).reduce((n, k) => n + k, 0);
 
 /** Sauvegarde la plus avancée ; à égalité, la première (celle du serveur). */
 export function freshest(a: SaveData | null, b: SaveData | null): SaveData | null {
@@ -99,6 +102,11 @@ export function recordAttempt(save: SaveData, skill: string, ok: boolean, now = 
     stats.correct++;
     stats.lastSuccess = now;
   }
+}
+
+/** Le joueur a ouvert le cours d'une compétence à la Maison du savoir. */
+export function recordLesson(save: SaveData, skill: string): void {
+  (save.lessons ??= {})[skill] = (save.lessons[skill] ?? 0) + 1;
 }
 
 /** Nombre d'espèces capturées parmi une liste (les créatures d'une région, par exemple). */

@@ -298,16 +298,17 @@ export function teacherFlow(backend: Backend, notice = ''): Promise<void> {
           <div class="tile"><strong>${sum.xp}</strong><small>points d’expérience</small></div>
           <div class="tile"><strong class="rate ${rateClass(sum.rate)}">${rateText(sum.rate)}</strong><small>de bonnes réponses (${sum.correct}/${sum.attempts})</small></div>
           <div class="tile"><strong>${sum.badges}/${grade.chapters.length}</strong><small>gardiens battus</small></div>
+          <div class="tile"><strong>${sum.lessons}/${sum.totalLessons}</strong><small>cours lus à la Maison du savoir</small></div>
         </div>
         ${
           sum.weakSkills.length
-            ? `<h3>À retravailler</h3><ul class="weak">${sum.weakSkills.map((w) => `<li><strong>${escapeHtml(w.name)}</strong> <span class="muted">· ${escapeHtml(w.chapter)}</span> <span class="rate ${rateClass(w.rate)}">${w.rate} %</span></li>`).join('')}</ul>`
+            ? `<h3>À retravailler</h3><ul class="weak">${sum.weakSkills.map((w) => `<li><strong>${escapeHtml(w.name)}</strong> <span class="muted">· ${escapeHtml(w.chapter)}</span> <span class="rate ${rateClass(w.rate)}">${w.rate} %</span> <small class="muted">· ${w.lessonRead ? 'cours lu ✓' : 'cours pas encore lu'}</small></li>`).join('')}</ul>`
             : ''
         }
         <h3>Par chapitre</h3>
         <table class="skills-table chapters">${sum.chapters
           .map(
-            (c) => `<tr><td>${escapeHtml(c.title)}${c.badge ? ' <span title="Gardien battu">🏅</span>' : ''}<br><small class="muted">${escapeHtml(c.region)} · ${c.species}/${c.totalSpecies} espèces</small></td>
+            (c) => `<tr><td>${escapeHtml(c.title)}${c.badge ? ' <span title="Gardien battu">🏅</span>' : ''}<br><small class="muted">${escapeHtml(c.region)} · ${c.species}/${c.totalSpecies} espèces${c.lessons ? ` · ${c.lessons} cours lu${c.lessons > 1 ? 's' : ''}` : ''}</small></td>
               <td class="muted">${c.attempts ? `${c.correct}/${c.attempts}` : '–'}</td>
               <td><div class="bar ${rateClass(c.rate)}"><span style="--rate:${c.rate ?? 0}%"></span></div></td></tr>`,
           )
