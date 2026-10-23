@@ -25,7 +25,7 @@ async function copy(text: string): Promise<boolean> {
  * Espace professeur : connexion, liste des parties, création d'une partie (niveau et noms des
  * élèves), invitation (code et lien) et progression de chaque élève. Se termine au retour au menu.
  */
-export function teacherFlow(backend: Backend): Promise<void> {
+export function teacherFlow(backend: Backend, notice = ''): Promise<void> {
   return new Promise((resolve) => {
     const leave = () => {
       hideOverlay();
@@ -38,7 +38,7 @@ export function teacherFlow(backend: Backend): Promise<void> {
         ? '<span class="mode-badge" title="Les élèves peuvent rejoindre depuis n’importe quel appareil.">En ligne</span>'
         : '<span class="mode-badge demo" title="Les parties restent dans ce navigateur : les élèves ne peuvent pas les rejoindre depuis un autre appareil.">Mode démo</span>';
 
-    function auth(mode: 'login' | 'signup' = 'login'): void {
+    function auth(mode: 'login' | 'signup' = 'login', message = ''): void {
       const panel = h('div', 'panel account');
       panel.innerHTML = `<h2>Espace professeur</h2>
         <p class="muted">${mode === 'login' ? 'Connecte-toi pour gérer tes parties et suivre tes élèves.' : 'Crée ton compte : tu pourras ensuite créer des parties pour tes classes.'}</p>`;
@@ -59,6 +59,7 @@ export function teacherFlow(backend: Backend): Promise<void> {
       if (name) form.append(name.wrap);
       form.append(email.wrap, pass.wrap);
       const box = messageBox();
+      if (message) say(box, message);
       const go = button(mode === 'login' ? 'Me connecter' : 'Créer mon compte');
       go.type = 'submit';
       const actions = h('div', 'row actions');
@@ -78,7 +79,7 @@ export function teacherFlow(backend: Backend): Promise<void> {
             pending = e;
           }
         });
-        if (pending) confirmAddress(pending);
+        if (pending) confirmAddress(pending, pass.input.value);
         else if (ok) void dashboard(teacher!);
       };
       panel.append(tabs, form);
@@ -88,32 +89,38 @@ export function teacherFlow(backend: Backend): Promise<void> {
       (name ?? email).input.focus();
     }
 
-    /** Après l'inscription : le code reçu par e-mail (ou le lien de l'e-mail) confirme l'adresse. */
-    function confirmAddress(pending: EmailToConfirm): void {
-      const panel = h('div', 'panel account');
-      panel.innerHTML = `<h2>Confirme ton adresse</h2>
+    /**
+     * Après l'inscription : écran d'attente jusqu'à ce que le lien reçu par e-mail soit cliqué.
+     * Le jeu passe alors tout seul à l'espace professeur.
+     */
+    function confirmAddress(pending: EmailToConfirm, password: string): void {
+      const waiting = new AbortController();
+      const panel = h('div', 'panel account waiting');
+      panel.innerHTML = `<div class="mail-icon" aria-hidden="true">✉️</div>
+        <h2>Confirme ton adresse e-mail</h2>
         <p>${escapeHtml(pending.message)}</p>
-        <p class="muted">Tape le code reçu par e-mail à <strong>${escapeHtml(pending.email)}</strong>. Tu peux aussi cliquer sur le lien de l’e-mail : le jeu s’ouvrira, et tu n’auras plus qu’à te connecter.</p>`;
-      const form = document.createElement('form');
-      const code = field('Code reçu par e-mail', 'text', 'otp', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '10', placeholder: '123456' });
-      code.input.classList.add('code-input');
+        <ol class="steps">
+          <li>Ouvre ta boîte mail <strong>${escapeHtml(pending.email)}</strong> (regarde aussi dans les indésirables).</li>
+          <li>Clique sur le lien de l’e-mail de Supabase, sur cet appareil ou sur ton téléphone.</li>
+          <li>Reviens ici : ton espace professeur s’ouvre tout seul.</li>
+        </ol>
+        <p class="wait-line"><span class="spinner" aria-hidden="true"></span> En attente de la confirmation…</p>`;
       const box = messageBox();
-      const go = button('Confirmer');
-      go.type = 'submit';
-      const resend = button('Renvoyer un code', 'secondary', async () => {
-        if (await attempt(resend, box, () => backend.resendConfirmation(pending.email))) say(box, 'Nouvel e-mail envoyé. Le dernier code reçu est le bon.', 'info');
+      const leave = (then: () => void) => {
+        waiting.abort();
+        then();
+      };
+      const resend = button('Renvoyer l’e-mail', 'secondary', async () => {
+        if (await attempt(resend, box, () => backend.resendConfirmation(pending.email))) say(box, 'Nouvel e-mail envoyé. Utilise le lien du dernier e-mail reçu.', 'info');
       });
       const actions = h('div', 'row actions');
-      actions.append(button('Retour', 'secondary', () => auth('login')), resend, go);
-      form.append(code.wrap, box, actions);
-      form.onsubmit = async (e) => {
-        e.preventDefault();
-        let teacher: Teacher | undefined;
-        if (await attempt(go, box, async () => void (teacher = await backend.confirmEmail(pending.email, code.input.value)))) void dashboard(teacher!);
-      };
-      panel.append(form);
+      actions.append(button('Retour', 'secondary', () => leave(() => auth('login'))), resend);
+      panel.append(box, actions);
       showOverlay(panel);
-      code.input.focus();
+      backend.waitForConfirmation(pending.email, password, waiting.signal).then(
+        (teacher) => void dashboard(teacher),
+        () => {},
+      );
     }
 
     async function dashboard(teacher: Teacher): Promise<void> {
@@ -322,8 +329,8 @@ export function teacherFlow(backend: Backend): Promise<void> {
     }
 
     backend.currentTeacher().then(
-      (t) => (t ? void dashboard(t) : auth()),
-      () => auth(),
+      (t) => (t ? void dashboard(t) : auth('login', notice)),
+      () => auth('login', notice),
     );
   });
 }
