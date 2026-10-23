@@ -5,7 +5,7 @@ import { buildMap, terrainOf } from './layouts';
 import { BLOCKING, MAP_H, MAP_W, type RegionMap, TILE, Tile, seedFor } from './map';
 import { paintTerrain } from './terrain';
 import { play } from '../audio/sound';
-import { FACINGS, type Facing, makeTextures } from './textures';
+import { FACINGS, HOUSE_TEX, type Facing, makeTextures } from './textures';
 import { THEMES, type Theme } from './themes';
 
 /** Ce que la scène demande à l'interface (combats, dialogues), qui vit en dehors de Phaser. */
@@ -99,7 +99,10 @@ export class WorldScene extends Phaser.Scene {
     this.drawTiles();
 
     const houseBottom = (house.y + 1) * TILE;
-    this.add.image((house.x + 0.5) * TILE, houseBottom + 2, 'house').setOrigin(0.5, 1).setDepth(houseBottom);
+    this.add
+      .image((house.x + 0.5) * TILE, houseBottom + 2, 'house')
+      .setOrigin(HOUSE_TEX.doorX / HOUSE_TEX.w, HOUSE_TEX.groundY / HOUSE_TEX.h)
+      .setDepth(houseBottom);
 
     this.guide = this.add.sprite((guide.x + 0.5) * TILE, (guide.y + 0.75) * TILE, 'guide-0').setOrigin(0.5, 0.94);
     this.guide.play('guide-idle');

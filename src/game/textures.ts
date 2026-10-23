@@ -27,6 +27,9 @@ interface Part {
   outline?: boolean;
 }
 
+/** Taille de la texture de la maison et point posé sur le bas de la porte (milieu de la façade). */
+export const HOUSE_TEX = { w: 136, h: 124, doorX: 52, groundY: 117 };
+
 export function makeTextures(scene: Phaser.Scene, theme: ThemeId, T: Theme): void {
   const g = scene.add.graphics();
   const texture = (key: string, w: number, h: number, draw: () => void) => {
@@ -123,42 +126,75 @@ export function makeTextures(scene: Phaser.Scene, theme: ThemeId, T: Theme): voi
     g.fillStyle(0x5c3a1a).fillRect(8, 9, 16, 2).fillRect(8, 13, 11, 2);
   });
 
-  // Maison du savoir : 3 cases de large, le toit déborde d'une case au-dessus. Un livre au fronton.
-  texture('house', 112, 116, () => {
-    shadow(56, 112, 108, 10, 0.3);
-    parts([
-      { x: 76, y: 6, w: 12, h: 26, color: 0x8a5a44 },
-      { x: 10, y: 52, w: 92, h: 60, r: 2, color: 0xf1e3c4 },
-    ]);
-    g.fillStyle(0xd9c59c).fillRect(10, 52, 92, 6);
-    // Colombages.
-    g.fillStyle(0x7a4e2d).fillRect(10, 74, 92, 3).fillRect(10, 52, 3, 60).fillRect(99, 52, 3, 60);
-    // Toit en tuiles.
-    g.fillStyle(OUTLINE).fillTriangle(56, 2, -1, 62, 113, 62);
-    g.fillStyle(0xc0392b).fillTriangle(56, 5, 3, 60, 109, 60);
-    g.fillStyle(0xe55039).fillTriangle(56, 5, 30, 32, 82, 32);
-    g.lineStyle(1, 0x8e2a20, 0.9);
-    for (const y of [20, 32, 44, 54]) {
-      const half = ((y - 5) / 55) * 53;
-      g.lineBetween(56 - half, y, 56 + half, y);
+  // Maison du savoir, vue de trois quarts : façade éclairée, pignon et mur droit dans l'ombre, toit à
+  // deux pans, ombre portée vers la droite. La façade (88 px) tient sur les 3 cases de la maison ;
+  // le côté, la profondeur et le toit débordent sur la marge laissée libre autour.
+  texture('house', HOUSE_TEX.w, HOUSE_TEX.h, () => {
+    const poly = (color: number, pts: [number, number][], line = true) => {
+      const p = pts.map(([x, y]) => ({ x, y }));
+      g.fillStyle(color).fillPoints(p, true);
+      if (line) g.lineStyle(2, OUTLINE).strokePoints(p, true);
+    };
+    const wall = 0xf1e3c4;
+    const wallShade = 0xc9b48c;
+    const roof = 0xc0392b;
+    const roofLight = 0xe55039;
+    const roofDark = 0x7f2418;
+    const wood = 0x7a4e2d;
+    // Ombre portée au sol, vers la droite et derrière.
+    g.fillStyle(0x000000, 0.22).fillPoints([{ x: 96, y: 118 }, { x: 118, y: 100 }, { x: 134, y: 104 }, { x: 134, y: 114 }, { x: 116, y: 122 }], true);
+    shadow(54, 118, 100, 9, 0.28);
+    // Mur de côté (profondeur), dans l'ombre, et son pignon.
+    poly(wallShade, [[96, 64], [116, 48], [116, 100], [96, 116]]);
+    poly(shade(wallShade, -0.08), [[96, 64], [116, 48], [106, 28]]);
+    g.fillStyle(shade(wood, -0.2)).fillPoints([{ x: 96, y: 86 }, { x: 116, y: 70 }, { x: 116, y: 73 }, { x: 96, y: 89 }], true);
+    // Petite lucarne sur le côté.
+    poly(0xd9a441, [[102, 80], [110, 74], [110, 84], [102, 90]]);
+    // Façade.
+    poly(wall, [[8, 64], [96, 64], [96, 116], [8, 116]]);
+    g.fillStyle(0xd9c59c).fillRect(9, 65, 86, 6);
+    g.fillStyle(0xe7d5ae).fillRect(9, 108, 86, 7);
+    g.fillStyle(wood).fillRect(9, 86, 86, 3).fillRect(9, 65, 3, 50).fillRect(92, 65, 3, 50);
+    // Toit : tranche du pan arrière au-dessus du pignon, puis pan avant.
+    poly(roofDark, [[106, 25], [122, 46], [118, 50], [106, 32]]);
+    poly(roof, [[2, 70], [100, 70], [106, 26], [16, 26]]);
+    g.fillStyle(roofLight).fillPoints([{ x: 16, y: 28 }, { x: 105, y: 28 }, { x: 104, y: 38 }, { x: 13, y: 38 }], true);
+    g.lineStyle(1, roofDark, 0.8);
+    for (const t of [0.35, 0.55, 0.75]) {
+      const y = 26 + 44 * t;
+      g.lineBetween(16 - 14 * t, y, 106 - 6 * t, y);
     }
-    g.fillStyle(0xa8301f).fillRect(3, 58, 106, 4);
-    // Fenêtres éclairées.
-    for (const wx of [20, 74]) {
-      parts([{ x: wx, y: 82, w: 18, h: 16, r: 2, color: 0xffe08a }]);
-      g.fillStyle(0x7a4e2d).fillRect(wx + 8, 82, 2, 16).fillRect(wx, 89, 18, 2);
-      g.fillStyle(0x7a4e2d).fillRect(wx - 2, 98, 22, 3);
+    // Faîtage et bord du toit, qui jette une ombre sur le haut des murs.
+    g.fillStyle(shade(roofLight, 0.2)).fillRect(16, 25, 90, 3);
+    g.fillStyle(roofDark).fillRect(2, 69, 98, 4);
+    g.fillStyle(0x000000, 0.18).fillRect(9, 73, 86, 5);
+    g.fillStyle(0x000000, 0.18).fillPoints([{ x: 96, y: 66 }, { x: 116, y: 50 }, { x: 116, y: 56 }, { x: 96, y: 72 }], true);
+    // Cheminée en volume.
+    poly(0x8a5a44, [[74, 8], [84, 8], [84, 34], [74, 38]]);
+    poly(0x6b4433, [[84, 8], [90, 4], [90, 30], [84, 34]]);
+    poly(0x9c6a52, [[72, 6], [82, 6], [88, 2], [78, 2]]);
+    // Fenêtres en retrait : embrasure sombre en haut et à gauche, appui en saillie.
+    for (const wx of [18, 70]) {
+      poly(0xffe08a, [[wx, 90], [wx + 16, 90], [wx + 16, 104], [wx, 104]]);
+      g.fillStyle(0xb8860b).fillRect(wx + 1, 91, 15, 2).fillRect(wx + 1, 91, 2, 13);
+      g.fillStyle(wood).fillRect(wx + 7, 91, 2, 13).fillRect(wx + 1, 96, 15, 2);
+      g.fillStyle(wood).fillRect(wx - 2, 104, 20, 3);
+      g.fillStyle(shade(wood, -0.3)).fillRect(wx - 2, 107, 20, 1);
     }
-    // Porte et son seuil.
-    parts([{ x: 45, y: 80, w: 22, h: 32, r: 9, color: 0x8b5a2b }]);
-    g.fillStyle(0x6d4422).fillRect(55, 82, 2, 30);
-    g.fillStyle(0xfab005).fillCircle(61, 98, 2);
-    g.fillStyle(0xb0a395).fillRect(42, 110, 28, 4);
-    // Livre ouvert au fronton.
-    parts([{ x: 42, y: 34, w: 28, h: 18, r: 3, color: 0xfff8e1 }]);
-    g.fillStyle(0x1c7ed6).fillRect(55, 34, 2, 18);
-    g.fillStyle(0x868e96).fillRect(45, 39, 8, 1).fillRect(45, 43, 8, 1).fillRect(45, 47, 6, 1);
-    g.fillStyle(0x868e96).fillRect(59, 39, 8, 1).fillRect(59, 43, 8, 1).fillRect(59, 47, 6, 1);
+    // Porte en retrait sous son linteau, et marche de pierre en volume.
+    poly(shade(wood, -0.35), [[41, 90], [63, 90], [63, 116], [41, 116]]);
+    poly(0x8b5a2b, [[44, 93], [63, 93], [63, 116], [44, 116]], false);
+    g.fillStyle(0x6d4422).fillRect(53, 94, 2, 22);
+    g.fillStyle(0xfab005).fillCircle(59, 106, 2);
+    g.fillStyle(wood).fillRect(38, 87, 28, 4);
+    poly(0xb0a395, [[36, 116], [68, 116], [68, 120], [36, 120]]);
+    poly(0x8f8478, [[68, 116], [72, 113], [72, 117], [68, 120]], false);
+    // Livre ouvert au-dessus de la porte, sur le pan du toit.
+    poly(0xfff8e1, [[38, 44], [66, 44], [66, 60], [38, 60]]);
+    g.fillStyle(0x1c7ed6).fillRect(51, 44, 2, 16);
+    g.fillStyle(0x868e96).fillRect(41, 48, 8, 1).fillRect(41, 52, 8, 1).fillRect(41, 56, 6, 1);
+    g.fillStyle(0x868e96).fillRect(55, 48, 8, 1).fillRect(55, 52, 8, 1).fillRect(55, 56, 6, 1);
+    g.fillStyle(0x000000, 0.2).fillRect(39, 60, 28, 2);
   });
 
   // Personnage : face, dos et profil ; respiration (bob) et marche (jambes et bras qui alternent).
