@@ -25,6 +25,8 @@ export const ROOM_W = 20;
 export const ROOM_H = 14;
 export const WALL = 3;
 export const ROOM_DOOR: Cell = { x: 10, y: ROOM_H - 1 };
+/** Largeur, au fond de la pièce, des murs de côté vus en perspective (ils tiennent dans la 1re colonne). */
+export const SIDE_SLANT = 30;
 
 const c = (x: number, y: number): Cell => ({ x, y });
 

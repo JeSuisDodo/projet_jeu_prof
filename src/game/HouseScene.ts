@@ -6,7 +6,7 @@ import { creatureSvg } from './creatureArt';
 import { TILE } from './map';
 import type { Facing } from './textures';
 import { shade } from './themes';
-import { DECOR, ROOM_DOOR, ROOM_H, ROOM_W, SAGE_STATION, STATIONS, type Station, WALL, roomBlocking, stationsFor } from './room';
+import { DECOR, ROOM_DOOR, SIDE_SLANT, ROOM_H, ROOM_W, SAGE_STATION, STATIONS, type Station, WALL, roomBlocking, stationsFor } from './room';
 
 const SPEED = 140;
 
@@ -33,6 +33,7 @@ export class HouseScene extends Phaser.Scene {
   private chapter!: ChapterDef;
   private onExit: () => void = () => {};
   private player!: Phaser.GameObjects.Sprite;
+  private playerShadow!: Phaser.GameObjects.Ellipse;
   private blocking: boolean[][] = [];
   private stations: Station[] = [];
   private bubbles: Phaser.GameObjects.Image[] = [];
@@ -70,10 +71,12 @@ export class HouseScene extends Phaser.Scene {
       const key = `npc-${this.chapter.id}-${i}`;
       const petKey = `pet-${this.chapter.id}-${i}`;
       const place = () => {
+        if (!station.seated) this.add.ellipse(px + 2, feet - 1, 26, 8, 0x000000, 0.32).setDepth((spot.y + 0.5) * TILE - 1);
         this.add.image(px, feet, key).setOrigin(0.5, 1).setDepth((spot.y + 0.5) * TILE);
         // La créature étudiée se tient près de son spécialiste, du côté libre.
         if (t.creature && this.textures.exists(petKey)) {
           const left = spot.x > ROOM_W / 2;
+          this.add.ellipse(px + (left ? -26 : 26), (spot.y + 1) * TILE + 3, 22, 7, 0x000000, 0.28).setDepth((spot.y + 1) * TILE + 5).setVisible(station.kind !== 'bureau');
           const pet = this.add.image(px + (left ? -26 : 26), (spot.y + 1) * TILE + 4, petKey).setOrigin(0.5, 1).setDepth((spot.y + 1) * TILE + 6);
           // Au bureau, elle se pose au bout du meuble, à côté des livres.
           if (station.kind === 'bureau') pet.setPosition(px + 52, (spot.y + 1) * TILE + 30).setDepth((spot.y + 2) * TILE);
@@ -101,6 +104,7 @@ export class HouseScene extends Phaser.Scene {
     });
 
     this.player = this.add.sprite((ROOM_DOOR.x + 0.5) * TILE, (ROOM_H - 1.5) * TILE, 'hero-up-idle-0').setOrigin(0.5, 0.92);
+    this.playerShadow = this.add.ellipse(this.player.x, this.player.y, 22, 7, 0x000000, 0.32);
     this.player.play('hero-up-idle');
 
     const cam = this.cameras.main;
@@ -132,33 +136,56 @@ export class HouseScene extends Phaser.Scene {
     const W = ROOM_W * TILE;
     const H = ROOM_H * TILE;
     const floor = this.add.graphics().setDepth(-3);
-    // Plancher en lattes, avec des nœuds dans le bois.
-    floor.fillStyle(0xa8703f).fillRect(0, 0, W, H);
-    for (let y = WALL * 2; y < ROOM_H * 2; y++) {
-      const shift = (y % 2) * 24;
-      for (let x = -1; x < ROOM_W * 2; x++) {
-        const px = x * 48 + shift;
-        const tone = [0xb67f4b, 0xae7744, 0xbb8652, 0xa9723f][(x * 7 + y * 5) & 3];
-        const x0 = Math.max(0, px);
-        const x1 = Math.min(W, px + 47);
-        if (x1 > x0) floor.fillStyle(tone).fillRect(x0, y * 16 + 1, x1 - x0, 15);
-        if ((x * 13 + y * 7) % 9 === 0) floor.fillStyle(0x8a5a30, 0.7).fillEllipse(px + 20, y * 16 + 8, 6, 3);
+    // Plancher en perspective : les lattes fuient vers le fond de la pièce, plus serrées au loin.
+    const top = WALL * TILE;
+    const slant = SIDE_SLANT;
+    const planks = 22;
+    const rows = 14;
+    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+    const rowY = (k: number) => top + (H - top) * Math.pow(k / rows, 1.35);
+    const seamX = (i: number, y: number) => {
+      const t = (y - top) / (H - top);
+      return lerp(slant + (i * (W - 2 * slant)) / planks, (i * W) / planks, t);
+    };
+    floor.fillStyle(0x8a5a30).fillRect(0, 0, W, H);
+    for (let k = 0; k < rows; k++)
+      for (let i = 0; i < planks; i++) {
+        // Lattes décalées d'une rangée à l'autre, comme un vrai parquet.
+        if ((i + k) % 5 === 0 && k > 0) continue;
+        const y0 = rowY(k);
+        const y1 = rowY(k + 1);
+        const tone = [0xb67f4b, 0xae7744, 0xbb8652, 0xa9723f, 0xb27a46][(i * 7 + k * 3) % 5];
+        floor.fillStyle(tone).fillPoints([{ x: seamX(i, y0) + 1, y: y0 + 1 }, { x: seamX(i + 1, y0) - 1, y: y0 + 1 }, { x: seamX(i + 1, y1) - 1, y: y1 - 1 }, { x: seamX(i, y1) + 1, y: y1 - 1 }], true);
+        floor.fillStyle(0xffffff, 0.06).fillPoints([{ x: seamX(i, y0) + 1, y: y0 + 1 }, { x: seamX(i + 1, y0) - 1, y: y0 + 1 }, { x: seamX(i + 1, y0 + 2) - 1, y: y0 + 3 }, { x: seamX(i, y0 + 2) + 1, y: y0 + 3 }], true);
+        if ((i * 13 + k * 7) % 11 === 0) floor.fillStyle(0x7a4e2d, 0.6).fillEllipse((seamX(i, y0) + seamX(i + 1, y1)) / 2, (y0 + y1) / 2, 6, 3);
       }
-    }
-    // Grand tapis central, à franges.
+    // Le fond de la pièce est un peu plus sombre que le devant.
+    for (let i = 0; i < 6; i++) floor.fillStyle(0x000000, 0.05).fillRect(0, top, W, (H - top) * (0.5 - i * 0.08));
+    // Les tapis suivent la perspective du plancher : plus étroits vers le fond.
+    const P = (x: number, y: number) => {
+      const t = Math.max(0, (y - top) / (H - top));
+      return { x: W / 2 + (x - W / 2) * lerp((W - 2 * slant) / W, 1, t), y };
+    };
+    const quad = (x: number, y: number, w: number, h: number) => [P(x, y), P(x + w, y), P(x + w, y + h), P(x, y + h)];
     const rug = { x: 7 * TILE, y: 6.6 * TILE, w: 6 * TILE, h: 5 * TILE };
-    floor.fillStyle(0x000000, 0.2).fillRoundedRect(rug.x + 3, rug.y + 4, rug.w, rug.h, 6);
-    floor.fillStyle(0x7a1f2b).fillRoundedRect(rug.x, rug.y, rug.w, rug.h, 6);
-    floor.lineStyle(4, 0xe0a84a).strokeRoundedRect(rug.x + 8, rug.y + 8, rug.w - 16, rug.h - 16, 4);
-    floor.lineStyle(2, 0xe0a84a, 0.7).strokeRoundedRect(rug.x + 18, rug.y + 18, rug.w - 36, rug.h - 36, 3);
-    floor.fillStyle(0xe0a84a).fillPoints([{ x: rug.x + rug.w / 2, y: rug.y + 34 }, { x: rug.x + rug.w / 2 + 30, y: rug.y + rug.h / 2 }, { x: rug.x + rug.w / 2, y: rug.y + rug.h - 34 }, { x: rug.x + rug.w / 2 - 30, y: rug.y + rug.h / 2 }], true);
-    floor.fillStyle(0x7a1f2b).fillCircle(rug.x + rug.w / 2, rug.y + rug.h / 2, 12);
-    for (let x = rug.x + 4; x < rug.x + rug.w - 2; x += 6) floor.fillStyle(0xf1e3c4).fillRect(x, rug.y - 4, 2, 4).fillRect(x, rug.y + rug.h, 2, 4);
+    floor.fillStyle(0x000000, 0.25).fillPoints(quad(rug.x + 4, rug.y + 5, rug.w, rug.h), true);
+    floor.fillStyle(0x7a1f2b).fillPoints(quad(rug.x, rug.y, rug.w, rug.h), true);
+    floor.lineStyle(4, 0xe0a84a).strokePoints(quad(rug.x + 8, rug.y + 8, rug.w - 16, rug.h - 16), true);
+    floor.lineStyle(2, 0xe0a84a, 0.7).strokePoints(quad(rug.x + 18, rug.y + 18, rug.w - 36, rug.h - 36), true);
+    const mx = rug.x + rug.w / 2;
+    const my = rug.y + rug.h / 2;
+    floor.fillStyle(0xe0a84a).fillPoints([P(mx, rug.y + 34), P(mx + 30, my), P(mx, rug.y + rug.h - 34), P(mx - 30, my)], true);
+    floor.fillStyle(0x7a1f2b).fillEllipse(P(mx, my).x, my, 24, 20);
+    for (let x = rug.x + 4; x < rug.x + rug.w - 2; x += 6) {
+      const back = P(x, rug.y);
+      const front = P(x, rug.y + rug.h);
+      floor.fillStyle(0xf1e3c4).fillRect(back.x, rug.y - 4, 2, 4).fillRect(front.x, rug.y + rug.h, 2, 4);
+    }
     // Petits tapis des coins lecture et bureau.
-    floor.fillStyle(0x2f6d5a).fillRoundedRect(1 * TILE, 10.6 * TILE, 3.4 * TILE, 2.4 * TILE, 10);
-    floor.lineStyle(2, 0xc3e6cb).strokeRoundedRect(1 * TILE + 5, 10.6 * TILE + 5, 3.4 * TILE - 10, 2.4 * TILE - 10, 8);
-    floor.fillStyle(0x3b4f8f).fillRoundedRect(14.6 * TILE, 3.4 * TILE, 3.8 * TILE, 3.2 * TILE, 6);
-    floor.lineStyle(2, 0xd0bfff).strokeRoundedRect(14.6 * TILE + 5, 3.4 * TILE + 5, 3.8 * TILE - 10, 3.2 * TILE - 10, 4);
+    floor.fillStyle(0x2f6d5a).fillPoints(quad(1.1 * TILE, 10.6 * TILE, 3.3 * TILE, 2.4 * TILE), true);
+    floor.lineStyle(2, 0xc3e6cb).strokePoints(quad(1.1 * TILE + 5, 10.6 * TILE + 5, 3.3 * TILE - 10, 2.4 * TILE - 10), true);
+    floor.fillStyle(0x3b4f8f).fillPoints(quad(14.6 * TILE, 3.4 * TILE, 3.8 * TILE, 3.2 * TILE), true);
+    floor.lineStyle(2, 0xd0bfff).strokePoints(quad(14.6 * TILE + 5, 3.4 * TILE + 5, 3.8 * TILE - 10, 3.2 * TILE - 10), true);
 
     const wall = this.add.graphics().setDepth(-2);
     // Mur du fond : dessus (épaisseur) sombre, face éclairée en papier peint rayé, lambris, plinthe.
@@ -168,8 +195,19 @@ export class HouseScene extends Phaser.Scene {
     for (let x = 6; x < W; x += 28) wall.fillStyle(0x87592f).fillRect(x, 2 * TILE + 9, 22, TILE - 16);
     wall.fillStyle(0x5c3a1a).fillRect(0, WALL * TILE - 4, W, 4);
     wall.fillStyle(0x3b2616).fillRect(0, 0, W, 8);
-    // Ombre du mur sur le plancher.
-    for (let i = 0; i < 4; i++) wall.fillStyle(0x000000, 0.12 - i * 0.025).fillRect(0, WALL * TILE + i * 4, W, 4);
+    // Murs de côté en perspective : leur face intérieure s'élargit vers nous, avec le lambris.
+    const sideWall = this.add.graphics().setDepth(-1);
+    for (const left of [true, false]) {
+      const X = (x: number) => (left ? x : W - x);
+      sideWall.fillStyle(0xd9c79f).fillPoints([{ x: X(0), y: 0 }, { x: X(slant), y: 0 }, { x: X(slant), y: top }, { x: X(0), y: H }], true);
+      for (let k = 1; k < 4; k++) sideWall.lineStyle(1, 0xc9b48c).lineBetween(X((slant * k) / 4), 0, X((slant * k) / 4), top + ((H - top) * (4 - k)) / 4);
+      sideWall.fillStyle(0x87592f).fillPoints([{ x: X(slant), y: top - 26 }, { x: X(slant), y: top }, { x: X(0), y: H }, { x: X(0), y: H - 60 }], true);
+      sideWall.fillStyle(0x5c3a1a).fillPoints([{ x: X(slant), y: top - 3 }, { x: X(slant), y: top }, { x: X(0), y: H }, { x: X(0), y: H - 8 }], true);
+      sideWall.lineStyle(2, 0x3b2616).lineBetween(X(slant), 0, X(slant), top);
+      // Ombre portée du mur sur le plancher, le long de la plinthe.
+      sideWall.fillStyle(0x000000, 0.22).fillPoints([{ x: X(slant), y: top }, { x: X(slant + 14), y: top }, { x: X(18), y: H }, { x: X(0), y: H }], true);
+    }
+    for (let i = 0; i < 4; i++) wall.fillStyle(0x000000, 0.16 - i * 0.035).fillRect(0, top + i * 5, W, 5);
 
     // Fenêtres, et leur lumière posée en biais sur le plancher.
     for (const wx of [6 * TILE - 4, 13.6 * TILE]) {
@@ -211,8 +249,12 @@ export class HouseScene extends Phaser.Scene {
 
     // Murs de côté et du bas : on voit leur épaisseur (dessus sombre, liseré clair) ; la porte et son paillasson.
     const side = this.add.graphics().setDepth(H + 50);
-    side.fillStyle(0x3b2616).fillRect(0, 0, 14, H).fillRect(W - 14, 0, 14, H).fillRect(0, H - 16, W, 16);
-    side.fillStyle(0x6d4422).fillRect(12, WALL * TILE, 3, H - WALL * TILE - 16).fillRect(W - 15, WALL * TILE, 3, H - WALL * TILE - 16).fillRect(14, H - 18, W - 28, 3);
+    side.fillStyle(0x3b2616).fillRect(0, 0, 4, H).fillRect(W - 4, 0, 4, H).fillRect(0, H - 16, W, 16);
+    side.fillStyle(0x6d4422).fillRect(4, H - 18, W - 8, 3);
+    // Pénombre vers l'avant et dans les coins : la pièce se creuse.
+    const shade3d = this.add.graphics().setDepth(H + 40);
+    for (let i = 0; i < 8; i++) shade3d.fillStyle(0x000000, 0.035).fillRect(0, H - 16 - (8 - i) * 9, W, (8 - i) * 9);
+    for (let i = 0; i < 6; i++) shade3d.fillStyle(0x000000, 0.03).fillRect(0, 0, (6 - i) * 10, H).fillRect(W - (6 - i) * 10, 0, (6 - i) * 10, H);
     const dx = ROOM_DOOR.x * TILE;
     side.fillStyle(0x1b1412).fillRect(dx - 4, H - 18, TILE + 8, 18);
     side.fillStyle(0x6d4422).fillRect(dx - 6, H - 18, 3, 18).fillRect(dx + TILE + 3, H - 18, 3, 18);
@@ -230,8 +272,18 @@ export class HouseScene extends Phaser.Scene {
    */
   private box(x: number, y: number, w: number, top: number, front: number, color: number, depthY?: number): Phaser.GameObjects.Graphics {
     const g = this.add.graphics().setDepth(depthY ?? y + top + front);
-    g.fillStyle(0x000000, 0.25).fillRoundedRect(x + 4, y + top + front - 4, w + 2, 10, 4);
-    g.fillStyle(0x2b1d16).fillRect(x - 1, y - 1, w + 2, top + front + 2);
+    const h = top + front;
+    // Ombre portée vers l'avant-droite (la lumière vient des fenêtres du fond).
+    g.fillStyle(0x000000, 0.35).fillPoints([{ x: x + 2, y: y + h - 2 }, { x: x + w + 2, y: y + h - 2 }, { x: x + w + 14, y: y + h + 9 }, { x: x + 12, y: y + h + 9 }], true);
+    // Côté visible : celui qui regarde le milieu de la pièce.
+    const sideW = 7;
+    const toRight = x + w / 2 < (ROOM_W * TILE) / 2;
+    const sx = toRight ? x + w : x;
+    const out = toRight ? sideW : -sideW;
+    g.fillStyle(0x2b1d16).fillPoints([{ x: sx, y: y - 1 }, { x: sx + out + (toRight ? 1 : -1), y: y + 3 }, { x: sx + out + (toRight ? 1 : -1), y: y + h + 1 }, { x: sx, y: y + h + 1 }], true);
+    g.fillStyle(shade(color, -0.35)).fillPoints([{ x: sx, y }, { x: sx + out, y: y + 4 }, { x: sx + out, y: y + h }, { x: sx, y: y + h }], true);
+    g.fillStyle(shade(color, 0.05)).fillPoints([{ x: sx, y }, { x: sx + out, y: y + 4 }, { x: sx + out, y: y + top + 3 }, { x: sx, y: y + top }], true);
+    g.fillStyle(0x2b1d16).fillRect(x - 1, y - 1, w + 2, h + 2);
     g.fillStyle(shade(color, 0.18)).fillRect(x, y, w, top);
     g.fillStyle(shade(color, 0.35)).fillRect(x, y, w, 2);
     g.fillStyle(shade(color, -0.22)).fillRect(x, y + top, w, front);
@@ -242,6 +294,10 @@ export class HouseScene extends Phaser.Scene {
   /** Étagère vue de face : montants, planches et livres de toutes les couleurs. */
   private bookshelf(g: Phaser.GameObjects.Graphics, x: number, y: number, w: number, h: number, rows: number, seed: number): void {
     const colors = [0xc92a2a, 0x2f9e44, 0x1c7ed6, 0xfab005, 0x7048e8, 0xe8590c, 0x0c8599, 0xf1e3c4];
+    // Dessus du meuble, vu d'en haut, et son ombre sur le sol.
+    g.fillStyle(0x000000, 0.3).fillRect(x + 4, y + h, w, 8);
+    g.fillStyle(0x2b1d16).fillRect(x - 3, y - 9, w + 6, 9);
+    g.fillStyle(0xa8743f).fillRect(x - 2, y - 8, w + 4, 6);
     g.fillStyle(0x2b1d16).fillRect(x - 2, y - 2, w + 4, h + 4);
     g.fillStyle(0x6d4422).fillRect(x, y, w, h);
     g.fillStyle(0x8b5a2b).fillRect(x, y, w, 4).fillRect(x, y, 4, h).fillRect(x + w - 4, y, 4, h);
@@ -441,6 +497,7 @@ export class HouseScene extends Phaser.Scene {
 
   update(_time: number, deltaMs: number): void {
     this.player.setDepth(this.player.y);
+    this.playerShadow.setPosition(this.player.x + 1, this.player.y - 1).setDepth(this.player.y - 1);
     if (this.leaving) return;
     if (this.hooks.isBusy()) {
       this.input.keyboard!.resetKeys();
