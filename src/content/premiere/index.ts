@@ -1,5 +1,6 @@
 import type { GradeDef } from '../types';
 import { APPLICATIONS_DERIVATION } from './applications-derivation';
+import { COURS_PREMIERE } from './cours';
 import { DERIVATION } from './derivation';
 import { EXPONENTIELLE } from './exponentielle';
 import { GEOMETRIE_REPEREE } from './geometrie-reperee';
@@ -18,4 +19,5 @@ export const PREMIERE: GradeDef = {
   stage: 'lycee',
   island: 'Île des Variations',
   chapters: [SECOND_DEGRE, SUITES_NUMERIQUES, SUITES_ARITH_GEO, DERIVATION, APPLICATIONS_DERIVATION, EXPONENTIELLE, TRIGONOMETRIE, PRODUIT_SCALAIRE, GEOMETRIE_REPEREE, PROBABILITES_CONDITIONNELLES, VARIABLES_ALEATOIRES],
+  lessons: COURS_PREMIERE,
 };

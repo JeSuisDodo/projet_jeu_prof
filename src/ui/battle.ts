@@ -175,7 +175,8 @@ export function runBattle(creature: Foe, save: SaveData, onChange: () => void): 
         feedback.className = 'feedback bad';
         feedback.innerHTML =
           `<strong>Pas tout à fait…</strong> ${creature.name} s'enfuit. Voici la correction :` +
-          `<ol>${ex.correction.map((line) => `<li>${renderMath(line)}</li>`).join('')}</ol>`;
+          `<ol>${ex.correction.map((line) => `<li>${renderMath(line)}</li>`).join('')}</ol>` +
+          `<p class="small muted">Pour revoir « ${skillById(ex.skill).name} », entre dans la Maison du savoir, près du départ.</p>`;
         next.onclick = () => finish({ captured: false, xp: 0 });
       }
       actions.append(next);

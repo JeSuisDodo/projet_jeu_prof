@@ -31,10 +31,12 @@ export enum Tile {
   Stairs,
   /** Corniche au sud d'un plateau : on saute par-dessus vers le bas, on ne la remonte pas. */
   Ledge,
+  /** Maison du savoir : ses murs bloquent, on y entre par la porte (voir `RegionMap.house`). */
+  House,
 }
 
 /** Cases infranchissables. La corniche l'est aussi, sauf en sautant vers le sud (voir WorldScene). */
-export const BLOCKING = new Set([Tile.Rock, Tile.Lava, Tile.Tree, Tile.Boulder, Tile.Sign, Tile.Ledge]);
+export const BLOCKING = new Set([Tile.Rock, Tile.Lava, Tile.Tree, Tile.Boulder, Tile.Sign, Tile.Ledge, Tile.House]);
 
 export interface Point {
   x: number;
@@ -66,6 +68,11 @@ export interface RegionMap {
   arena: Arena;
   /** Panneaux : près du départ, deux le long du chemin, devant l'arène. Leur texte dépend de la région. */
   signs: Point[];
+  /**
+   * Porte de la Maison du savoir, au milieu du bas de la maison (3 × 3 cases) : on y entre depuis
+   * la case juste au sud.
+   */
+  house: Point;
   /** Cases en hauteur, sur un plateau : le décor y est plus clair. */
   raised: boolean[][];
   zoneAt: (x: number, y: number) => GrassZone | null;

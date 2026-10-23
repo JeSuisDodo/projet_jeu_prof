@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { newSave, freshest } from '../src/game/save';
+import { newSave, freshest, recordLesson } from '../src/game/save';
 import { LocalBackend, type KeyValueStore } from '../src/online/local';
 import { summarize, sinceText } from '../src/online/progress';
 import { AccountError } from '../src/online/types';
@@ -105,6 +105,23 @@ describe('progression vue par le professeur', () => {
     expect(sum.chapters[1]).toMatchObject({ rate: 100, badge: true });
     expect(sum.weakSkills.map((w) => w.id)).toEqual([c1.skills[0].id]);
     expect(summarize(null, '4e').rate).toBeNull();
+  });
+
+  it('compte les cours lus à la Maison du savoir', () => {
+    const grade = gradeById('4e');
+    const [c1] = grade.chapters;
+    const save = newSave('Bob', '4e', c1.id);
+    save.skills[c1.skills[0].id] = { attempts: 5, correct: 1 };
+    recordLesson(save, c1.skills[0].id);
+    recordLesson(save, c1.skills[0].id);
+    recordLesson(save, c1.skills[1].id);
+    const sum = summarize(save, '4e');
+    expect(save.lessons?.[c1.skills[0].id]).toBe(2);
+    expect(sum.chapters[0].lessons).toBe(2);
+    expect(sum.lessons).toBe(2);
+    expect(sum.totalLessons).toBe(grade.chapters.reduce((n, c) => n + c.skills.length, 0));
+    expect(sum.weakSkills[0]).toMatchObject({ id: c1.skills[0].id, lessonRead: true });
+    expect(summarize(newSave('Ana', '4e', c1.id), '4e').lessons).toBe(0);
   });
 
   it('garde la sauvegarde la plus avancée', () => {

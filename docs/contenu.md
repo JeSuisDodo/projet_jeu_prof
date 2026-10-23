@@ -40,3 +40,20 @@ renommer une fois publiés.
 uniques, compétences existantes et toutes posées, 150 tirages par niveau sans `NaN` ni option de QCM
 en double, bonne réponse acceptée. Ajouter des tests propres au chapitre (calculs justes, mauvaise
 réponse refusée) dans `tests/`.
+
+## Cours de la Maison du savoir
+
+Chaque région a une **Maison du savoir**, posée près du départ. Dedans, un PNJ par créature
+explique les notions sur lesquelles elle interroge, et un sage reprend toutes les notions du
+chapitre avant le combat contre le gardien. Chaque notion montre son cours (s'il est écrit), puis un
+exemple corrigé tiré par le générateur de la compétence (facile, moyen ou difficile).
+
+Pour écrire les cours d'une classe : un fichier `cours.ts` dans le dossier de la classe, qui exporte
+un objet `{ [identifiant de compétence]: paragraphes }`, branché dans le champ `lessons` du
+`GradeDef` (modèle : `src/content/premiere/cours.ts`). Deux ou trois paragraphes courts : la règle,
+puis la méthode, en LaTeX entre `$…$`. Sans cours, la maison montre seulement l'exemple corrigé et
+l'indice. `tests/house.test.ts` vérifie que chaque cours porte sur une compétence de la classe et que
+son LaTeX s'affiche.
+
+Les cours lus sont comptés dans la sauvegarde (`lessons`) et visibles par le professeur dans le
+détail de chaque élève.

@@ -30,6 +30,12 @@ export function skillById(id: string): Skill {
   throw new Error(`Compétence inconnue : ${id}`);
 }
 
+/** Cours écrit d'une compétence (voir `GradeDef.lessons`), s'il existe. */
+export function lessonFor(skillId: string): string[] | undefined {
+  for (const grade of GRADES) if (grade.lessons?.[skillId]) return grade.lessons[skillId];
+  return undefined;
+}
+
 export function creatureById(id: string): CreatureDef & { boss: boolean } {
   for (const chapter of allChapters()) {
     if (chapter.boss.id === id) return { ...chapter.boss, boss: true };

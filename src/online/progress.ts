@@ -14,6 +14,8 @@ export interface ChapterProgress {
   species: number;
   totalSpecies: number;
   badge: boolean;
+  /** Notions du chapitre dont l'élève a ouvert le cours à la Maison du savoir. */
+  lessons: number;
 }
 
 export interface ProgressSummary {
@@ -22,9 +24,12 @@ export interface ProgressSummary {
   correct: number;
   rate: number | null;
   badges: number;
+  /** Notions révisées à la Maison du savoir, sur tout le niveau. */
+  lessons: number;
+  totalLessons: number;
   chapters: ChapterProgress[];
   /** Compétences les plus ratées (au moins 3 essais), pour savoir quoi retravailler. */
-  weakSkills: { id: string; name: string; chapter: string; rate: number; attempts: number }[];
+  weakSkills: { id: string; name: string; chapter: string; rate: number; attempts: number; lessonRead: boolean }[];
 }
 
 const pct = (correct: number, attempts: number) => (attempts ? Math.round((100 * correct) / attempts) : null);
@@ -43,7 +48,7 @@ export function summarize(save: SaveData | null, grade: GradeId): ProgressSummar
       if (!st) continue;
       a += st.attempts;
       ok += st.correct;
-      if (st.attempts >= 3) weak.push({ id: s.id, name: s.name, chapter: c.title, rate: pct(st.correct, st.attempts)!, attempts: st.attempts });
+      if (st.attempts >= 3) weak.push({ id: s.id, name: s.name, chapter: c.title, rate: pct(st.correct, st.attempts)!, attempts: st.attempts, lessonRead: (save?.lessons?.[s.id] ?? 0) > 0 });
     }
     attempts += a;
     correct += ok;
@@ -57,6 +62,7 @@ export function summarize(save: SaveData | null, grade: GradeId): ProgressSummar
       species: c.creatures.filter((x) => (save?.captures[x.id] ?? 0) > 0).length,
       totalSpecies: c.creatures.length,
       badge: save?.badges.includes(c.id) ?? false,
+      lessons: c.skills.filter((s) => (save?.lessons?.[s.id] ?? 0) > 0).length,
     };
   });
   weak.sort((x, y) => x.rate - y.rate || y.attempts - x.attempts);
@@ -66,6 +72,8 @@ export function summarize(save: SaveData | null, grade: GradeId): ProgressSummar
     correct,
     rate: pct(correct, attempts),
     badges: rows.filter((r) => r.badge).length,
+    lessons: rows.reduce((n, r) => n + r.lessons, 0),
+    totalLessons: chapters.reduce((n, c) => n + c.skills.length, 0),
     chapters: rows,
     weakSkills: weak.filter((w) => w.rate < 70).slice(0, 5),
   };

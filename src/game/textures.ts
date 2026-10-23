@@ -123,6 +123,44 @@ export function makeTextures(scene: Phaser.Scene, theme: ThemeId, T: Theme): voi
     g.fillStyle(0x5c3a1a).fillRect(8, 9, 16, 2).fillRect(8, 13, 11, 2);
   });
 
+  // Maison du savoir : 3 cases de large, le toit déborde d'une case au-dessus. Un livre au fronton.
+  texture('house', 112, 116, () => {
+    shadow(56, 112, 108, 10, 0.3);
+    parts([
+      { x: 76, y: 6, w: 12, h: 26, color: 0x8a5a44 },
+      { x: 10, y: 52, w: 92, h: 60, r: 2, color: 0xf1e3c4 },
+    ]);
+    g.fillStyle(0xd9c59c).fillRect(10, 52, 92, 6);
+    // Colombages.
+    g.fillStyle(0x7a4e2d).fillRect(10, 74, 92, 3).fillRect(10, 52, 3, 60).fillRect(99, 52, 3, 60);
+    // Toit en tuiles.
+    g.fillStyle(OUTLINE).fillTriangle(56, 2, -1, 62, 113, 62);
+    g.fillStyle(0xc0392b).fillTriangle(56, 5, 3, 60, 109, 60);
+    g.fillStyle(0xe55039).fillTriangle(56, 5, 30, 32, 82, 32);
+    g.lineStyle(1, 0x8e2a20, 0.9);
+    for (const y of [20, 32, 44, 54]) {
+      const half = ((y - 5) / 55) * 53;
+      g.lineBetween(56 - half, y, 56 + half, y);
+    }
+    g.fillStyle(0xa8301f).fillRect(3, 58, 106, 4);
+    // Fenêtres éclairées.
+    for (const wx of [20, 74]) {
+      parts([{ x: wx, y: 82, w: 18, h: 16, r: 2, color: 0xffe08a }]);
+      g.fillStyle(0x7a4e2d).fillRect(wx + 8, 82, 2, 16).fillRect(wx, 89, 18, 2);
+      g.fillStyle(0x7a4e2d).fillRect(wx - 2, 98, 22, 3);
+    }
+    // Porte et son seuil.
+    parts([{ x: 45, y: 80, w: 22, h: 32, r: 9, color: 0x8b5a2b }]);
+    g.fillStyle(0x6d4422).fillRect(55, 82, 2, 30);
+    g.fillStyle(0xfab005).fillCircle(61, 98, 2);
+    g.fillStyle(0xb0a395).fillRect(42, 110, 28, 4);
+    // Livre ouvert au fronton.
+    parts([{ x: 42, y: 34, w: 28, h: 18, r: 3, color: 0xfff8e1 }]);
+    g.fillStyle(0x1c7ed6).fillRect(55, 34, 2, 18);
+    g.fillStyle(0x868e96).fillRect(45, 39, 8, 1).fillRect(45, 43, 8, 1).fillRect(45, 47, 6, 1);
+    g.fillStyle(0x868e96).fillRect(59, 39, 8, 1).fillRect(59, 43, 8, 1).fillRect(59, 47, 6, 1);
+  });
+
   // Personnage : face, dos et profil ; respiration (bob) et marche (jambes et bras qui alternent).
   const hero = (key: string, facing: Facing, step: number, bob: number) =>
     texture(key, 24, 32, () => {

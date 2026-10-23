@@ -17,6 +17,8 @@ export interface WorldHooks {
   bossDefeated: () => boolean;
   /** Index du panneau dans `RegionMap.signs` : son texte dépend de la région. */
   readSign: (index: number) => Promise<void>;
+  /** On passe la porte de la Maison du savoir : ses PNJ expliquent les notions de la région. */
+  enterHouse: () => Promise<void>;
   /** Réglage « réduire les animations » (par défaut celui du système). */
   isCalm: () => boolean;
 }
@@ -45,6 +47,7 @@ export class WorldScene extends Phaser.Scene {
   private nearGuide = false;
   private nearBoss = false;
   private nearSign = -1;
+  private nearHouse = false;
   private facing: Facing = 'down';
   /** Animations réduites : on garde le jeu, sans particules ni mouvements décoratifs. */
   private calm = false;
@@ -83,6 +86,7 @@ export class WorldScene extends Phaser.Scene {
     this.nearGuide = false;
     this.nearBoss = false;
     this.nearSign = -1;
+    this.nearHouse = false;
     this.facing = 'down';
   }
 
@@ -91,8 +95,11 @@ export class WorldScene extends Phaser.Scene {
     makeTextures(this, this.t, this.theme);
     this.makeAnimations();
     this.map = buildMap(seedFor(this.chapter.id), terrainOf(this.chapter));
-    const { guide, arena } = this.map;
+    const { guide, arena, house } = this.map;
     this.drawTiles();
+
+    const houseBottom = (house.y + 1) * TILE;
+    this.add.image((house.x + 0.5) * TILE, houseBottom + 2, 'house').setOrigin(0.5, 1).setDepth(houseBottom);
 
     this.guide = this.add.sprite((guide.x + 0.5) * TILE, (guide.y + 0.75) * TILE, 'guide-0').setOrigin(0.5, 0.94);
     this.guide.play('guide-idle');
@@ -491,6 +498,12 @@ export class WorldScene extends Phaser.Scene {
     );
     if (sign >= 0 && (sign !== this.nearSign || interact)) void this.hooks.readSign(sign);
     this.nearSign = sign;
+
+    // Devant la porte de la maison : on entre.
+    const door = this.map.house;
+    const nearHouse = Phaser.Math.Distance.Between(this.player.x, this.player.y, (door.x + 0.5) * TILE, (door.y + 1) * TILE) < 26;
+    if ((nearHouse && !this.nearHouse) || (nearHouse && interact)) void this.hooks.enterHouse();
+    this.nearHouse = nearHouse;
 
     if (!this.boss.visible || !this.boss.active) return;
     const bossNear = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y) < 40;

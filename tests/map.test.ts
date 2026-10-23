@@ -51,6 +51,13 @@ describe.each(cases)('carte %s, graine %i', (_name, seed, terrain) => {
       expect(besideReachable(s.x, s.y), `panneau ${s.x},${s.y}`).toBe(true);
     }
   });
+
+  it('la Maison du savoir est près du départ et l’on peut entrer par sa porte', () => {
+    const { x, y } = map.house;
+    for (let dy = -2; dy <= 0; dy++) for (let dx = -1; dx <= 1; dx++) expect(map.tiles[y + dy][x + dx]).toBe(Tile.House);
+    expect(at(x, y + 1), `porte ${x},${y}`).toBe(true);
+    expect(Math.hypot(x - map.start.x, y - map.start.y)).toBeLessThan(20);
+  });
 });
 
 describe('reliefs', () => {

@@ -104,4 +104,10 @@ export interface GradeDef {
   island: string;
   /** Chapitres dans l'ordre du manuel. Une classe sans chapitre apparaît « Bientôt » à l'accueil. */
   chapters: ChapterDef[];
+  /**
+   * Cours de la Maison du savoir, par identifiant de compétence : quelques paragraphes (LaTeX entre
+   * `$…$`) qui donnent la règle et la méthode. Facultatif : sans cours, le PNJ montre un exemple
+   * corrigé et l'indice de la compétence.
+   */
+  lessons?: Record<string, string[]>;
 }
