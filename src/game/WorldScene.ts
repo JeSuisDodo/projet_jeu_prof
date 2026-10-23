@@ -17,8 +17,6 @@ export interface WorldHooks {
   bossDefeated: () => boolean;
   /** Index du panneau dans `RegionMap.signs` : son texte dépend de la région. */
   readSign: (index: number) => Promise<void>;
-  /** On passe la porte de la Maison du savoir : ses PNJ expliquent les notions de la région. */
-  enterHouse: () => Promise<void>;
   /** Réglage « réduire les animations » (par défaut celui du système). */
   isCalm: () => boolean;
 }
@@ -47,7 +45,8 @@ export class WorldScene extends Phaser.Scene {
   private nearGuide = false;
   private nearBoss = false;
   private nearSign = -1;
-  private nearHouse = false;
+  /** Passage de la porte de la maison en cours (fondu vers l'intérieur). */
+  private entering = false;
   private facing: Facing = 'down';
   /** Animations réduites : on garde le jeu, sans particules ni mouvements décoratifs. */
   private calm = false;
@@ -86,7 +85,7 @@ export class WorldScene extends Phaser.Scene {
     this.nearGuide = false;
     this.nearBoss = false;
     this.nearSign = -1;
-    this.nearHouse = false;
+    this.entering = false;
     this.facing = 'down';
   }
 
@@ -323,7 +322,7 @@ export class WorldScene extends Phaser.Scene {
 
   update(_time: number, deltaMs: number): void {
     this.player.setDepth(this.player.y);
-    if (this.jumping) return;
+    if (this.jumping || this.entering) return;
     if (this.hooks.isBusy() || this.encountering) {
       this.input.keyboard!.resetKeys();
       this.player.play(`hero-${this.facing}-idle`, true);
@@ -502,11 +501,10 @@ export class WorldScene extends Phaser.Scene {
     if (sign >= 0 && (sign !== this.nearSign || interact)) void this.hooks.readSign(sign);
     this.nearSign = sign;
 
-    // Devant la porte de la maison : on entre.
+    // Contre la porte de la maison, en montant (ou avec la touche d'action) : on entre.
     const door = this.map.house;
-    const nearHouse = Phaser.Math.Distance.Between(this.player.x, this.player.y, (door.x + 0.5) * TILE, (door.y + 1) * TILE) < 26;
-    if ((nearHouse && !this.nearHouse) || (nearHouse && interact)) void this.hooks.enterHouse();
-    this.nearHouse = nearHouse;
+    const atDoor = Phaser.Math.Distance.Between(this.player.x, this.player.y, (door.x + 0.5) * TILE, (door.y + 1) * TILE) < 26;
+    if (atDoor && (interact || (this.facing === 'up' && this.player.y < (door.y + 1) * TILE + 8))) return this.enterHouse();
 
     if (!this.boss.visible || !this.boss.active) return;
     const bossNear = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.boss.x, this.boss.y) < 40;
@@ -517,6 +515,37 @@ export class WorldScene extends Phaser.Scene {
       });
     }
     this.nearBoss = bossNear;
+  }
+
+  /**
+   * On passe la porte : fondu au noir, la carte s'endort et l'intérieur de la maison s'ouvre.
+   * En ressortant, on retrouve la carte telle qu'on l'a laissée, devant la porte.
+   */
+  private enterHouse(): void {
+    this.entering = true;
+    play('sign');
+    this.player.play('hero-up-idle', true);
+    const go = () => {
+      this.scene.sleep();
+      this.scene.run('house', {
+        chapter: this.chapter,
+        onExit: () => {
+          this.scene.stop('house');
+          this.scene.wake();
+          // On ressort face au sud, un pas devant la porte.
+          const door = this.map.house;
+          this.player.setPosition((door.x + 0.5) * TILE, (door.y + 1.6) * TILE);
+          this.facing = 'down';
+          this.player.play('hero-down-idle', true);
+          this.entering = false;
+          if (!this.calm) this.cameras.main.fadeIn(300);
+          else this.cameras.main.resetFX();
+        },
+      });
+    };
+    if (this.calm) return go();
+    this.cameras.main.fadeOut(250);
+    this.cameras.main.once('camerafadeoutcomplete', go);
   }
 
   /** Le gardien vaincu tourne sur lui-même et disparaît dans un nuage d'étincelles. */

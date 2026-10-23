@@ -80,11 +80,14 @@ function greeting(t: Teacher, chapter: ChapterDef, save: SaveData): string {
 
 const levelName: Record<Level, string> = { 1: 'Facile', 2: 'Moyen', 3: 'Difficile' };
 
-/** Ouvre la maison ; la promesse se résout quand le joueur ressort. */
-export function openHouse(chapter: ChapterDef, save: SaveData, onChange: () => void): Promise<void> {
+/**
+ * Conversation avec un PNJ de la maison (index dans `teachersOf`) : ses notions, puis le cours et
+ * l'exemple corrigé de celle choisie. La promesse se résout quand on lui dit au revoir.
+ */
+export function openTeacher(chapter: ChapterDef, save: SaveData, index: number, onChange: () => void): Promise<void> {
   return new Promise((resolve) => {
     const rng = new Rng((Date.now() ^ (Math.random() * 1e9)) >>> 0);
-    const teachers = teachersOf(chapter);
+    const teachers = teachersOf(chapter).filter((_, i) => i === index);
     const panel = h('div', 'panel house');
     const leave = () => {
       play('click');
@@ -92,7 +95,7 @@ export function openHouse(chapter: ChapterDef, save: SaveData, onChange: () => v
       resolve();
     };
     const exitButton = () => {
-      const b = h('button', 'secondary', 'Sortir de la maison') as HTMLButtonElement;
+      const b = h('button', 'secondary', 'Au revoir') as HTMLButtonElement;
       b.onclick = leave;
       return b;
     };
@@ -102,10 +105,8 @@ export function openHouse(chapter: ChapterDef, save: SaveData, onChange: () => v
       panel.replaceChildren();
       panel.scrollTop = 0;
       const head = h('div', 'house-head');
-      head.innerHTML = `<div class="shelf" aria-hidden="true">${'<i></i>'.repeat(14)}</div>
-        <h2>Maison du savoir</h2>
-        <p class="muted">${escapeHtml(chapter.region)} · ${escapeHtml(chapter.title)}. Choisis un PNJ et la notion qu’il doit t’expliquer.</p>`;
-      const room = h('div', 'npcs');
+      head.innerHTML = `<p class="muted small">Maison du savoir · ${escapeHtml(chapter.region)} · ${escapeHtml(chapter.title)}</p>`;
+      const room = h('div', 'npcs one');
       teachers.forEach((t, i) => {
         const card = h('div', `npc-card ${t.creature ? '' : 'sage'}`);
         card.style.animationDelay = `${i * 50}ms`;
@@ -175,7 +176,7 @@ export function openHouse(chapter: ChapterDef, save: SaveData, onChange: () => v
       const actions = h('div', 'row actions');
       const another = h('button', '', 'Un autre exemple') as HTMLButtonElement;
       another.onclick = () => lesson(t, skill, level, true);
-      const back = h('button', 'secondary', 'Retour aux PNJ') as HTMLButtonElement;
+      const back = h('button', 'secondary', 'Autres notions') as HTMLButtonElement;
       back.onclick = hall;
       actions.append(another, back, exitButton());
       panel.append(head, body, actions);

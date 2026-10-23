@@ -1928,3 +1928,11 @@ html.big-text #hud .tag {
   background: #ebfbee;
   color: #2b6a3a;
 }
+
+.npcs.one {
+  grid-template-columns: 1fr;
+}
+
+.panel.house:has(.npcs.one) {
+  width: min(520px, 100%);
+}

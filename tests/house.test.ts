@@ -40,3 +40,30 @@ describe('Maison du savoir', () => {
     for (const c of grade.chapters) for (const s of c.skills) expect(grade.lessons?.[s.id], s.id).toBeDefined();
   });
 });
+
+describe('intérieur de la maison', () => {
+  it.each([2, 4, 6, 7])('avec %i PNJ, chacun est accessible depuis la porte', async (n) => {
+    const { ROOM_DOOR, ROOM_H, ROOM_W, npcSpots, roomBlocking } = await import('../src/game/room');
+    const grid = roomBlocking(n);
+    const seen = grid.map((row) => row.map(() => false));
+    const stack = [[ROOM_DOOR.x, ROOM_DOOR.y]];
+    seen[ROOM_DOOR.y][ROOM_DOOR.x] = true;
+    while (stack.length) {
+      const [x, y] = stack.pop()!;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= ROOM_W || ny >= ROOM_H || seen[ny][nx] || grid[ny][nx]) continue;
+        seen[ny][nx] = true;
+        stack.push([nx, ny]);
+      }
+    }
+    const spots = npcSpots(n);
+    expect(spots).toHaveLength(n);
+    spots.forEach((s, i) => {
+      // Devant le pupitre d'un spécialiste, devant le sage.
+      const front = i === n - 1 ? { x: s.x, y: s.y + 1 } : { x: s.x, y: s.y + 2 };
+      expect(seen[front.y][front.x], `PNJ ${i}`).toBe(true);
+    });
+  });
+});
