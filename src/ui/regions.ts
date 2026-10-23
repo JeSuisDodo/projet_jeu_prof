@@ -8,17 +8,23 @@ import { h, hideOverlay, showOverlay } from './overlay';
 
 /**
  * Carte de l'île : une carte par région (chapitre), avec la progression de l'élève.
- * Des onglets permettent de visiter les autres îles, pour réviser ou prendre de l'avance.
+ * Des onglets permettent de visiter les autres îles, pour réviser ou prendre de l'avance,
+ * sauf pour un élève inscrit à une partie : il reste sur l'île choisie par son professeur.
  */
-export function openRegions(save: SaveData, onPick: (grade: GradeId, chapterId: string) => void, closable = true): void {
-  let shown: GradeId = save.grade;
+export function openRegions(
+  save: SaveData,
+  onPick: (grade: GradeId, chapterId: string) => void,
+  closable = true,
+  lockedGrade: GradeId | null = null,
+): void {
+  let shown: GradeId = lockedGrade ?? save.grade;
   const panel = h('div', 'panel regions');
   const render = () => {
     const grade = GRADES.find((g) => g.id === shown)!;
     panel.innerHTML = `<h2>${grade.island}</h2>
       <p class="muted">${grade.name} : choisis une région. Chaque région est un chapitre du programme.</p>`;
     const tabs = h('div', 'tabs');
-    for (const g of GRADES) {
+    for (const g of lockedGrade ? [] : GRADES) {
       const b = h('button', g.id === shown ? '' : 'secondary', g.name) as HTMLButtonElement;
       b.disabled = g.chapters.length === 0;
       b.onclick = () => {
