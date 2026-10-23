@@ -24,6 +24,9 @@ export interface SaveData {
 
 const KEY = 'mathoria-save-v1';
 
+/** Emplacement de sauvegarde d'un élève connecté : sa copie locale, à côté de celle du jeu libre. */
+export const studentSlot = (studentId: string) => `mathoria-eleve-${studentId}`;
+
 export function newSave(pseudo: string, grade: GradeId, region: string): SaveData {
   return { version: 2, pseudo, grade, region, xp: 0, captures: {}, skills: {}, badges: [] };
 }
@@ -54,9 +57,9 @@ export function migrate(data: SaveV1 | SaveData): SaveData | null {
 }
 
 /** Lecture tolérante : stockage indisponible ou sauvegarde abîmée = pas de sauvegarde. */
-export function loadSave(): SaveData | null {
+export function loadSave(slot = KEY): SaveData | null {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(slot);
     if (!raw) return null;
     return migrate(JSON.parse(raw) as SaveV1 | SaveData);
   } catch {
@@ -64,9 +67,9 @@ export function loadSave(): SaveData | null {
   }
 }
 
-export function storeSave(save: SaveData): void {
+export function storeSave(save: SaveData, slot = KEY): void {
   try {
-    localStorage.setItem(KEY, JSON.stringify(save));
+    localStorage.setItem(slot, JSON.stringify(save));
   } catch {
     // Navigation privée ou stockage plein : la partie continue sans sauvegarde.
   }
@@ -78,6 +81,15 @@ export function clearSave(): void {
   } catch {
     // Rien à faire.
   }
+}
+
+/** Mesure de l'avancement, pour garder la plus avancée de deux sauvegardes (en ligne ou sur l'appareil). */
+export const progressScore = (save: SaveData) => save.xp + Object.values(save.skills).reduce((n, s) => n + s.attempts, 0);
+
+/** Sauvegarde la plus avancée ; à égalité, la première (celle du serveur). */
+export function freshest(a: SaveData | null, b: SaveData | null): SaveData | null {
+  if (!a || !b) return a ?? b;
+  return progressScore(b) > progressScore(a) ? b : a;
 }
 
 export function recordAttempt(save: SaveData, skill: string, ok: boolean, now = Date.now()): void {

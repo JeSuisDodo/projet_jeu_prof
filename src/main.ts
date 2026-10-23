@@ -6,17 +6,21 @@ import { Rng } from './exercises/rng';
 import { creatureSvg } from './game/creatureArt';
 import { directionWord } from './game/map';
 import { RARITY, pickEncounter, rarityOf } from './game/rarity';
-import { type SaveData, clearSave, loadSave, newSave, speciesCaught, storeSave } from './game/save';
+import { type SaveData, clearSave, freshest, loadSave, newSave, speciesCaught, storeSave, studentSlot } from './game/save';
 import { loadSettings, storeSettings } from './game/settings';
 import { WorldScene } from './game/WorldScene';
+import { getBackend } from './online';
+import type { Backend, StudentSession } from './online/types';
+import { codeFromUrl } from './online/util';
 import { runBattle } from './ui/battle';
 import { showDialog } from './ui/dialog';
+import { runHome } from './ui/home';
 import { openJournal } from './ui/journal';
 import { escapeHtml } from './ui/math';
 import { hideOverlay, overlayOpen } from './ui/overlay';
 import { openRegions } from './ui/regions';
 import { ICONS, openSettings } from './ui/settings';
-import { showStart } from './ui/start';
+import { closeMenu } from './ui/menu';
 import './style.css';
 
 let save: SaveData;
@@ -27,6 +31,12 @@ let busy = false;
 const guideMet = new Set<string>();
 const rng = new Rng(Date.now() >>> 0);
 let game: Phaser.Game | null = null;
+/** Élève connecté à une partie : sa progression est aussi envoyée au professeur. */
+let student: StudentSession | null = null;
+let backend: Backend | null = null;
+let slot: string | undefined;
+let syncTimer: ReturnType<typeof setTimeout> | undefined;
+let syncFailed = false;
 
 const GUIDE_NAME = 'Gardienne Élia';
 
@@ -35,9 +45,30 @@ const speciesForBoss = (c: ChapterDef) => Math.min(3, c.creatures.length);
 const regionCaught = () => speciesCaught(save, chapter.creatures.map((c) => c.id));
 
 const persist = () => {
-  storeSave(save);
+  storeSave(save, slot);
+  if (student) {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => void sync(), 2000);
+  }
   renderHud();
 };
+
+/** Envoie la progression de l'élève ; en cas d'échec, on réessaiera à la prochaine sauvegarde. */
+async function sync(): Promise<void> {
+  clearTimeout(syncTimer);
+  if (!student || !backend) return;
+  try {
+    await backend.saveProgress(save);
+    syncFailed = false;
+  } catch {
+    syncFailed = true;
+  }
+  renderHud();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && syncTimer) void sync();
+});
 
 function renderHud(): void {
   const hud = document.getElementById('hud')!;
@@ -46,8 +77,10 @@ function renderHud(): void {
   hud.innerHTML = `
     <span class="tag region">${chapter.region} · ${grade.name}</span>
     <span class="tag">${escapeHtml(save.pseudo || 'Aventurier')} · ${save.xp} XP · ${regionCaught()}/${chapter.creatures.length} espèces</span>
+    ${student ? `<span class="tag class-tag" title="${syncFailed ? 'Progression pas encore envoyée : nouvel essai à la prochaine capture.' : 'Progression envoyée à ton professeur.'}">${syncFailed ? '⚠' : '☁'} ${escapeHtml(student.className)}</span>` : ''}
     <span class="spacer"></span>`;
   hud.append(
+    iconButton(ICONS.home, 'Menu principal', goHome),
     iconButton(settings.muted ? ICONS.soundOff : ICONS.soundOn, settings.muted ? 'Remettre le son (M)' : 'Couper le son (M)', toggleMute),
     iconButton(ICONS.map, 'Carte de l’île (V)', showRegions),
     iconButton(ICONS.journal, 'Carnet (C)', showJournal),
@@ -99,10 +132,23 @@ function showToast(text: string): void {
 
 function showJournal(): void {
   if (busy) return;
-  openJournal(save, chapter, () => {
-    clearSave();
-    location.reload();
-  });
+  openJournal(
+    save,
+    chapter,
+    student
+      ? undefined
+      : () => {
+          clearSave();
+          location.reload();
+        },
+  );
+}
+
+/** Retour au menu principal : la progression est déjà enregistrée, on recharge la page. */
+async function goHome(): Promise<void> {
+  if (busy) return;
+  await sync();
+  location.href = location.href.split(/[?#]/)[0];
 }
 
 function showRegions(): void {
@@ -259,35 +305,56 @@ document.addEventListener('click', (e) => {
 /** Première région disponible d'une classe. */
 const firstChapter = (grade: GradeId) => gradeById(grade).chapters[0] ?? GRADES.flatMap((g) => g.chapters)[0];
 
+/** L'élève choisit sa région de départ sur la carte de l'île. */
+function chooseStartRegion(): Promise<void> {
+  chapter = firstChapter(save.grade);
+  if (gradeById(save.grade).chapters.length <= 1) return Promise.resolve();
+  return new Promise<void>((resolve) =>
+    openRegions(
+      save,
+      (g, id) => {
+        save.grade = g;
+        save.region = id;
+        chapter = chapterById(id)!;
+        resolve();
+      },
+      false,
+    ),
+  );
+}
+
 async function boot(): Promise<void> {
   applySettings();
+  const invite = codeFromUrl();
+  const backendReady = getBackend();
   const existing = loadSave();
-  const choice = await showStart(existing);
+  const home = await runHome(backendReady, invite, existing);
   unlockAudio();
-  if (choice.kind === 'continue' && existing) {
+  // Le code d'invitation ne doit pas resservir au prochain rechargement.
+  if (invite) history.replaceState(null, '', location.pathname);
+  if (home.kind === 'student') {
+    student = home.session;
+    backend = await backendReady;
+    slot = studentSlot(student.studentId);
+    const kept = freshest(student.progress, loadSave(slot));
+    if (kept) {
+      save = { ...kept, pseudo: student.name };
+      chapter = chapterById(save.region) ?? firstChapter(save.grade);
+      save.region = chapter.id;
+    } else {
+      save = newSave(student.name, student.grade, firstChapter(student.grade).id);
+      await chooseStartRegion();
+    }
+  } else if (home.choice.kind === 'continue' && existing) {
     save = existing;
     chapter = chapterById(save.region) ?? firstChapter(save.grade);
     save.region = chapter.id;
   } else {
-    const grade = choice.kind === 'new' ? choice.grade : '1re-spe';
-    // Nouvelle partie : l'élève choisit sa région de départ sur la carte de l'île.
-    save = newSave(choice.kind === 'new' ? choice.pseudo : '', grade, firstChapter(grade).id);
-    chapter = firstChapter(grade);
-    if (gradeById(grade).chapters.length > 1) {
-      await new Promise<void>((resolve) =>
-        openRegions(
-          save,
-          (g, id) => {
-            save.grade = g;
-            save.region = id;
-            chapter = chapterById(id)!;
-            resolve();
-          },
-          false,
-        ),
-      );
-    }
+    const grade = home.choice.kind === 'new' ? home.choice.grade : '1re-spe';
+    save = newSave(home.choice.kind === 'new' ? home.choice.pseudo : '', grade, firstChapter(grade).id);
+    await chooseStartRegion();
   }
+  closeMenu();
   persist();
   setMusic('explore');
   game = new Phaser.Game({
