@@ -38,7 +38,13 @@ région. Voir `docs/contenu.md` pour ajouter un chapitre.
 - En haut à droite, des boutons-icônes : couper le son (M), carte de l'île (V), carnet (C), paramètres (P).
   Paramètres : volume de la musique et des effets, couper le son, réduire les animations
   (coché d'office si le système le demande), texte plus grand. Gardés sur l'appareil.
-- Sauvegarde dans le navigateur (`localStorage`). Pas encore de comptes ni d'espace professeur.
+- Menu principal animé (ciel, mer, créatures qui défilent) avec trois entrées : élève, professeur,
+  jeu libre sans compte.
+- Comptes professeur et élèves (voir `docs/comptes.md`) : le professeur crée une partie (niveau et
+  liste des élèves) et partage un code ou un lien ; l'élève choisit son nom dans la liste, façon
+  Tricount, puis un mot de passe. Le professeur suit la progression de chaque élève par chapitre.
+  Sans service en ligne configuré, mode démo : tout reste dans le navigateur.
+- Sauvegarde dans le navigateur (`localStorage`), et en ligne pour les élèves inscrits à une partie.
 
 ## Lancer le jeu
 
@@ -64,8 +70,9 @@ GitHub Actions*.
 | `src/audio` | Musique et bruitages synthétisés (Web Audio). |
 | `src/content` | Programme : une classe par dossier, un chapitre par fichier (`types.ts` décrit le format). |
 | `src/exercises` | Modèles d'exercices, saisie des réponses (entiers, décimaux, fractions), vérification. |
+| `src/online` | Comptes professeur et élèves : mode démo (navigateur) ou Supabase (`supabase/schema.sql`). |
 | `src/game` | Carte (`map.ts`), décor peint en relief (`terrain.ts`), créatures, sauvegarde, textures animées et scène Phaser de l'exploration. |
-| `src/ui` | Écrans HTML par-dessus le jeu : accueil, combat, carnet, dialogues, paramètres. |
+| `src/ui` | Écrans HTML par-dessus le jeu : menu animé, espaces élève et professeur, combat, carnet, dialogues, paramètres. |
 | `tests` | Tests Vitest : chaque modèle est essayé sur des centaines de tirages. |
 
 Ajouter un exercice : écrire un objet `Skill` dans `src/exercises/secondDegre.ts` (ou un nouveau

@@ -6,7 +6,7 @@ import { escapeHtml } from './math';
 import { h, hideOverlay, showOverlay } from './overlay';
 
 /** Le carnet de l'élève : créatures de la région et taux de réussite par compétence du chapitre. */
-export function openJournal(save: SaveData, chapter: ChapterDef, onReset: () => void): void {
+export function openJournal(save: SaveData, chapter: ChapterDef, onReset?: () => void): void {
   const panel = h('div', 'panel');
   const all = [...chapter.creatures, chapter.boss];
   const cards = all
@@ -43,9 +43,11 @@ export function openJournal(save: SaveData, chapter: ChapterDef, onReset: () => 
   close.onclick = hideOverlay;
   const reset = h('button', 'secondary', 'Recommencer la partie') as HTMLButtonElement;
   reset.onclick = () => {
-    if (confirm('Effacer toute ta progression sur cet appareil ?')) onReset();
+    if (confirm('Effacer toute ta progression sur cet appareil ?')) onReset?.();
   };
-  actions.append(close, reset);
+  actions.append(close);
+  // Un élève inscrit à une partie ne peut pas effacer la progression que suit son professeur.
+  if (onReset) actions.append(reset);
   panel.append(actions);
   showOverlay(panel);
   close.focus({ preventScroll: true });

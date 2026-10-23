@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "katex": "^0.16.47",
     "phaser": "^3.90.0"
   },
