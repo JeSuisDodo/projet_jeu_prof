@@ -153,13 +153,13 @@ async function goHome(): Promise<void> {
 
 function showRegions(): void {
   if (busy) return;
-  openRegions(save, travel);
+  openRegions(save, travel, true, student?.grade ?? null);
 }
 
 /** Change de région : la scène redémarre avec le nouveau chapitre. */
 function travel(grade: GradeId, chapterId: string): void {
   const next = chapterById(chapterId);
-  if (!next) return;
+  if (!next || (student && grade !== student.grade)) return;
   save.grade = grade;
   save.region = chapterId;
   chapter = next;
@@ -319,6 +319,7 @@ function chooseStartRegion(): Promise<void> {
         resolve();
       },
       false,
+      student?.grade ?? null,
     ),
   );
 }
@@ -352,9 +353,11 @@ async function boot(): Promise<void> {
     backend = await backendReady;
     slot = studentSlot(student.studentId);
     const kept = freshest(student.progress, loadSave(slot));
+    // L'élève joue sur l'île du niveau choisi par son professeur.
+    const inClass = (id: string) => gradeById(student!.grade).chapters.some((c) => c.id === id);
     if (kept) {
-      save = { ...kept, pseudo: student.name };
-      chapter = chapterById(save.region) ?? firstChapter(save.grade);
+      save = { ...kept, pseudo: student.name, grade: student.grade };
+      chapter = inClass(save.region) ? chapterById(save.region)! : firstChapter(student.grade);
       save.region = chapter.id;
     } else {
       save = newSave(student.name, student.grade, firstChapter(student.grade).id);
