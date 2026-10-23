@@ -122,6 +122,12 @@ export class LocalBackend implements Backend {
     return { id: t.id, name: t.name, email: t.email };
   }
 
+  async confirmEmail(): Promise<Teacher> {
+    throw new AccountError('Pas de confirmation par e-mail en mode démo.');
+  }
+
+  async resendConfirmation(): Promise<void> {}
+
   async signOut(): Promise<void> {
     this.setSession({ teacherId: undefined });
   }

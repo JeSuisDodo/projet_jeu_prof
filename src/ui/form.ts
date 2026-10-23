@@ -9,8 +9,36 @@ export function field(label: string, type: 'text' | 'email' | 'password', name: 
   input.type = type;
   input.name = name;
   for (const [k, v] of Object.entries(attrs)) input.setAttribute(k, v);
-  wrap.append(input);
+  if (type === 'password') wrap.append(passwordToggle(input));
+  else wrap.append(input);
   return { wrap, input };
+}
+
+const EYE = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>`;
+const EYE_OFF = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M4 20 20 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+/** Mot de passe avec un œil pour l'afficher ou le masquer. */
+function passwordToggle(input: HTMLInputElement): HTMLElement {
+  const box = h('span', 'password-wrap');
+  const eye = h('button', 'eye', EYE) as HTMLButtonElement;
+  eye.type = 'button';
+  const label = (shown: boolean) => {
+    eye.innerHTML = shown ? EYE_OFF : EYE;
+    eye.title = shown ? 'Masquer le mot de passe' : 'Afficher le mot de passe';
+    eye.setAttribute('aria-label', eye.title);
+    eye.setAttribute('aria-pressed', String(shown));
+  };
+  label(false);
+  eye.onclick = (e) => {
+    // Le bouton est dans le <label> : sans ça, le clic redonnerait le focus au champ deux fois.
+    e.preventDefault();
+    const shown = input.type === 'password';
+    input.type = shown ? 'text' : 'password';
+    label(shown);
+    input.focus();
+  };
+  box.append(input, eye);
+  return box;
 }
 
 /** Zone de message sous un formulaire : erreur en rouge, information en vert. */
