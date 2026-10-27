@@ -1,7 +1,8 @@
 import { frac, fracLatex } from '../../exercises/fraction';
 import { sumLatex } from '../../exercises/latex';
 import type { Rng } from '../../exercises/rng';
-import { type Skill, makeChoice } from '../../exercises/types';
+import { type Answer, type Skill, makeChoice } from '../../exercises/types';
+import { enrich, variant } from '../../exercises/variantes';
 import type { ChapterDef } from '../types';
 
 /** 1re spécialité, chapitre « Trigonométrie » : radian, cercle trigonométrique, cosinus et sinus. */
@@ -237,13 +238,186 @@ const parite: Skill = {
   },
 };
 
+const vraiFaux = (b: boolean): Answer => ({ kind: 'choice', options: ['Vrai', 'Faux'], correct: b ? 0 : 1 });
+/** Triplets pythagoriciens : cos x = a/c et sin x = b/c. */
+const TRIPLETS: [number, number, number][] = [
+  [3, 4, 5],
+  [4, 3, 5],
+  [5, 12, 13],
+  [12, 5, 13],
+  [8, 15, 17],
+];
+
+const conversionVariantes = [
+  variant('longueur-arc', (rng) => {
+    const R = rng.int(2, 9);
+    const L = rng.int(1, 20);
+    const value = frac(L, R);
+    return {
+      prompt: `Sur un cercle de rayon $${R}$ cm, un arc mesure $${L}$ cm. Quelle est, en radians, la mesure de l'angle au centre qui l'intercepte ? (Fraction.)`,
+      answer: { kind: 'number', value },
+      hint: 'Un angle de $\\theta$ radians intercepte un arc de longueur $R\\theta$.',
+      correction: [`$\\theta = \\frac{L}{R} = \\frac{${L}}{${R}}${value.d !== R ? ` = ${fracLatex(value)}` : ''}$ rad`],
+    };
+  }),
+  variant('horloge', (rng) => {
+    const t = 5 * rng.int(1, 11);
+    const good = piTex(t, 30);
+    return {
+      prompt: `En $${t}$ minutes, de quel angle (en radians) tourne la grande aiguille d'une horloge ?`,
+      answer: makeChoice(rng, `$${good}$`, [piTex(t, 60), piTex(t, 15), piTex(t, 180), piTex(t, 6)].map((d) => `$${d}$`), () => `$${piTex(t + 5, 30)}$`),
+      hint: 'En $60$ minutes, la grande aiguille fait un tour complet, soit $2\\pi$ radians.',
+      correction: [`$\\frac{${t}}{60} \\times 2\\pi = ${good}$`],
+    };
+  }),
+];
+
+const valeursVariantes = [
+  variant('sinus-carre', (rng) => {
+    const [a, b, c] = rng.pick(TRIPLETS);
+    const fn = rng.pick(['cos', 'sin'] as const);
+    const [given, other] = fn === 'cos' ? [a, b] : [b, a];
+    const value = frac(other * other, c * c);
+    const autre = fn === 'cos' ? 'sin' : 'cos';
+    return {
+      prompt: `On sait que $\\${fn} x = \\frac{${given}}{${c}}$. Calcule $\\${autre}^2 x$ (fraction).`,
+      answer: { kind: 'number', value },
+      hint: 'Pour tout réel $x$, $\\cos^2 x + \\sin^2 x = 1$.',
+      correction: [`$\\${autre}^2 x = 1 - \\left(\\frac{${given}}{${c}}\\right)^2 = 1 - \\frac{${given * given}}{${c * c}} = ${fracLatex(value)}$`],
+    };
+  }),
+  variant('vrai-faux', (rng, level) => {
+    const fn = rng.pick(['cos', 'sin'] as const);
+    const pool = level === 1 ? TWELFTHS.filter((k) => k <= 6) : TWELFTHS.filter((k) => k <= 12);
+    const k = rng.pick(pool);
+    const v = trig(fn, k);
+    const shown = rng.next() < 0.5 ? v : rng.pick([-v, trig(fn === 'cos' ? 'sin' : 'cos', k)]);
+    const ok = Math.abs(shown - v) < 1e-9;
+    return {
+      prompt: `Vrai ou faux : $\\${fn}\\left(${piTex(k, 12)}\\right) = ${exactTex(shown)}$.`,
+      answer: vraiFaux(ok),
+      hint: 'Place le point sur le cercle trigonométrique.',
+      correction: [`$\\${fn}\\left(${piTex(k, 12)}\\right) = ${exactTex(v)}$ : c'est ${ok ? 'vrai' : 'faux'}.`],
+    };
+  }),
+];
+
+const associesVariantes = [
+  variant('valeur', (rng, level) => {
+    const [a, b, c] = rng.pick(TRIPLETS);
+    const t = rng.pick(ASSOCIES.filter((x) => x.level <= Math.min(level, 2)));
+    const value = frac(t.cc * a + t.ss * b, c);
+    return {
+      prompt: `On sait que $\\cos x = \\frac{${a}}{${c}}$ et $\\sin x = \\frac{${b}}{${c}}$. Que vaut $\\${t.fn}\\left(${t.arg}\\right)$ ? (Fraction.)`,
+      answer: { kind: 'number', value },
+      hint: 'Utilise les formules des angles associés.',
+      correction: [`$\\${t.fn}\\left(${t.arg}\\right) = ${combo(t.cc, t.ss)} = ${fracLatex(value)}$`],
+    };
+  }),
+  variant('vrai-faux', (rng, level) => {
+    const t = rng.pick(ASSOCIES.filter((x) => x.level <= Math.min(level, 2)));
+    const ok = rng.next() < 0.5;
+    const [cc, ss] = ok ? [t.cc, t.ss] : rng.pick([[-t.cc, -t.ss], [t.ss, t.cc], [-t.ss, -t.cc]].filter(([p, q]) => p !== t.cc || q !== t.ss)) ?? [-t.cc, -t.ss];
+    const good = cc === t.cc && ss === t.ss;
+    return {
+      prompt: `Vrai ou faux : pour tout réel $x$, $\\${t.fn}\\left(${t.arg}\\right) = ${combo(cc, ss)}$.`,
+      answer: vraiFaux(good),
+      hint: 'Place $x$ et l’angle associé sur le cercle trigonométrique.',
+      correction: [`$\\${t.fn}\\left(${t.arg}\\right) = ${combo(t.cc, t.ss)}$ : c'est ${good ? 'vrai' : 'faux'}.`],
+    };
+  }),
+];
+
+const principaleVariantes = [
+  variant('degres', (rng) => {
+    const m = rng.int(-179, 180);
+    const t = rng.nonZero(-3, 3);
+    return {
+      prompt: `Quelle est la mesure principale, en degrés (dans $]-180\\,;\\,180]$), d'un angle de $${m + 360 * t}°$ ?`,
+      answer: { kind: 'number', value: frac(m) },
+      hint: 'Ajoute ou retire des tours complets de $360°$.',
+      correction: [`$${m + 360 * t} ${t > 0 ? '-' : '+'} ${360 * Math.abs(t)} = ${m}$, donc la mesure principale est $${m}°$.`],
+    };
+  }),
+  variant('meme-point', (rng) => {
+    const d = rng.pick([2, 3, 4, 6]);
+    const m = rng.int(-d + 1, d);
+    const t = rng.nonZero(-3, 3);
+    const ok = rng.next() < 0.5;
+    const n2 = m + (ok ? 2 * t * d : (2 * t + 1) * d);
+    return {
+      prompt: `Vrai ou faux : les réels $${piTex(m, d)}$ et $${piTex(n2, d)}$ repèrent le même point du cercle trigonométrique.`,
+      answer: vraiFaux(ok),
+      hint: 'Deux réels repèrent le même point quand leur différence est un multiple de $2\\pi$.',
+      correction: [`$${piTex(n2, d)} - ${m < 0 ? `\\left(${piTex(m, d)}\\right)` : piTex(m, d)} = ${piTex(n2 - m, d)}$, ${ok ? `soit $${t}$ tour${Math.abs(t) > 1 ? 's' : ''} : c'est vrai` : `qui n'est pas un multiple de $2\\pi$ : c'est faux`}.`],
+    };
+  }),
+];
+
+const equationVariantes = [
+  variant('nombre-solutions', (rng) => {
+    const fn = rng.pick(['cos', 'sin'] as const);
+    const [v, tex] = rng.pick([...VALUES.map((x) => [x, exactTex(x)]), ...VALUES.map((x) => [-x, exactTex(-x)]), [1.5, '\\frac{3}{2}'], [-2, '-2'], [Math.SQRT2, '\\sqrt{2}']] as [number, string][]);
+    const n = solve(fn, v, 0).length;
+    return {
+      prompt: `Combien de solutions l'équation $\\${fn} x = ${tex}$ a-t-elle dans $[0\\,;\\,2\\pi[$ ?`,
+      answer: { kind: 'number', value: frac(n) },
+      hint: `${fn === 'cos' ? 'Le cosinus' : 'Le sinus'} est compris entre $-1$ et $1$ ; trace la droite ${fn === 'cos' ? 'verticale' : 'horizontale'} correspondante.`,
+      correction: [Math.abs(v) > 1 ? `$${tex}$ n'est pas dans $[-1\\,;\\,1]$ : aucune solution.` : `Solutions : ${solve(fn, v, 0).map((k) => `$${piTex(k, 12)}$`).join(' et ')}, soit $${n}$.`],
+    };
+  }),
+  variant('verifier', (rng) => {
+    const fn = rng.pick(['cos', 'sin'] as const);
+    const k = rng.pick(TWELFTHS);
+    const v = rng.next() < 0.5 ? trig(fn, k) : rng.pick(VALUES) * rng.pick([-1, 1]);
+    const ok = Math.abs(trig(fn, k) - v) < 1e-9;
+    return {
+      prompt: `Vrai ou faux : $${piTex(k, 12)}$ est solution de l'équation $\\${fn} x = ${exactTex(v)}$.`,
+      answer: vraiFaux(ok),
+      hint: 'Calcule la valeur exacte au point proposé.',
+      correction: [`$\\${fn}\\left(${piTex(k, 12)}\\right) = ${exactTex(trig(fn, k))}$ : c'est ${ok ? 'vrai' : 'faux'}.`],
+    };
+  }),
+];
+
+const pariteVariantes = [
+  variant('image-opposee', (rng) => {
+    const paire = rng.next() < 0.5;
+    const a = rng.int(1, 9);
+    const b = rng.nonZero(-9, 9);
+    return {
+      prompt: `$f$ est une fonction ${paire ? 'paire' : 'impaire'} définie sur $\\mathbb{R}$ et $f(${a}) = ${b}$. Que vaut $f(${-a})$ ?`,
+      answer: { kind: 'number', value: frac(paire ? b : -b) },
+      hint: paire ? 'Une fonction paire vérifie $f(-x) = f(x)$.' : 'Une fonction impaire vérifie $f(-x) = -f(x)$.',
+      correction: [`$f(${-a}) = ${paire ? `f(${a})` : `-f(${a})`} = ${paire ? b : -b}$`],
+    };
+  }),
+  variant('symetrie', (rng) => {
+    const paire = rng.next() < 0.5;
+    const options = ['l’axe des ordonnées', 'l’origine du repère', 'l’axe des abscisses'];
+    return {
+      prompt: `La courbe représentative d'une fonction ${paire ? 'paire' : 'impaire'}, dans un repère orthogonal, est symétrique par rapport à :`,
+      answer: { kind: 'choice', options, correct: paire ? 0 : 1 },
+      hint: 'Compare les points $(x\\,;\\,f(x))$ et $(-x\\,;\\,f(-x))$.',
+      correction: [paire ? '$(x\\,;\\,f(x))$ et $(-x\\,;\\,f(x))$ sont symétriques par rapport à l’axe des ordonnées.' : '$(x\\,;\\,f(x))$ et $(-x\\,;\\,-f(x))$ sont symétriques par rapport à l’origine.'],
+    };
+  }),
+];
+
 export const TRIGONOMETRIE: ChapterDef = {
   id: '1re-trigonometrie',
   title: 'Trigonométrie',
   region: 'Nuit du Cercle',
   theme: 'nuit',
   terrain: 'lac',
-  skills: [conversion, valeurs, associes, principale, equation, parite],
+  skills: [
+    enrich(conversion, conversionVariantes),
+    enrich(valeurs, valeursVariantes),
+    enrich(associes, associesVariantes),
+    enrich(principale, principaleVariantes),
+    enrich(equation, equationVariantes),
+    enrich(parite, pariteVariantes),
+  ],
   creatures: [
     {
       id: '1re-radianne',

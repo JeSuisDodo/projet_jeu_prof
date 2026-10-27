@@ -755,3 +755,72 @@ describe('variantes de 1re : suites numériques', () => {
     }
   });
 });
+
+describe('variantes de 1re : trigonométrie', () => {
+  const egalite = (tex: string, x = 0) => {
+    const [a, b] = tex.split(' = ');
+    return Math.abs(texEval(a, x) - texEval(b, x)) < 1e-9;
+  };
+
+  it('convertit et mesure des angles', () => {
+    for (const ex of t('1re-trigo-conversion', 'longueur-arc')) {
+      const [R, L] = nombres(ex.prompt);
+      expect(valeur(ex) * R).toBeCloseTo(L, 12);
+    }
+    for (const ex of t('1re-trigo-conversion', 'horloge')) {
+      const [m] = nombres(ex.prompt);
+      expect(texEval(optionJuste(ex).replace(/\$/g, ''), 0)).toBeCloseTo((m / 60) * 2 * Math.PI, 12);
+    }
+    for (const ex of t('1re-trigo-mesure-principale', 'degres')) {
+      const a = Number(/de \$(-?\d+)°\$/.exec(ex.prompt)![1]);
+      const m = valeur(ex);
+      expect(m > -180 && m <= 180 && (a - m) % 360 === 0).toBe(true);
+    }
+    for (const ex of t('1re-trigo-mesure-principale', 'meme-point')) {
+      const [a, b] = [...ex.prompt.matchAll(/\$([^$]+)\$/g)].slice(0, 2).map((m) => texEval(m[1], 0));
+      const tours = (b - a) / (2 * Math.PI);
+      expect(optionJuste(ex)).toBe(Math.abs(tours - Math.round(tours)) < 1e-9 ? 'Vrai' : 'Faux');
+    }
+  });
+
+  it('utilise valeurs remarquables et angles associés', () => {
+    for (const ex of t('1re-trigo-valeurs', 'sinus-carre')) {
+      const v = texEval(/x = (\\frac\{\d+\}\{\d+\})\$/.exec(ex.prompt)![1], 0);
+      expect(valeur(ex)).toBeCloseTo(1 - v * v, 12);
+    }
+    for (const ex of t('1re-trigo-valeurs', 'vrai-faux')) expect(optionJuste(ex), ex.prompt).toBe(egalite(/\$(.+)\$\.$/.exec(ex.prompt)![1]) ? 'Vrai' : 'Faux');
+    for (const ex of t('1re-trigo-associes', 'valeur')) {
+      const [c, s] = [/\\cos x = (\\frac\{\d+\}\{\d+\})/, /\\sin x = (\\frac\{\d+\}\{\d+\})/].map((r) => texEval(r.exec(ex.prompt)![1], 0));
+      const x = Math.atan2(s, c);
+      const expr = /Que vaut \$(.+)\$ \?/.exec(ex.prompt)![1];
+      expect(valeur(ex)).toBeCloseTo(texEval(expr, x), 12);
+    }
+    for (const ex of t('1re-trigo-associes', 'vrai-faux')) {
+      const tex = /\$x\$, \$(.+)\$\.$/.exec(ex.prompt)![1];
+      const ok = [0.3, 1.1, 2.5].every((x) => egalite(tex, x));
+      expect(optionJuste(ex), ex.prompt).toBe(ok ? 'Vrai' : 'Faux');
+    }
+  });
+
+  it('résout des équations et utilise la parité', () => {
+    for (const ex of t('1re-trigo-equation', 'nombre-solutions')) {
+      const [fn, v] = /\\(cos|sin) x = (.+?)\$/.exec(ex.prompt)!.slice(1);
+      const f = fn === 'cos' ? Math.cos : Math.sin;
+      const cible = texEval(v, 0);
+      // Changements de signe de f - cible le long du cercle (grille décalée, sans point exact), hors tangences (±1).
+      const xs = Array.from({ length: 24000 }, (_, i) => ((i + 0.5) * 2 * Math.PI) / 24000);
+      const signes = xs.map((x) => f(x) > cible);
+      const n = signes.filter((sg, i) => sg !== signes[(i + signes.length - 1) % signes.length]).length;
+      expect(valeur(ex), ex.prompt).toBe(Math.abs(cible) === 1 ? 1 : n);
+    }
+    for (const ex of t('1re-trigo-equation', 'verifier')) {
+      const [k, eq] = /\$(.+?)\$ est solution de l'équation \$(.+)\$\.$/.exec(ex.prompt)!.slice(1);
+      expect(optionJuste(ex), ex.prompt).toBe(egalite(eq, texEval(k, 0)) ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('1re-trigo-parite', 'image-opposee')) {
+      const b = Number(/= (-?\d+)\$\. Que/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBe(ex.prompt.includes('impaire') ? -b : b);
+    }
+    for (const ex of t('1re-trigo-parite', 'symetrie')) expect(optionJuste(ex)).toBe(ex.prompt.includes('impaire') ? 'l’origine du repère' : 'l’axe des ordonnées');
+  });
+});
