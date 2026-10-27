@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { TERMINALE } from '../src/content/terminale';
 import { texEval } from './helpers/texEval';
-import { optionJuste, tirages, valeur, variantesDe } from './helpers/variantes';
+import { lireNombre, optionJuste, tirages, valeur, variantesDe } from './helpers/variantes';
 
 /** Justesse des variantes d'exercices de Terminale : chaque réponse est recalculée à partir de l'énoncé. */
 
@@ -102,6 +102,76 @@ describe('variantes de Terminale : suites et récurrence', () => {
     for (const ex of t('tle-heredite', 'vrai-faux')) {
       // Les deux affirmations vraies sont le principe de récurrence et l'initialisation au premier rang concerné.
       const vrai = ex.prompt.startsWith('Vrai ou faux : si $P$ est') ? false : /\$P\(0\)\$ est vraie et si|initialiser au rang/.test(ex.prompt);
+      expect(optionJuste(ex)).toBe(vrai ? 'Vrai' : 'Faux');
+    }
+  });
+});
+
+describe('variantes de Terminale : limites de suites', () => {
+  /** Valeur de u_n (formule après « u_n = ») pour un grand n. */
+  const enN = (s: string, n: number) => texEval(/u_n = (.+?)\$/.exec(s)![1].replace(/n/g, `(${n})`), 0);
+
+  it('calcule des limites', () => {
+    for (const ex of t('tle-limite-quotient', 'conjuguee')) expect(valeur(ex)).toBeCloseTo(enN(ex.prompt, 1e6), 4);
+    for (const ex of t('tle-limite-quotient', 'exponentielles')) expect(valeur(ex)).toBeCloseTo(enN(ex.prompt, 200), 9);
+    for (const ex of t('tle-limite-qn', 'somme-infinie')) {
+      const q = texEval(/\\left\(([^()]+?)\\right\)\^n/.exec(ex.prompt)![1], 0);
+      const s = Array.from({ length: 200 }, (_, k) => q ** k).reduce((a, b) => a + b, 0);
+      expect(valeur(ex)).toBeCloseTo(s, 9);
+    }
+    for (const ex of t('tle-limite-qn', 'vrai-faux')) {
+      const q = texEval(/\\left\(\\left\((.+?)\\right\)\^n/.exec(ex.prompt)![1], 0);
+      const [a, b] = [q ** 400, q ** 401];
+      const converge = Number.isFinite(a) && Math.abs(a - b) < 1e-9;
+      expect(optionJuste(ex), ex.prompt).toBe(converge ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-limite-point-fixe', 'racine')) {
+      const rec = /u_\{n\+1\} = (.+?)\$/.exec(ex.prompt)![1];
+      expect(valeur(ex)).toBeCloseTo(suite(1, rec, 200)[200], 9);
+    }
+    for (const ex of t('tle-limite-point-fixe', 'retrouver-b')) {
+      const rec = /u_\{n\+1\} = (.+?) \+ b\$/.exec(ex.prompt)![1];
+      const l = Number(/converge vers \$(-?\d+)\$/.exec(ex.prompt)![1]);
+      expect(suite(0, `${rec} + (${valeur(ex)})`, 300)[300]).toBeCloseTo(l, 9);
+    }
+    for (const ex of t('tle-gendarmes', 'somme')) {
+      const a = Number(/\\frac\{(\d+)n\}/.exec(ex.prompt)![1]);
+      const n = 20000;
+      let s = 0;
+      for (let k = 1; k <= n; k++) s += (a * n) / (n * n + k);
+      expect(valeur(ex)).toBeCloseTo(s, 3);
+    }
+    for (const ex of t('tle-gendarmes', 'encadrement')) {
+      const [lo, hi] = [...ex.prompt.matchAll(/\\frac\{(.+?)\}\{(.+?)\}/g)].map((m) => texEval(`\\frac{${m[1]}}{${m[2]}}`.replace(/n/g, '(1000000)'), 0));
+      expect(valeur(ex)).toBeCloseTo(lo, 4);
+      expect(valeur(ex)).toBeCloseTo(hi, 4);
+    }
+  });
+
+  it('détermine des seuils et utilise les théorèmes', () => {
+    for (const ex of t('tle-seuil', 'decroissante')) {
+      const s = lireNombre(/u_n < (.+?)\$/.exec(ex.prompt)![1]);
+      const n = valeur(ex);
+      expect(enN(ex.prompt, n) < s && enN(ex.prompt, n - 1) >= s).toBe(true);
+    }
+    for (const ex of t('tle-seuil', 'arithmetique')) {
+      const s = Number(/u_n > (-?\d+)\$/.exec(ex.prompt)![1]);
+      const n = valeur(ex);
+      expect(enN(ex.prompt, n) > s && enN(ex.prompt, n - 1) <= s).toBe(true);
+    }
+    for (const ex of t('tle-comparaison', 'conclusion')) {
+      const borne = /\$u_n (\\geq|\\leq) (.+?)\$/.exec(ex.prompt)!;
+      const loin = texEval(borne[2].replace(/n/g, '(1000000000000)'), 0);
+      const attendu = borne[1] === '\\geq' && loin > 1e5 ? 0 : borne[1] === '\\leq' && loin < -1e5 ? 1 : 3;
+      expect(optionJuste(ex), ex.prompt).toBe(['Elle tend vers $+\\infty$', 'Elle tend vers $-\\infty$', 'Elle converge vers $0$', 'On ne peut rien dire'][attendu]);
+    }
+    for (const ex of t('tle-comparaison', 'vrai-faux')) {
+      const vrai = /u_n \\geq v_n\$ et \$v_n \\to|u_n \\leq v_n\$ et \$u_n \\to/.test(ex.prompt);
+      expect(optionJuste(ex)).toBe(vrai ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-convergence-monotone', 'exemple')) expect(valeur(ex)).toBeCloseTo(enN(ex.prompt, 1e9), 6);
+    for (const ex of t('tle-convergence-monotone', 'vrai-faux')) {
+      const vrai = /limite \$\\ell|non majorée/.test(ex.prompt);
       expect(optionJuste(ex)).toBe(vrai ? 'Vrai' : 'Faux');
     }
   });
