@@ -709,3 +709,90 @@ describe('variantes de Terminale : calcul intégral', () => {
     }
   });
 });
+
+describe('variantes de Terminale : dénombrement', () => {
+  /** Toutes les suites de longueur k d'éléments de 0..n-1 (avec ou sans répétition). */
+  const suites = (n: number, k: number, distincts: boolean): number[][] => {
+    if (k === 0) return [[]];
+    return suites(n, k - 1, distincts).flatMap((s) => Array.from({ length: n }, (_, i) => i).filter((i) => !distincts || !s.includes(i)).map((i) => [...s, i]));
+  };
+  /** Parties de {0..n-1} sous forme de masques. */
+  const parties = (n: number) => Array.from({ length: 2 ** n }, (_, m) => Array.from({ length: n }, (_, i) => i).filter((i) => m & (1 << i)));
+  const entiers = (s: string) => [...s.matchAll(/(\d+)/g)].map((m) => Number(m[1]));
+  const fact = (n: number): number => (n <= 1 ? 1 : n * fact(n - 1));
+  /** Coefficient binomial par le triangle de Pascal. */
+  const C = (n: number, k: number): number => (k < 0 || k > n ? 0 : k === 0 || k === n ? 1 : C(n - 1, k - 1) + C(n - 1, k));
+
+  it('compte permutations, uplets et arrangements par énumération', () => {
+    for (const ex of t('tle-permutations', 'contrainte', 30)) {
+      const n = entiers(ex.prompt)[0];
+      const perms = suites(n, n, true);
+      // Les deux amis nommés sont les personnes 0 et 1.
+      const ok = ex.prompt.includes('côte à côte') ? perms.filter((p) => Math.abs(p.indexOf(0) - p.indexOf(1)) === 1) : perms.filter((p) => p[0] === 0);
+      expect(valeur(ex), ex.prompt).toBe(ok.length);
+    }
+    for (const ex of t('tle-permutations', 'anagrammes-repetees', 30)) {
+      const mot = /mot ([A-Z]+)/.exec(ex.prompt)![1];
+      const mots = new Set(suites(mot.length, mot.length, true).map((p) => p.map((i) => mot[i]).join('')));
+      expect(valeur(ex), ex.prompt).toBe(mots.size);
+    }
+    for (const ex of t('tle-k-uplets', 'plaques')) {
+      const [l, c] = entiers(ex.prompt.replace('26', '').replace(/de 0 à 9/, ''));
+      expect(valeur(ex), ex.prompt).toBe(26 ** l * 10 ** c);
+    }
+    for (const ex of t('tle-k-uplets', 'au-moins-un', 20)) {
+      const [k, , , ch] = entiers(ex.prompt);
+      expect(valeur(ex), ex.prompt).toBe(suites(10, k, false).filter((s) => s.includes(ch)).length);
+    }
+    for (const ex of t('tle-arrangements', 'mots-distincts', 30)) {
+      const n = /lettres ([A-H, ]+), combien/.exec(ex.prompt)![1].split(', ').length;
+      const k = entiers(/de (\d+) lettres/.exec(ex.prompt)![1])[0];
+      expect(valeur(ex), ex.prompt).toBe(suites(n, k, true).length);
+    }
+    for (const ex of t('tle-arrangements', 'chiffres-distincts', 20)) {
+      const k = entiers(ex.prompt)[0];
+      let n = 0;
+      for (let x = 10 ** (k - 1); x < 10 ** k; x++) if (new Set(String(x)).size === k) n++;
+      expect(valeur(ex), ex.prompt).toBe(n);
+    }
+  });
+
+  it('compte combinaisons et parties par énumération', () => {
+    for (const ex of t('tle-combinaisons', 'poignees-de-main', 30)) expect(valeur(ex)).toBe(C(entiers(ex.prompt)[0], 2));
+    for (const ex of t('tle-combinaisons', 'pascal', 30)) {
+      const [n, k, A, , , B, n1, k1] = entiers(ex.prompt);
+      expect([A, B]).toEqual([C(n, k), C(n, k + 1)]);
+      expect(valeur(ex)).toBe(C(n1, k1));
+    }
+    for (const ex of t('tle-parties', 'non-vide', 30)) expect(valeur(ex)).toBe(parties(entiers(ex.prompt)[0]).filter((p) => p.length > 0).length);
+    for (const ex of t('tle-parties', 'avec-element', 30)) expect(valeur(ex)).toBe(parties(entiers(ex.prompt)[0]).filter((p) => p.includes(0)).length);
+    for (const ex of t('tle-denombrement-condition', 'mixte', 30)) {
+      const [g, b, kg, kb] = entiers(ex.prompt);
+      expect(valeur(ex), ex.prompt).toBe(C(g, kg) * C(b, kb));
+    }
+    for (const ex of t('tle-denombrement-condition', 'pas-ensemble', 30)) {
+      const [k, n] = entiers(ex.prompt);
+      expect(valeur(ex), ex.prompt).toBe(parties(n).filter((p) => p.length === k && !(p.includes(0) && p.includes(1))).length);
+    }
+  });
+
+  it('choisit le bon modèle et vérifie des formules', () => {
+    for (const ex of t('tle-denombrement-modele', 'autres-situations')) {
+      const s = ex.prompt;
+      const attendu = /plusieurs fois|Lancer/.test(s) ? 0 : /différent(e)?s, choisies|prix différents/.test(s) ? 1 : /simultanément|Emporter/.test(s) ? 2 : 3;
+      if (ex.answer.kind !== 'choice') throw new Error('QCM attendu');
+      expect(ex.answer.correct, s).toBe(attendu);
+    }
+    const binomEval = (s: string) =>
+      texEval(
+        s
+          .replace(/\\binom\{(\d+)\}\{(\d+)\}/g, (_, n: string, k: string) => `(${C(Number(n), Number(k))})`)
+          .replace(/(\d+)!/g, (_, n: string) => `(${fact(Number(n))})`),
+        0,
+      );
+    for (const ex of t('tle-denombrement-modele', 'vrai-faux-formule', 30)) {
+      const [g, d] = /\$(.+)\$/.exec(ex.prompt)![1].split(' = ').map(binomEval);
+      expect(optionJuste(ex), ex.prompt).toBe(g === d ? 'Vrai' : 'Faux');
+    }
+  });
+});
