@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { PREMIERE } from '../src/content/premiere';
 import type { Exercise } from '../src/exercises/types';
 import { texEval } from './helpers/texEval';
-import { ensemble, nombres, optionJuste, tirages, valeur, variantesDe } from './helpers/variantes';
+import { ensemble, lireNombre, nombres, optionJuste, tirages, valeur, variantesDe } from './helpers/variantes';
 
 /** Justesse des variantes d'exercices de 1re spécialité : chaque réponse est recalculée à partir de l'énoncé. */
 
@@ -387,6 +387,98 @@ describe('variantes de 1re : géométrie repérée', () => {
     for (const ex of t('1re-geo-distance-droite', 'droites-paralleles')) {
       const [[a, b, c], [, , c2]] = droites(ex.prompt);
       expect(valeur(ex)).toBeCloseTo(Math.abs(c - c2) / Math.hypot(a, b), 9);
+    }
+  });
+});
+
+describe('variantes de 1re : probabilités conditionnelles', () => {
+  const pcts = (s: string) => [...s.matchAll(/\$(\d+)\\,\\%\$/g)].map((m) => Number(m[1]) / 100);
+  /** Probabilités écrites « $P(…) = 0{,}35$ », par nom d'événement. */
+  const probas = (s: string) => Object.fromEntries([...s.matchAll(/(P(?:_\{[^}]+\})?\([^)]+\)) = (\d+(?:\{,\}\d+)?)\$/g)].map((m) => [m[1], lireNombre(m[2])]));
+  const entiers = (s: string) => [...s.matchAll(/\$(\d+)\$/g)].map((m) => Number(m[1]));
+  const proche = (ex: Exercise, v: number) => expect(valeur(ex), ex.prompt).toBeCloseTo(v, 10);
+
+  it('lit des effectifs', () => {
+    for (const ex of t('1re-proba-tableau', 'urne')) {
+      const [, r1, , b1] = entiers(ex.prompt);
+      proche(ex, r1 / (r1 + b1));
+    }
+    for (const ex of t('1re-proba-tableau', 'effectifs')) {
+      const [, nAB, , nnAB] = entiers(ex.prompt);
+      proche(ex, nAB / (nAB + nnAB));
+    }
+    for (const ex of t('1re-proba-tableau', 'vrai-faux')) {
+      const cells = /\\hline A & (\d+) & (\d+) & \d+ \\\\ \\hline \\overline\{A\} & (\d+) & (\d+)/.exec(ex.prompt)!.slice(1).map(Number);
+      const [ab, anb, nab] = cells;
+      expect(optionJuste(ex)).toBe(ab / (ab + anb) === ab / (ab + nab) ? 'Vrai' : 'Faux');
+    }
+  });
+
+  it('calcule intersections et probabilités totales', () => {
+    for (const ex of t('1re-proba-intersection', 'situation')) {
+      const [a, b] = pcts(ex.prompt);
+      proche(ex, a * b);
+    }
+    for (const ex of t('1re-proba-intersection', 'retrouver-conditionnelle')) {
+      const p = probas(ex.prompt);
+      proche(ex, p['P(A \\cap B)'] / p['P(A)']);
+    }
+    for (const ex of t('1re-proba-intersection', 'retrouver-pa')) {
+      const p = probas(ex.prompt);
+      proche(ex, p['P(A \\cap B)'] / p['P_{A}(B)']);
+    }
+    for (const ex of t('1re-proba-totales', 'depistage')) {
+      const [a, b, c] = pcts(ex.prompt);
+      proche(ex, a * b + (1 - a) * c);
+    }
+    for (const ex of t('1re-proba-totales', 'trois-machines')) {
+      const [p1, p2, d1, d2, d3] = pcts(ex.prompt);
+      proche(ex, p1 * d1 + p2 * d2 + (1 - p1 - p2) * d3);
+    }
+    for (const ex of t('1re-proba-totales', 'retrouver-branche')) {
+      const p = probas(ex.prompt);
+      // Probabilités totales avec l'inconnue remplacée par la réponse.
+      expect(p['P(A)'] * p['P_{A}(B)'] + (1 - p['P(A)']) * valeur(ex)).toBeCloseTo(p['P(B)'], 10);
+    }
+  });
+
+  it('inverse les conditionnements', () => {
+    for (const ex of t('1re-proba-inversion', 'depistage')) {
+      const [a, b, c] = pcts(ex.prompt);
+      proche(ex, (a * b) / (a * b + (1 - a) * c));
+    }
+    for (const ex of t('1re-proba-inversion', 'trois-machines')) {
+      const [p1, p2, d1, d2, d3] = pcts(ex.prompt);
+      const parts = [p1 * d1, p2 * d2, (1 - p1 - p2) * d3];
+      const k = Number(/de la machine (\d)/.exec(ex.prompt)![1]) - 1;
+      proche(ex, parts[k] / (parts[0] + parts[1] + parts[2]));
+    }
+  });
+
+  it('utilise l’indépendance', () => {
+    for (const ex of t('1re-proba-independance', 'reunion')) {
+      const p = probas(ex.prompt);
+      proche(ex, p['P(A)'] + p['P(B)'] - p['P(A)'] * p['P(B)']);
+    }
+    for (const ex of t('1re-proba-independance', 'contraire')) {
+      const p = probas(ex.prompt);
+      proche(ex, p['P(A)'] * (1 - p['P(B)']));
+    }
+    const evenements: Record<string, (n: number) => boolean> = {
+      pair: (n) => n % 2 === 0,
+      impair: (n) => n % 2 === 1,
+      'un multiple de 3': (n) => n % 3 === 0,
+      'au plus 2': (n) => n <= 2,
+      'au plus 4': (n) => n <= 4,
+      premier: (n) => [2, 3, 5].includes(n),
+      'au moins 5': (n) => n >= 5,
+    };
+    for (const ex of t('1re-proba-independance', 'de')) {
+      const [A, B] = [...ex.prompt.matchAll(/« le nombre est (.+?) »/g)].map((m) => evenements[m[1]]);
+      const faces = [1, 2, 3, 4, 5, 6];
+      const n = (e: (k: number) => boolean) => faces.filter(e).length;
+      const ok = n((k) => A(k) && B(k)) * 6 === n(A) * n(B);
+      expect(optionJuste(ex).startsWith('Oui')).toBe(ok);
     }
   });
 });
