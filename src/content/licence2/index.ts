@@ -1,4 +1,6 @@
 import type { GradeDef } from '../types';
+import { enrichChapters } from '../../exercises/variantes';
+import { VARIANTES_L2 } from '../../exercises/licence2/variantes';
 import { DETERMINANTS } from './determinants';
 import { ELEMENTS_PROPRES } from './elementsPropres';
 import { DIAGONALISATION } from './diagonalisation';
@@ -19,5 +21,5 @@ export const LICENCE2: GradeDef = {
   name: 'Licence 2',
   stage: 'universite',
   island: 'Île des Valeurs propres',
-  chapters: [DETERMINANTS, ELEMENTS_PROPRES, DIAGONALISATION, EUCLIDIENS, FORMES_QUADRATIQUES, SERIES_NUMERIQUES, INTEGRALES_GENERALISEES, SUITES_FONCTIONS, SERIES_ENTIERES, PLUSIEURS_VARIABLES, INTEGRALES_DOUBLES, VARIABLES_DISCRETES, VARIABLES_DENSITE],
+  chapters: enrichChapters([DETERMINANTS, ELEMENTS_PROPRES, DIAGONALISATION, EUCLIDIENS, FORMES_QUADRATIQUES, SERIES_NUMERIQUES, INTEGRALES_GENERALISEES, SUITES_FONCTIONS, SERIES_ENTIERES, PLUSIEURS_VARIABLES, INTEGRALES_DOUBLES, VARIABLES_DISCRETES, VARIABLES_DENSITE], VARIANTES_L2),
 };
