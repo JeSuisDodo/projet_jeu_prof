@@ -723,3 +723,152 @@ describe('variantes de 2nde : information chiffrée', () => {
     }
   });
 });
+
+/** Lignes « ax + by = e » d'un système \begin{cases}. */
+function systemeLu(s: string): [number, number, number][] {
+  const body = /\\begin\{cases\} (.+) \\end\{cases\}/.exec(s)![1];
+  return body.split(' \\\\ ').map((row) => {
+    const [lhs, rhs] = row.split(' = ');
+    const o = texEval(lhs, 0, 0);
+    return [texEval(lhs, 1, 0) - o, texEval(lhs, 0, 1) - o, Number(rhs)];
+  });
+}
+
+describe('variantes de 2nde : positions relatives et systèmes', () => {
+  it('compare des droites', () => {
+    for (const ex of t('2nde-position-droites', 'parametre')) {
+      const d = /d : (y = .+)\$ \?/.exec(ex.prompt)![1];
+      expect(valeur(ex)).toBe(droite(d, 1) - droite(d, 0));
+    }
+    for (const ex of t('2nde-position-droites', 'cartesiennes')) {
+      const [e1, e2] = [...ex.prompt.matchAll(/d_\d : (.+?) = 0\$/g)].map((m) => m[1]);
+      const coef = (e: string) => [texEval(e, 1, 0) - texEval(e, 0, 0), texEval(e, 0, 1) - texEval(e, 0, 0), texEval(e, 0, 0)];
+      const [a, b, c] = coef(e1);
+      const [a2, b2, c2] = coef(e2);
+      const det = a * b2 - b * a2;
+      const conf = det === 0 && a * c2 === a2 * c && b * c2 === b2 * c;
+      expect(optionJuste(ex)).toBe(det !== 0 ? 'Sécantes' : conf ? 'Confondues' : 'Strictement parallèles');
+    }
+    for (const ex of t('2nde-parallele-point', 'cartesienne')) {
+      const eq = /forme \$(.+) \+ c' = 0\$/.exec(ex.prompt)![1];
+      const { A } = points(ex.prompt);
+      expect(texEval(eq, A[0], A[1]) + valeur(ex)).toBe(0);
+    }
+    for (const ex of t('2nde-parallele-point', 'quatre-points')) {
+      const { A, B, C, D } = points(ex.prompt);
+      expect(optionJuste(ex)).toBe((B[0] - A[0]) * (D[1] - C[1]) === (B[1] - A[1]) * (D[0] - C[0]) ? 'Oui' : 'Non');
+    }
+  });
+
+  it('trouve des points d’intersection', () => {
+    for (const ex of t('2nde-intersection', 'axe-abscisses')) {
+      const [x, y] = paire(ex);
+      expect(y).toBe(0);
+      expect(droite(/droite \$(.+)\$ coupe/.exec(ex.prompt)![1], x)).toBeCloseTo(0);
+    }
+    for (const ex of t('2nde-intersection', 'verifier-point')) {
+      const { I } = points(ex.prompt);
+      const [d1, d2] = [...ex.prompt.matchAll(/d_\d : (y = [^$]+)\$/g)].map((m) => m[1]);
+      expect(optionJuste(ex)).toBe(droite(d1, I[0]) === I[1] && droite(d2, I[0]) === I[1] ? 'Oui' : 'Non');
+    }
+  });
+
+  it('met en équation et résout des systèmes', () => {
+    for (const nom of ['achats', 'tetes-pattes'])
+      for (const ex of t('2nde-systeme', nom)) {
+        const [x, y] = paire(ex);
+        for (const [a, b, e] of systemeLu(ex.correction[0])) expect(a * x + b * y, ex.prompt).toBe(e);
+        expect(x).toBeGreaterThan(0);
+        expect(y).toBeGreaterThan(0);
+      }
+    for (const ex of t('2nde-systeme', 'tetes-pattes')) {
+      const [tetes, pattes] = nombres(ex.prompt);
+      const [x, y] = paire(ex);
+      expect([x + y, 2 * x + 4 * y]).toEqual([tetes, pattes]);
+    }
+    for (const ex of t('2nde-systeme-nb', 'parametre')) {
+      const k = valeur(ex);
+      const [[a, b], [c, d]] = systemeLu(ex.prompt.replace('ky', `${k}y`).replace('+ -', '- '));
+      expect(a * d - b * c, ex.prompt).toBe(0);
+    }
+    for (const ex of t('2nde-systeme-nb', 'couple-solution')) {
+      const [, x, y] = /couple \$\((-?\d+)\\,;\\,(-?\d+)\)\$/.exec(ex.prompt)!.map(Number);
+      const ok = systemeLu(ex.prompt).every(([a, b, e]) => a * x + b * y === e);
+      expect(optionJuste(ex)).toBe(ok ? 'Oui' : 'Non');
+    }
+  });
+});
+
+describe('variantes de 2nde : probabilités', () => {
+  it('compte les cas favorables', () => {
+    const jeu = [7, 8, 9, 10, 11, 12, 13, 14].flatMap((v) => ['coeur', 'carreau', 'pique', 'trefle'].map((c) => ({ v, c })));
+    const rouge = (c: string) => c === 'coeur' || c === 'carreau';
+    const figure = (v: number) => v >= 11 && v <= 13;
+    const evenements: Record<string, (k: { v: number; c: string }) => boolean> = {
+      'un roi': (k) => k.v === 13,
+      'un cœur': (k) => k.c === 'coeur',
+      'une figure (valet, dame ou roi)': (k) => figure(k.v),
+      'une carte rouge': (k) => rouge(k.c),
+      'un as ou un roi': (k) => k.v === 13 || k.v === 14,
+      'le roi de cœur': (k) => k.v === 13 && k.c === 'coeur',
+      'un cœur ou un roi': (k) => k.v === 13 || k.c === 'coeur',
+      'une carte noire qui n’est pas une figure': (k) => !rouge(k.c) && !figure(k.v),
+    };
+    for (const ex of t('2nde-proba-simple', 'cartes')) {
+      const ev = /tirer (.+) \?$/.exec(ex.prompt)![1];
+      expect(valeur(ex)).toBeCloseTo(jeu.filter(evenements[ev]).length / 32);
+    }
+    for (const ex of t('2nde-proba-simple', 'composition')) {
+      const [total] = nombres(ex.prompt);
+      const p = texEval(/est \$(.+)\$\. Combien/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeCloseTo(p * total);
+    }
+    for (const ex of t('2nde-deux-des', 'piece-et-de')) {
+      const cond = /nombre (.+) \?$/.exec(ex.prompt)![1];
+      const ok = (d: number) => (cond === 'pair' ? d % 2 === 0 : cond === 'un multiple de 3' ? d % 3 === 0 : cond === 'supérieur ou égal à 5' ? d >= 5 : d === 6);
+      expect(valeur(ex)).toBeCloseTo([1, 2, 3, 4, 5, 6].filter(ok).length / 12);
+    }
+    for (const ex of t('2nde-deux-des', 'somme-au-moins')) {
+      const s = nombres(ex.prompt).at(-1)!;
+      let c = 0;
+      for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (ex.prompt.includes('supérieure') ? a + b >= s : a + b <= s) c++;
+      expect(valeur(ex)).toBeCloseTo(c / 36);
+    }
+  });
+
+  it('utilise contraire, réunion et tableaux', () => {
+    for (const ex of t('2nde-proba-contraire', 'au-moins-une')) expect(valeur(ex)).toBeCloseTo(1 - nombres(ex.prompt)[0]);
+    for (const ex of t('2nde-proba-contraire', 'pourcentage')) expect(valeur(ex)).toBeCloseTo(1 - pourcents(ex.prompt)[0] / 100);
+    for (const ex of t('2nde-proba-reunion', 'ni-l-un-ni-l-autre')) {
+      const [a, b, both] = pourcents(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo(1 - (a + b - both) / 100);
+      expect(valeur(ex)).toBeGreaterThanOrEqual(0);
+    }
+    for (const ex of t('2nde-proba-reunion', 'incompatibles')) {
+      const [pa, pb] = [...ex.prompt.matchAll(/P\([AB]\) = ([\d{},]+)\$/g)].map((m) => lireNombre(m[1]));
+      expect(optionJuste(ex)).toBe(pa + pb <= 1 + 1e-9 ? 'Oui' : 'Non');
+    }
+    for (const ex of t('2nde-tableau-double', 'completer')) {
+      const cells = [...ex.prompt.matchAll(/& (\d+|\?)/g)].map((m) => m[1]);
+      // Seconde : externe, ?, total ; Première : externe, demi, total ; Total : …, …, total général.
+      const [ext, , tot] = cells.map(Number);
+      expect(valeur(ex)).toBeCloseTo((tot - ext) / Number(cells[8]));
+    }
+    for (const ex of t('2nde-tableau-double', 'pourcentages')) {
+      const [fl, fn, gl, gn] = [...ex.prompt.matchAll(/& (\d+)\\,\\%/g)].map((m) => Number(m[1]));
+      expect(fl + fn + gl + gn).toBe(100);
+      expect(valeur(ex)).toBeCloseTo((ex.prompt.includes('soit vaccinée') ? fl + gl : fl + fn) / 100);
+    }
+  });
+
+  it('calcule les intervalles de fluctuation', () => {
+    for (const ex of t('2nde-echantillonnage', 'borne')) {
+      const [p, n] = nombres(ex.prompt.replace('p = ', '').replace('n = ', ''));
+      expect(valeur(ex)).toBeCloseTo(p + (ex.prompt.includes('inférieure') ? -1 : 1) / Math.sqrt(n));
+    }
+    for (const ex of t('2nde-echantillonnage', 'taille')) {
+      const m = lireNombre(/= ([\d{},]+)\$ \?/.exec(ex.prompt)![1]);
+      expect(1 / Math.sqrt(valeur(ex))).toBeCloseTo(m);
+    }
+  });
+});
