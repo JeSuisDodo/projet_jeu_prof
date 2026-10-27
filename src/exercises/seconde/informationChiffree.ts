@@ -1,6 +1,6 @@
 import { frac } from '../fraction';
 import type { Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { dec, fixedChoice, fracOf } from './outils';
 
 /** Chapitre 11 de 2nde : proportions, taux d'évolution, coefficients multiplicateurs. */
@@ -186,7 +186,7 @@ const valeurFinale: Skill = {
 const evolution = (t: number) => (t > 0 ? `une hausse de $${dec(t)}\\,\\%$` : `une baisse de $${dec(-t)}\\,\\%$`);
 
 const proportionVariantes = [
-  variante('effectif', (rng, level) => {
+  variant('effectif', (rng, level) => {
     let total: number;
     let pct: number;
     do {
@@ -201,7 +201,7 @@ const proportionVariantes = [
       correction: [`$${total} \\times \\frac{${dec(pct)}}{100} = ${part}$`],
     };
   }),
-  variante('total', (rng, level) => {
+  variant('total', (rng, level) => {
     const pct = rng.pick(level === 1 ? [10, 20, 25, 50] : [4, 8, 12, 15, 30, 35, 40, 60]);
     const total = rng.pick([100, 200, 300, 400, 500, 600, 800, 1000, 1200]);
     const part = (total * pct) / 100;
@@ -215,7 +215,7 @@ const proportionVariantes = [
 ];
 
 const proportionDeProportionVariantes = [
-  variante('retrouver', (rng) => {
+  variant('retrouver', (rng) => {
     const p1 = rng.pick([20, 25, 40, 50, 80]);
     const p2 = rng.pick([10, 20, 25, 50, 60, 75]);
     const global = r6((p1 * p2) / 100);
@@ -226,7 +226,7 @@ const proportionDeProportionVariantes = [
       correction: [`$\\frac{${dec(global / 100)}}{${dec(p1 / 100)}} = ${dec(p2 / 100)}$`, `Soit $${p2}\\,\\%$ des cadres.`],
     };
   }),
-  variante('effectif', (rng, level) => {
+  variant('effectif', (rng, level) => {
     let total: number;
     let p1: number;
     let p2: number;
@@ -246,7 +246,7 @@ const proportionDeProportionVariantes = [
 ];
 
 const tauxEvolutionVariantes = [
-  variante('depuis-coef', (rng, level) => {
+  variant('depuis-coef', (rng, level) => {
     const t = rng.pick(level === 1 ? [10, 20, 50, -10, -20, -50] : [3, 7, 15, 35, -4, -15, -35, -62, 120]);
     const cm = r6(1 + t / 100);
     return {
@@ -256,7 +256,7 @@ const tauxEvolutionVariantes = [
       correction: [`$t = ${dec(cm)} - 1 = ${dec(t / 100)}$`, `Soit $${dec(t)}\\,\\%$.`],
     };
   }),
-  variante('multiple', (rng) => {
+  variant('multiple', (rng) => {
     const [mot, k] = rng.pick([
       ['a doublé', 2],
       ['a triplé', 3],
@@ -276,7 +276,7 @@ const tauxEvolutionVariantes = [
 ];
 
 const coefVariantes = [
-  variante('entre-deux-valeurs', (rng, level) => {
+  variant('entre-deux-valeurs', (rng, level) => {
     const v0 = rng.pick([20, 40, 50, 80, 125, 200, 250]);
     const t = rng.pick(level === 1 ? [10, 20, 50, -10, -20, -50] : [4, 12, 35, 60, -5, -15, -30, -64]);
     const v1 = r6(v0 * (1 + t / 100));
@@ -287,7 +287,7 @@ const coefVariantes = [
       correction: [`$CM = \\frac{${dec(v1)}}{${v0}} = ${dec(1 + t / 100)}$`],
     };
   }),
-  variante('erreur', (rng) => {
+  variant('erreur', (rng) => {
     const t = rng.pick([5, 12, 20, 30, 45]);
     const juste = rng.next() < 0.4;
     const shown = juste ? r6(1 - t / 100) : rng.pick([r6(t / 100), r6(1 + t / 100), r6(-t / 100)]);
@@ -301,7 +301,7 @@ const coefVariantes = [
 ];
 
 const successivesVariantes = [
-  variante('hausse-puis-baisse', (rng) => {
+  variant('hausse-puis-baisse', (rng) => {
     const t = rng.pick([10, 20, 25, 30, 40, 50]);
     const first = rng.sign();
     const cm = r6((1 + (first * t) / 100) * (1 - (first * t) / 100));
@@ -313,7 +313,7 @@ const successivesVariantes = [
       correction: [`$CM = ${dec(1 + (first * t) / 100)} \\times ${dec(1 - (first * t) / 100)} = ${dec(cm)}$`, `Taux global : $${dec(global)}\\,\\%$, une baisse.`],
     };
   }),
-  variante('trois-evolutions', (rng) => {
+  variant('trois-evolutions', (rng) => {
     const ts = [rng.pick([10, 20, 50]) * rng.sign(), rng.pick([10, 20, 25]) * rng.sign(), rng.pick([10, 20, 50]) * rng.sign()];
     const cm = r6(ts.reduce((acc, t) => acc * (1 + t / 100), 1));
     const global = r6((cm - 1) * 100);
@@ -324,7 +324,7 @@ const successivesVariantes = [
       correction: [`$CM = ${ts.map((t) => dec(1 + t / 100)).join(' \\times ')} = ${dec(cm)}$`, `Soit $${dec(global)}\\,\\%$.`],
     };
   }),
-  variante('vrai-faux', (rng) => {
+  variant('vrai-faux', (rng) => {
     const t1 = rng.pick([10, 20, 30]);
     const t2 = rng.pick([10, 20, 30]);
     const sum = t1 + t2;
@@ -341,7 +341,7 @@ const successivesVariantes = [
 ];
 
 const reciproqueVariantes = [
-  variante('soldes', (rng, level) => {
+  variant('soldes', (rng, level) => {
     const [t, back] = rng.pick((level === 1 ? RECIPROQUES.slice(0, 4) : RECIPROQUES).filter(([x]) => x < 0));
     return {
       prompt: `Pendant les soldes, un magasin baisse ses prix de $${-t}\\,\\%$. Après les soldes, de quel pourcentage doit-il augmenter les prix soldés pour revenir aux prix d'origine ?`,
@@ -350,7 +350,7 @@ const reciproqueVariantes = [
       correction: [`$\\frac{1}{${dec(1 + t / 100)}} = ${dec(1 + back / 100)}$`, `Il faut une hausse de $${dec(back)}\\,\\%$ (et non de $${-t}\\,\\%$ !).`],
     };
   }),
-  variante('vrai-faux', (rng, level) => {
+  variant('vrai-faux', (rng, level) => {
     const [t, back] = rng.pick(level === 1 ? RECIPROQUES.slice(0, 4) : RECIPROQUES);
     const juste = rng.next() < 0.5;
     const shown = juste ? back : -t;
@@ -364,7 +364,7 @@ const reciproqueVariantes = [
 ];
 
 const valeurFinaleVariantes = [
-  variante('tva', (rng, level) => {
+  variant('tva', (rng, level) => {
     const ht = rng.pick([15, 25, 40, 60, 85, 120, 150, 250, 400]);
     const ttc = r6(ht * 1.2);
     const inverse = level > 1 && rng.next() < 0.5;
@@ -375,7 +375,7 @@ const valeurFinaleVariantes = [
       correction: inverse ? [`$\\frac{${dec(ttc)}}{1{,}2} = ${ht}$ €`] : [`$${ht} \\times 1{,}2 = ${dec(ttc)}$ €`],
     };
   }),
-  variante('deux-remises', (rng) => {
+  variant('deux-remises', (rng) => {
     const p = rng.pick([40, 50, 80, 100, 120, 200]);
     const r1 = rng.pick([10, 20, 30, 50]);
     const r2 = rng.pick([10, 20, 25, 50]);
@@ -390,11 +390,11 @@ const valeurFinaleVariantes = [
 ];
 
 export const INFORMATION_CHIFFREE_SKILLS: Skill[] = [
-  varier(proportion, proportionVariantes),
-  varier(proportionDeProportion, proportionDeProportionVariantes),
-  varier(tauxEvolution, tauxEvolutionVariantes),
-  varier(coefMultiplicateur, coefVariantes),
-  varier(evolutionsSuccessives, successivesVariantes),
-  varier(reciproque, reciproqueVariantes),
-  varier(valeurFinale, valeurFinaleVariantes),
+  enrich(proportion, proportionVariantes),
+  enrich(proportionDeProportion, proportionDeProportionVariantes),
+  enrich(tauxEvolution, tauxEvolutionVariantes),
+  enrich(coefMultiplicateur, coefVariantes),
+  enrich(evolutionsSuccessives, successivesVariantes),
+  enrich(reciproque, reciproqueVariantes),
+  enrich(valeurFinale, valeurFinaleVariantes),
 ];

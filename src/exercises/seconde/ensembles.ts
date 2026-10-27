@@ -1,7 +1,7 @@
 import { frac } from '../fraction';
 import type { Rng } from '../rng';
 import { type Level, type Skill, makeChoice } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { dec, fixedChoice, interval, latexChoice } from './outils';
 
 /** Chapitre 1 de 2nde : ensembles de nombres, intervalles, valeur absolue. */
@@ -221,7 +221,7 @@ const interUnion: Skill = {
 /* ---------- Variantes : d'autres façons de poser les mêmes notions ---------- */
 
 const ensembleVariantes = [
-  variante('vrai-faux', (rng, level) => {
+  variant('vrai-faux', (rng, level) => {
     const s = sample(rng, level);
     const k = rng.int(0, 4);
     const juste = s.set <= k;
@@ -232,7 +232,7 @@ const ensembleVariantes = [
       correction: [s.why, `Le plus petit ensemble qui le contient est ${SETS[s.set]}, donc l'affirmation est ${juste ? 'vraie' : 'fausse'}.`],
     };
   }),
-  variante('intrus', (rng, level) => {
+  variant('intrus', (rng, level) => {
     // Trois nombres d'un ensemble, un intrus qui n'y est pas.
     const k = rng.pick(level === 1 ? ([1, 2] as const) : ([1, 2, 3] as const));
     const inside: Sample[] = [];
@@ -261,7 +261,7 @@ const ensembleVariantes = [
 ];
 
 const intervalleVariantes = [
-  variante('appartient', (rng, level) => {
+  variant('appartient', (rng, level) => {
     const a = rng.int(-9, 4);
     const b = a + rng.int(2, 8);
     const lc = rng.next() < 0.5;
@@ -277,7 +277,7 @@ const intervalleVariantes = [
       correction: [x === a || x === b ? `$${x}$ est une borne : ${(x === a ? lc : hc) ? 'le crochet est fermé, elle est incluse' : 'le crochet est ouvert, elle est exclue'}.` : `$${x}$ est ${inside ? 'entre' : 'en dehors de'} $${a}$ et $${b}$.`, inside ? `Donc $${x} \\in ${I}$.` : `Donc $${x} \\notin ${I}$.`],
     };
   }),
-  variante('vers-inegalite', (rng) => {
+  variant('vers-inegalite', (rng) => {
     const a = rng.int(-9, 4);
     const b = a + rng.int(1, 8);
     const lc = rng.next() < 0.5;
@@ -291,7 +291,7 @@ const intervalleVariantes = [
       correction: [`$x \\in ${interval(a, lc, b, hc)}$ signifie $${ineq(lc, hc)}$.`],
     };
   }),
-  variante('compter-entiers', (rng, level) => {
+  variant('compter-entiers', (rng, level) => {
     const a = rng.int(-12, 5);
     const b = a + rng.int(1, level === 1 ? 6 : 15);
     const lc = level === 1 ? true : rng.next() < 0.5;
@@ -307,7 +307,7 @@ const intervalleVariantes = [
 ];
 
 const distanceVariantes = [
-  variante('temperatures', (rng, level) => {
+  variant('temperatures', (rng, level) => {
     const t1 = -rng.int(1, level === 1 ? 10 : 25);
     const t2 = rng.int(level === 1 ? 1 : -5, 20);
     return {
@@ -317,7 +317,7 @@ const distanceVariantes = [
       correction: [`$|${t2} - (${t1})| = |${t2 - t1}| = ${Math.abs(t2 - t1)}$`],
     };
   }),
-  variante('expression', (rng, level) => {
+  variant('expression', (rng, level) => {
     const a = rng.nonZero(-12, 12);
     const b = rng.nonZero(-12, 12);
     const kind = level === 1 ? 'somme' : rng.pick(['somme', 'difference', 'produit'] as const);
@@ -333,7 +333,7 @@ const distanceVariantes = [
 ];
 
 const absEquationVariantes = [
-  variante('en-mots', (rng, level) => {
+  variant('en-mots', (rng, level) => {
     const a = rng.int(-8, 8);
     const r = rng.int(1, level === 1 ? 6 : 10);
     return {
@@ -343,7 +343,7 @@ const absEquationVariantes = [
       correction: [`$${a} - ${r} = ${a - r}$ et $${a} + ${r} = ${a + r}$.`],
     };
   }),
-  variante('inequation', (rng, level) => {
+  variant('inequation', (rng, level) => {
     const a = rng.int(-8, 8);
     const r = rng.int(1, level === 1 ? 5 : 9);
     const inside = a === 0 ? 'x' : `x ${a > 0 ? '-' : '+'} ${Math.abs(a)}`;
@@ -363,7 +363,7 @@ const absEquationVariantes = [
 ];
 
 const interUnionVariantes = [
-  variante('disjoints', (rng) => {
+  variant('disjoints', (rng) => {
     const a = rng.int(-9, -2);
     const b = a + rng.int(1, 4);
     const c = b + rng.int(1, 3);
@@ -377,7 +377,7 @@ const interUnionVariantes = [
       correction: [`$I$ s'arrête en $${b}$ et $J$ commence en $${c} > ${b}$ : aucun réel n'est dans les deux.`, '$I \\cap J = \\varnothing$'],
     };
   }),
-  variante('inclus', (rng) => {
+  variant('inclus', (rng) => {
     const a = rng.int(-9, -1);
     const c = a + rng.int(1, 3);
     const d = c + rng.int(1, 4);
@@ -396,9 +396,9 @@ const interUnionVariantes = [
 ];
 
 export const ENSEMBLES_SKILLS: Skill[] = [
-  varier(ensemble, ensembleVariantes),
-  varier(intervalle, intervalleVariantes),
-  varier(distance, distanceVariantes),
-  varier(absEquation, absEquationVariantes),
-  varier(interUnion, interUnionVariantes),
+  enrich(ensemble, ensembleVariantes),
+  enrich(intervalle, intervalleVariantes),
+  enrich(distance, distanceVariantes),
+  enrich(absEquation, absEquationVariantes),
+  enrich(interUnion, interUnionVariantes),
 ];

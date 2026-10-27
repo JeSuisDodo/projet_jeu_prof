@@ -1,7 +1,7 @@
 import { frac } from '../fraction';
 import type { Rng } from '../rng';
 import type { Level, Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { fixedChoice, gcd, latexChoice } from './outils';
 
 /** Chapitre 2 de 2nde : multiples, diviseurs, nombres premiers. */
@@ -220,7 +220,7 @@ const pgcd: Skill = {
 const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
 
 const premierVariantes = [
-  variante('plus-petit-diviseur', (rng, level) => {
+  variant('plus-petit-diviseur', (rng, level) => {
     let n: number;
     do n = rng.int(level === 1 ? 20 : 100, level === 1 ? 99 : level === 2 ? 400 : 1500);
     while (isPrime(n));
@@ -232,7 +232,7 @@ const premierVariantes = [
       correction: [`$${n} = ${d} \\times ${n / d}$ et aucun nombre premier plus petit que $${d}$ ne divise $${n}$.`, `Le plus petit diviseur premier est $${d}$.`],
     };
   }),
-  variante('compter-premiers', (rng, level) => {
+  variant('compter-premiers', (rng, level) => {
     const a = rng.int(level === 1 ? 1 : 20, level === 1 ? 30 : 80);
     const b = a + (level === 1 ? 10 : level === 2 ? 15 : 25);
     const primes: number[] = [];
@@ -244,7 +244,7 @@ const premierVariantes = [
       correction: [primes.length ? `Les nombres premiers de cet intervalle sont $${primes.join(' ; ')}$.` : 'Aucun nombre de cet intervalle n’est premier.', `Il y en a $${primes.length}$.`],
     };
   }),
-  variante('raisonnement-faux', (rng, level) => {
+  variant('raisonnement-faux', (rng, level) => {
     // « Ni pair, ni multiple de 3 ou de 5 » ne suffit pas : 49, 77, 91, 119…
     const pieges = level === 1 ? [49, 77, 91, 119] : [49, 77, 91, 119, 121, 133, 143, 161, 169, 187, 203, 209, 221];
     const prime = rng.next() < 0.4;
@@ -264,7 +264,7 @@ const premierVariantes = [
 ];
 
 const decompositionVariantes = [
-  variante('recomposer', (rng, level) => {
+  variant('recomposer', (rng, level) => {
     const primes = level === 1 ? [2, 3, 5] : [2, 3, 5, 7, 11];
     const f: [number, number][] = rng
       .shuffle(primes)
@@ -279,7 +279,7 @@ const decompositionVariantes = [
       correction: [`$${f.map(([p, e]) => `${p ** e}`).join(' \\times ')} = ${n}$`],
     };
   }),
-  variante('exposant', (rng, level) => {
+  variant('exposant', (rng, level) => {
     const n = composite(rng, level === 1 ? 2 : 3);
     const f = factorize(n);
     const [p, e] = rng.pick(f);
@@ -290,7 +290,7 @@ const decompositionVariantes = [
       correction: [`$${n} = ${factorLatex(f)}$`, `L'exposant de $${p}$ est $${e}$.`],
     };
   }),
-  variante('carre-parfait', (rng, level) => {
+  variant('carre-parfait', (rng, level) => {
     // n = m² × k : par quel plus petit entier multiplier n pour obtenir un carré ?
     const k = rng.pick(level === 1 ? [2, 3, 5] : [2, 3, 5, 6, 7, 10, 15]);
     const m = rng.int(2, level === 1 ? 6 : 12);
@@ -305,7 +305,7 @@ const decompositionVariantes = [
 ];
 
 const diviseursVariantes = [
-  variante('rectangles', (rng, level) => {
+  variant('rectangles', (rng, level) => {
     const n = level === 1 ? rng.pick([12, 18, 20, 24, 30, 36]) : composite(rng, 2);
     let count = 0;
     for (let d = 1; d * d <= n; d++) if (n % d === 0) count++;
@@ -316,7 +316,7 @@ const diviseursVariantes = [
       correction: [`Il faut $l \\times L = ${n}$ avec $l \\leq L$ : on cherche les diviseurs $l$ tels que $l^2 \\leq ${n}$.`, `On trouve $${count}$ rectangles.`],
     };
   }),
-  variante('plus-grand-diviseur', (rng, level) => {
+  variant('plus-grand-diviseur', (rng, level) => {
     const n = composite(rng, level);
     const d = n / smallestDivisor(n);
     return {
@@ -329,7 +329,7 @@ const diviseursVariantes = [
 ];
 
 const irreductibleVariantes = [
-  variante('est-irreductible', (rng, level) => {
+  variant('est-irreductible', (rng, level) => {
     const bound = level === 1 ? 30 : level === 2 ? 90 : 300;
     const n = rng.int(2, bound);
     let d = rng.int(2, bound);
@@ -342,7 +342,7 @@ const irreductibleVariantes = [
       correction: g === 1 ? [`$${n}$ et $${d}$ n'ont pas de diviseur commun autre que 1.`, 'La fraction est irréductible.'] : [`$${n}$ et $${d}$ sont tous deux divisibles par $${g}$.`, `$\\frac{${n}}{${d}} = \\frac{${n / g}}{${d / g}}$ : elle n'est pas irréductible.`],
     };
   }),
-  variante('completer', (rng, level) => {
+  variant('completer', (rng, level) => {
     let p: number;
     let q: number;
     do {
@@ -360,7 +360,7 @@ const irreductibleVariantes = [
 ];
 
 const resteVariantes = [
-  variante('jour-semaine', (rng, level) => {
+  variant('jour-semaine', (rng, level) => {
     const start = rng.int(0, 6);
     const n = rng.int(level === 1 ? 8 : 30, level === 1 ? 40 : level === 2 ? 200 : 1000);
     const end = (start + n) % 7;
@@ -374,7 +374,7 @@ const resteVariantes = [
       correction: [`$${n} = 7 \\times ${Math.floor(n / 7)} + ${n % 7}$`, `On avance de $${n % 7}$ jour${n % 7 > 1 ? 's' : ''} à partir du ${JOURS[start]} : ce sera ${JOURS[end]}.`],
     };
   }),
-  variante('dividende', (rng, level) => {
+  variant('dividende', (rng, level) => {
     const b = rng.int(level === 1 ? 3 : 7, level === 1 ? 9 : 25);
     const q = rng.int(3, level === 1 ? 12 : 60);
     const r = rng.int(1, b - 1);
@@ -385,7 +385,7 @@ const resteVariantes = [
       correction: [`$a = ${b} \\times ${q} + ${r} = ${b * q + r}$`],
     };
   }),
-  variante('boites', (rng, level) => {
+  variant('boites', (rng, level) => {
     const b = rng.pick(level === 1 ? [6, 10, 12] : [6, 8, 12, 15, 24]);
     const n = rng.int(3 * b, level === 1 ? 12 * b : 60 * b);
     const full = Math.floor(n / b);
@@ -400,7 +400,7 @@ const resteVariantes = [
 ];
 
 const pgcdVariantes = [
-  variante('carrelage', (rng, level) => {
+  variant('carrelage', (rng, level) => {
     const g = rng.pick(level === 1 ? [5, 10, 20] : [6, 12, 15, 18, 24, 30, 40]);
     let p: number;
     let q: number;
@@ -415,7 +415,7 @@ const pgcdVariantes = [
       correction: [`On cherche le plus grand diviseur commun de $${g * p}$ et $${g * q}$.`, `C'est $${g}$ : il faut $${p} \\times ${q} = ${p * q}$ dalles.`],
     };
   }),
-  variante('direct', (rng, level) => {
+  variant('direct', (rng, level) => {
     const g = rng.int(2, level === 1 ? 9 : 30);
     let p: number;
     let q: number;
@@ -433,10 +433,10 @@ const pgcdVariantes = [
 ];
 
 export const ARITHMETIQUE_SKILLS: Skill[] = [
-  varier(premier, premierVariantes),
-  varier(decomposition, decompositionVariantes),
-  varier(nbDiviseurs, diviseursVariantes),
-  varier(irreductible, irreductibleVariantes),
-  varier(reste, resteVariantes),
-  varier(pgcd, pgcdVariantes),
+  enrich(premier, premierVariantes),
+  enrich(decomposition, decompositionVariantes),
+  enrich(nbDiviseurs, diviseursVariantes),
+  enrich(irreductible, irreductibleVariantes),
+  enrich(reste, resteVariantes),
+  enrich(pgcd, pgcdVariantes),
 ];

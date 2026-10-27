@@ -1,6 +1,6 @@
 import { frac, fracLatex } from '../fraction';
 import type { Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { reduite } from './droites';
 import { fixedChoice, latexChoice, par, terms } from './outils';
 
@@ -165,7 +165,7 @@ const systemeLatex = (a: number, b: number, e: number, c: number, d: number, f: 
   `\\begin{cases} ${terms([[a, x], [b, y]])} = ${e} \\\\ ${terms([[c, x], [d, y]])} = ${f} \\end{cases}`;
 
 const positionVariantes = [
-  variante('parametre', (rng) => {
+  variant('parametre', (rng) => {
     const k = rng.nonZero(-6, 6);
     const p = rng.int(-8, 8);
     const q = p + rng.nonZero(-5, 5);
@@ -176,7 +176,7 @@ const positionVariantes = [
       correction: [`Il faut $m = ${k}$ (les ordonnées à l'origine, différentes, rendent les droites strictement parallèles).`],
     };
   }),
-  variante('cartesiennes', (rng) => {
+  variant('cartesiennes', (rng) => {
     const a = rng.nonZero(-5, 5);
     const b = rng.nonZero(-5, 5);
     const c = rng.int(-9, 9);
@@ -200,7 +200,7 @@ const positionVariantes = [
 ];
 
 const intersectionVariantes = [
-  variante('axe-abscisses', (rng, level) => {
+  variant('axe-abscisses', (rng, level) => {
     const m = level === 1 ? rng.pick([1, -1, 2, -2]) : rng.nonZero(-5, 5);
     const x = level === 3 ? frac(rng.nonZero(-9, 9), Math.abs(m)) : frac(rng.int(-6, 6));
     const p = frac(-m * x.n, x.d);
@@ -211,7 +211,7 @@ const intersectionVariantes = [
       correction: [`$${terms([[m, 'x']])} ${p.n < 0 ? '-' : '+'} ${fracLatex(frac(Math.abs(p.n), p.d))} = 0$ donne $x = ${fracLatex(x)}$.`, `Le point est $(${fracLatex(x)}\\,;\\,0)$.`],
     };
   }),
-  variante('verifier-point', (rng) => {
+  variant('verifier-point', (rng) => {
     const x = rng.int(-6, 6);
     const y = rng.int(-9, 9);
     const m1 = rng.nonZero(-4, 4);
@@ -229,7 +229,7 @@ const intersectionVariantes = [
 ];
 
 const systemeVariantes = [
-  variante('achats', (rng, level) => {
+  variant('achats', (rng, level) => {
     const x = rng.int(2, level === 1 ? 6 : 15);
     const y = rng.int(1, level === 1 ? 5 : 12);
     let a: number, b: number, c: number, d: number;
@@ -246,7 +246,7 @@ const systemeVariantes = [
       correction: [`$${systemeLatex(a, b, a * x + b * y, c, d, c * x + d * y)}$`, `On trouve $x = ${x}$ € et $y = ${y}$ €.`],
     };
   }),
-  variante('tetes-pattes', (rng, level) => {
+  variant('tetes-pattes', (rng, level) => {
     const poules = rng.int(2, level === 1 ? 10 : 40);
     const lapins = rng.int(2, level === 1 ? 10 : 40);
     return {
@@ -259,7 +259,7 @@ const systemeVariantes = [
 ];
 
 const nbSolutionsVariantes = [
-  variante('parametre', (rng) => {
+  variant('parametre', (rng) => {
     const a = rng.pick([1, 2, 3, -1, -2]);
     const b = rng.nonZero(-6, 6);
     const c = a * rng.nonZero(-4, 4);
@@ -273,7 +273,7 @@ const nbSolutionsVariantes = [
       correction: [`$${par(a)} \\times k - ${par(b)} \\times ${par(c)} = 0$`, `$k = \\frac{${b * c}}{${a}} = ${k}$`],
     };
   }),
-  variante('couple-solution', (rng, level) => {
+  variant('couple-solution', (rng, level) => {
     const x = rng.int(-6, 6);
     const y = rng.int(-6, 6);
     let a: number, b: number, c: number, d: number;
@@ -301,7 +301,7 @@ const nbSolutionsVariantes = [
 ];
 
 const paralleleVariantes = [
-  variante('cartesienne', (rng) => {
+  variant('cartesienne', (rng) => {
     const a = rng.nonZero(-5, 5);
     const b = rng.nonZero(-5, 5);
     const c = rng.int(-9, 9);
@@ -314,7 +314,7 @@ const paralleleVariantes = [
       correction: [`$${a} \\times ${par(A[0])} + ${par(b)} \\times ${par(A[1])} + c' = 0$`, `$c' = ${c2}$`],
     };
   }),
-  variante('quatre-points', (rng) => {
+  variant('quatre-points', (rng) => {
     const A: [number, number] = [rng.int(-6, 6), rng.int(-6, 6)];
     const u: [number, number] = [rng.nonZero(-4, 4), rng.int(-4, 4)];
     const k = rng.pick([2, -1, 3, -2]);
@@ -334,9 +334,9 @@ const paralleleVariantes = [
 ];
 
 export const POSITIONS_SKILLS: Skill[] = [
-  varier(position, positionVariantes),
-  varier(intersection, intersectionVariantes),
-  varier(systeme, systemeVariantes),
-  varier(nbSolutions, nbSolutionsVariantes),
-  varier(parallele, paralleleVariantes),
+  enrich(position, positionVariantes),
+  enrich(intersection, intersectionVariantes),
+  enrich(systeme, systemeVariantes),
+  enrich(nbSolutions, nbSolutionsVariantes),
+  enrich(parallele, paralleleVariantes),
 ];

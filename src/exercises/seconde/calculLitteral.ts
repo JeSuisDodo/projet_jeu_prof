@@ -1,7 +1,7 @@
 import { frac, fracLatex } from '../fraction';
 import type { Rng } from '../rng';
 import type { Level, Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { affine, fixedChoice, latexChoice, par, poly2, terms } from './outils';
 
 /** Chapitre 3 de 2nde : développer, factoriser, équations, puissances et racines carrées. */
@@ -273,7 +273,7 @@ const fractions: Skill = {
 const vraiFaux = (b: boolean) => fixedChoice(['Vrai', 'Faux'], b ? 0 : 1);
 
 const developperVariantes = [
-  variante('coefficient', (rng, level) => {
+  variant('coefficient', (rng, level) => {
     const a = coef(rng, level);
     const b = rng.nonZero(-9, 9);
     const c = coef(rng, level);
@@ -294,7 +294,7 @@ const developperVariantes = [
       ],
     };
   }),
-  variante('verifier-calcul', (rng, level) => {
+  variant('verifier-calcul', (rng, level) => {
     const a = coef(rng, level);
     const b = rng.nonZero(-7, 7);
     const c = coef(rng, level);
@@ -311,7 +311,7 @@ const developperVariantes = [
       correction: [`$(${affine(a, b)})(${affine(c, d)}) = ${poly2(a * c, B, b * d)}$`, juste ? 'Sami a raison.' : 'Sami s’est trompé.'],
     };
   }),
-  variante('aire-rectangle', (rng, level) => {
+  variant('aire-rectangle', (rng, level) => {
     const p = rng.int(1, 9);
     const q = level === 1 ? rng.int(1, 9) : rng.int(-5, 9) || 2;
     const k = level === 3 ? rng.int(2, 3) : 1;
@@ -330,7 +330,7 @@ const developperVariantes = [
 ];
 
 const identiteVariantes = [
-  variante('calcul-mental', (rng, level) => {
+  variant('calcul-mental', (rng, level) => {
     const base = rng.pick(level === 1 ? [10, 20, 30, 100] : [20, 30, 40, 50, 100, 1000]);
     const e = rng.int(1, level === 1 ? 2 : 4);
     const kind = rng.pick(['plus', 'moins', 'diff'] as const);
@@ -344,7 +344,7 @@ const identiteVariantes = [
       correction: [`$${rule}$`, `$= ${value}$`],
     };
   }),
-  variante('double-produit', (rng, level) => {
+  variant('double-produit', (rng, level) => {
     const a = level === 1 ? 1 : rng.int(1, 4);
     const b = rng.int(1, 9);
     const s = rng.sign();
@@ -356,7 +356,7 @@ const identiteVariantes = [
       correction: [`$2 \\times ${ax} \\times ${b} = ${2 * a * b}x$`, `Il manque $${2 * a * b}$.`],
     };
   }),
-  variante('erreur-classique', (rng, level) => {
+  variant('erreur-classique', (rng, level) => {
     const a = level === 1 ? 1 : rng.int(1, 3);
     const b = rng.int(1, 8);
     const ax = a === 1 ? 'x' : `${a}x`;
@@ -372,7 +372,7 @@ const identiteVariantes = [
 ];
 
 const factoriserVariantes = [
-  variante('carre-parfait', (rng, level) => {
+  variant('carre-parfait', (rng, level) => {
     const a = level === 1 ? 1 : rng.int(1, 3);
     const b = rng.int(1, 9);
     const s = rng.sign();
@@ -385,7 +385,7 @@ const factoriserVariantes = [
       correction: [`$${poly2(a * a, 2 * s * a * b, b * b)} = (${ax})^2 ${s > 0 ? '+' : '-'} 2 \\times ${ax} \\times ${b} + ${b}^2$`, `$= ${correct}$`],
     };
   }),
-  variante('facteur-x', (rng, level) => {
+  variant('facteur-x', (rng, level) => {
     const k = level === 1 ? 1 : rng.int(1, 4);
     const a = rng.nonZero(-5, 5);
     const b = rng.nonZero(-9, 9);
@@ -407,7 +407,7 @@ const factoriserVariantes = [
 ];
 
 const equationVariantes = [
-  variante('nombre-mystere', (rng, level) => {
+  variant('nombre-mystere', (rng, level) => {
     const a = rng.int(2, level === 1 ? 5 : 9);
     const b = rng.int(-15, 15) || 7;
     const x = level === 3 ? frac(rng.nonZero(-20, 20), 2) : frac(rng.int(-10, 15));
@@ -419,7 +419,7 @@ const equationVariantes = [
       correction: [`$${a}x ${b > 0 ? '+' : '-'} ${Math.abs(b)} = ${fracLatex(c)}$`, `$${a}x = ${fracLatex(frac(c.n - b * c.d, c.d))}$`, `$x = ${fracLatex(x)}$`],
     };
   }),
-  variante('tarifs', (rng, level) => {
+  variant('tarifs', (rng, level) => {
     // Formule A : abonnement f + p par séance ; formule B : q par séance (q > p).
     const p = rng.int(2, level === 1 ? 5 : 9);
     const n = rng.int(level === 1 ? 4 : 6, level === 1 ? 12 : 30);
@@ -432,7 +432,7 @@ const equationVariantes = [
       correction: [`$${f} + ${p}x = ${q}x$`, `$${f} = ${q - p}x$`, `$x = ${n}$`],
     };
   }),
-  variante('est-solution', (rng, level) => {
+  variant('est-solution', (rng, level) => {
     const a = rng.nonZero(-6, 6);
     let c = level === 1 ? 0 : rng.nonZero(-6, 6);
     if (c === a) c = a + 1;
@@ -454,7 +454,7 @@ const equationVariantes = [
 ];
 
 const produitNulVariantes = [
-  variante('facteur-commun', (rng, level) => {
+  variant('facteur-commun', (rng, level) => {
     const a = level === 1 ? 1 : rng.nonZero(-4, 4);
     const k = rng.nonZero(-9, 9);
     // a x² = a k x ⇔ a x (x - k) = 0
@@ -465,7 +465,7 @@ const produitNulVariantes = [
       correction: [`$${poly2(a, -a * k, 0)} = 0$`, `$${a === 1 ? '' : a === -1 ? '-' : a}x(${affine(1, -k)}) = 0$`, `$x = 0$ ou $x = ${k}$.`],
     };
   }),
-  variante('difference-carres', (rng, level) => {
+  variant('difference-carres', (rng, level) => {
     const p = rng.int(-6, 6);
     const b = rng.int(1, level === 1 ? 5 : 9);
     const inner = affine(1, p);
@@ -476,7 +476,7 @@ const produitNulVariantes = [
       correction: [`$(${inner} - ${b})(${inner} + ${b}) = 0$`, `$x = ${-p + b}$ ou $x = ${-p - b}$.`],
     };
   }),
-  variante('quotient-nul', (rng, level) => {
+  variant('quotient-nul', (rng, level) => {
     const a = level === 1 ? 1 : rng.nonZero(-3, 3);
     const b = rng.nonZero(-9, 9);
     const c = rng.int(-6, 6);
@@ -493,7 +493,7 @@ const produitNulVariantes = [
 ];
 
 const puissancesVariantes = [
-  variante('ecriture-scientifique', (rng, level) => {
+  variant('ecriture-scientifique', (rng, level) => {
     let m = rng.int(11, 99);
     if (m % 10 === 0) m++;
     const digits = String(m);
@@ -510,7 +510,7 @@ const puissancesVariantes = [
       correction: [`$${written} = ${digits[0]}{,}${digits[1]} \\times 10^{${shift + 1}}$`, `Donc $n = ${shift + 1}$.`],
     };
   }),
-  variante('vrai-faux', (rng, level) => {
+  variant('vrai-faux', (rng, level) => {
     const a = rng.pick([2, 3, 5, 10]);
     const m = rng.int(2, level === 1 ? 4 : 6);
     const n = rng.int(2, level === 1 ? 4 : 6);
@@ -549,7 +549,7 @@ const puissancesVariantes = [
 ];
 
 const racinesVariantes = [
-  variante('somme', (rng, level) => {
+  variant('somme', (rng, level) => {
     const b = rng.pick([2, 3, 5, 7]);
     const p = rng.int(1, level === 1 ? 4 : 6);
     const q = rng.int(1, level === 1 ? 4 : 6);
@@ -562,7 +562,7 @@ const racinesVariantes = [
       correction: [`$\\sqrt{${p * p * b}} = ${p}\\sqrt{${b}}$ et $\\sqrt{${q * q * b}} = ${q}\\sqrt{${b}}$.`, `$${p}\\sqrt{${b}} ${s > 0 ? '+' : '-'} ${q}\\sqrt{${b}} = ${k}\\sqrt{${b}}$`],
     };
   }),
-  variante('produit', (rng, level) => {
+  variant('produit', (rng, level) => {
     const b = rng.pick([2, 3, 5, 6, 7]);
     const p = rng.int(1, level === 1 ? 3 : 6);
     const q = rng.int(1, level === 1 ? 3 : 6);
@@ -573,7 +573,7 @@ const racinesVariantes = [
       correction: [`$\\sqrt{${p * p * b} \\times ${q * q * b}} = \\sqrt{${p * p * q * q * b * b}} = ${p * q * b}$`],
     };
   }),
-  variante('vrai-faux', (rng, level) => {
+  variant('vrai-faux', (rng, level) => {
     const [a, b] = rng.pick(
       level === 1
         ? [
@@ -607,7 +607,7 @@ const racinesVariantes = [
 ];
 
 const fractionsVariantes = [
-  variante('reste', (rng, level) => {
+  variant('reste', (rng, level) => {
     const d1 = rng.pick([2, 3, 4, 5]);
     const d2 = rng.pick(level === 1 ? [2, 3] : [2, 3, 4, 5]);
     const left = frac((d1 - 1) * (d2 - 1), d1 * d2);
@@ -618,7 +618,7 @@ const fractionsVariantes = [
       correction: [`Après le premier jour, il reste $\\frac{${d1 - 1}}{${d1}}$.`, `Le deuxième jour, il en garde $\\frac{${d2 - 1}}{${d2}}$ : $\\frac{${d1 - 1}}{${d1}} \\times \\frac{${d2 - 1}}{${d2}} = ${fracLatex(left)}$`],
     };
   }),
-  variante('terme-manquant', (rng, level) => {
+  variant('terme-manquant', (rng, level) => {
     const b = rng.int(2, level === 1 ? 6 : 9);
     const d = rng.int(2, level === 1 ? 6 : 9);
     const a = rng.nonZero(-7, 7);
@@ -636,12 +636,12 @@ const fractionsVariantes = [
 ];
 
 export const CALCUL_LITTERAL_SKILLS: Skill[] = [
-  varier(developper, developperVariantes),
-  varier(identite, identiteVariantes),
-  varier(factoriser, factoriserVariantes),
-  varier(equation1, equationVariantes),
-  varier(produitNul, produitNulVariantes),
-  varier(puissances, puissancesVariantes),
-  varier(racines, racinesVariantes),
-  varier(fractions, fractionsVariantes),
+  enrich(developper, developperVariantes),
+  enrich(identite, identiteVariantes),
+  enrich(factoriser, factoriserVariantes),
+  enrich(equation1, equationVariantes),
+  enrich(produitNul, produitNulVariantes),
+  enrich(puissances, puissancesVariantes),
+  enrich(racines, racinesVariantes),
+  enrich(fractions, fractionsVariantes),
 ];

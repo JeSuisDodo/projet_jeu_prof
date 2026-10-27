@@ -1,7 +1,7 @@
 import { frac, fracLatex } from '../fraction';
 import type { Rng } from '../rng';
 import type { Level, Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { dec, fixedChoice, fracOf, par } from './outils';
 
 /** Chapitre 4 de 2nde : géométrie dans le plan (repère, Pythagore, trigonométrie). */
@@ -169,7 +169,7 @@ type Pt = [number, number];
 const d2 = (A: Pt, B: Pt) => (B[0] - A[0]) ** 2 + (B[1] - A[1]) ** 2;
 
 const milieuVariantes = [
-  variante('est-milieu', (rng, level) => {
+  variant('est-milieu', (rng, level) => {
     const A = point(rng, 8);
     const half: Pt = [rng.int(-5, 5), rng.int(-5, 5)];
     const B: Pt = [A[0] + 2 * half[0], A[1] + 2 * half[1]];
@@ -183,7 +183,7 @@ const milieuVariantes = [
       correction: [`Le milieu de $[AB]$ a pour coordonnées $(${dec(A[0] + half[0])}\\,;\\,${dec(A[1] + half[1])})$.`, juste ? 'C’est bien $M$.' : 'Ce n’est pas $M$.'],
     };
   }),
-  variante('centre-parallelogramme', (rng, level) => {
+  variant('centre-parallelogramme', (rng, level) => {
     const A = point(rng, level === 1 ? 6 : 9);
     let C = point(rng, level === 1 ? 6 : 9);
     if (level === 1) C = [C[0] + ((C[0] + A[0]) % 2 === 0 ? 0 : 1), C[1] + ((C[1] + A[1]) % 2 === 0 ? 0 : 1)];
@@ -197,7 +197,7 @@ const milieuVariantes = [
 ];
 
 const symetriqueVariantes = [
-  variante('symetrique-point', (rng, level) => {
+  variant('symetrique-point', (rng, level) => {
     const A = point(rng, level === 1 ? 5 : 9);
     const C = point(rng, level === 1 ? 5 : 9);
     const S: Pt = [2 * C[0] - A[0], 2 * C[1] - A[1]];
@@ -208,7 +208,7 @@ const symetriqueVariantes = [
       correction: [`$x_{A'} = 2 \\times ${par(C[0])} - ${par(A[0])} = ${S[0]}$`, `$y_{A'} = 2 \\times ${par(C[1])} - ${par(A[1])} = ${S[1]}$`],
     };
   }),
-  variante('quatrieme-sommet', (rng) => {
+  variant('quatrieme-sommet', (rng) => {
     const A = point(rng, 7);
     const B = point(rng, 7);
     let C = point(rng, 7);
@@ -224,7 +224,7 @@ const symetriqueVariantes = [
 ];
 
 const longueurVariantes = [
-  variante('carre-distance', (rng, level) => {
+  variant('carre-distance', (rng, level) => {
     const A = point(rng, level === 1 ? 5 : 9);
     let B = point(rng, level === 1 ? 5 : 9);
     if (B[0] === A[0] && B[1] === A[1]) B = [A[0] + 1, A[1] + 2];
@@ -235,7 +235,7 @@ const longueurVariantes = [
       correction: [`$AB^2 = ${par(B[0] - A[0])}^2 + ${par(B[1] - A[1])}^2 = ${d2(A, B)}$`],
     };
   }),
-  variante('isocele', (rng) => {
+  variant('isocele', (rng) => {
     const A = point(rng, 4);
     // B et C à la même distance de A (ou presque) : (u ; v) et (v ; -u), ou un léger décalage.
     const u = rng.nonZero(-5, 5);
@@ -253,7 +253,7 @@ const longueurVariantes = [
       correction: [`$AB^2 = ${d2(A, B)}$ et $AC^2 = ${d2(A, C)}$.`, ok ? 'Les deux longueurs sont égales : le triangle est isocèle en $A$.' : 'Les longueurs sont différentes : il n’est pas isocèle en $A$.'],
     };
   }),
-  variante('cercle', (rng, level) => {
+  variant('cercle', (rng, level) => {
     const [dx, dy, r] = triple(rng, level);
     const C = point(rng, 5);
     const on = rng.next() < 0.5;
@@ -269,7 +269,7 @@ const longueurVariantes = [
 ];
 
 const pythagoreVariantes = [
-  variante('echelle', (rng, level) => {
+  variant('echelle', (rng, level) => {
     const [a, b, c] = triple(rng, level);
     const [pied, haut] = a < b ? [a, b] : [b, a];
     const k = c > 10 ? 10 : 1;
@@ -280,7 +280,7 @@ const pythagoreVariantes = [
       correction: [`$h^2 = ${dec(c / k)}^2 - ${dec(pied / k)}^2 = ${dec((c * c - pied * pied) / (k * k))}$`, `$h = ${dec(haut / k)}$ m`],
     };
   }),
-  variante('diagonale', (rng, level) => {
+  variant('diagonale', (rng, level) => {
     const [a, b, c] = triple(rng, level);
     return {
       prompt: `Un terrain rectangulaire mesure $${a}$ m sur $${b}$ m. Quelle est la longueur de sa diagonale, en m ?`,
@@ -292,7 +292,7 @@ const pythagoreVariantes = [
 ];
 
 const reciproqueVariantes = [
-  variante('repere', (rng) => {
+  variant('repere', (rng) => {
     const A = point(rng, 4);
     const u = rng.nonZero(-4, 4);
     const v = rng.nonZero(-4, 4);
@@ -309,7 +309,7 @@ const reciproqueVariantes = [
       correction: [`$AB^2 + AC^2 = ${d2(A, B)} + ${d2(A, C)} = ${s}$ et $BC^2 = ${d2(B, C)}$.`, ok ? 'Il y a égalité : le triangle est rectangle en $A$.' : 'Pas d’égalité : le triangle n’est pas rectangle en $A$.'],
     };
   }),
-  variante('troisieme-cote', (rng, level) => {
+  variant('troisieme-cote', (rng, level) => {
     const [a, b, c] = triple(rng, level);
     return {
       prompt: `Deux côtés d'un triangle mesurent $${a}$ cm et $${b}$ cm. Combien doit mesurer le plus grand côté pour que le triangle soit rectangle ?`,
@@ -321,7 +321,7 @@ const reciproqueVariantes = [
 ];
 
 const trigoVariantes = [
-  variante('longueur', (rng, level) => {
+  variant('longueur', (rng, level) => {
     const [a, b, c] = triple(rng, level);
     const useSin = level > 1 && rng.next() < 0.5;
     const ratio = useSin ? frac(b, c) : frac(a, c);
@@ -332,7 +332,7 @@ const trigoVariantes = [
       correction: [`$${useSin ? 'AC' : 'AB'} = BC \\times ${useSin ? '\\sin' : '\\cos'}(\\widehat{ABC}) = ${c} \\times ${fracLatex(ratio)} = ${useSin ? b : a}$`],
     };
   }),
-  variante('hauteur-arbre', (rng, level) => {
+  variant('hauteur-arbre', (rng, level) => {
     const d = rng.pick([5, 8, 10, 12, 15, 20]);
     const t = rng.pick(level === 1 ? [0.5, 1, 1.5, 2] : [0.4, 0.6, 0.75, 1.2, 1.25, 1.6]);
     const h = d * t;
@@ -346,10 +346,10 @@ const trigoVariantes = [
 ];
 
 export const GEOMETRIE_PLAN_SKILLS: Skill[] = [
-  varier(milieu, milieuVariantes),
-  varier(symetrique, symetriqueVariantes),
-  varier(longueur, longueurVariantes),
-  varier(pythagore, pythagoreVariantes),
-  varier(reciproque, reciproqueVariantes),
-  varier(trigo, trigoVariantes),
+  enrich(milieu, milieuVariantes),
+  enrich(symetrique, symetriqueVariantes),
+  enrich(longueur, longueurVariantes),
+  enrich(pythagore, pythagoreVariantes),
+  enrich(reciproque, reciproqueVariantes),
+  enrich(trigo, trigoVariantes),
 ];

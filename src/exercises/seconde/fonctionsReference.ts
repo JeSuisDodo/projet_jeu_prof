@@ -1,6 +1,6 @@
 import { frac, fracLatex } from '../fraction';
 import type { Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { dec, fixedChoice, fracInterval, interval, latexChoice, par } from './outils';
 
 /** Chapitre 8 de 2nde : fonctions de référence (carré, inverse, racine carrée, cube). */
@@ -190,7 +190,7 @@ const cube: Skill = {
 const decale = (a: number) => (a === 0 ? 'x' : `x ${a > 0 ? '-' : '+'} ${Math.abs(a)}`);
 
 const carreEquationVariantes = [
-  variante('aire-carre', (rng, level) => {
+  variant('aire-carre', (rng, level) => {
     const r = rng.int(2, level === 1 ? 12 : 30);
     return {
       prompt: `Un jardin carré a une aire de $${r * r}$ m². Combien mesure son côté, en m ?`,
@@ -199,7 +199,7 @@ const carreEquationVariantes = [
       correction: [`$c^2 = ${r * r}$ et $c > 0$, donc $c = \\sqrt{${r * r}} = ${r}$ m.`, `(La solution $-${r}$ de l'équation ne convient pas pour une longueur.)`],
     };
   }),
-  variante('decale', (rng, level) => {
+  variant('decale', (rng, level) => {
     const a = rng.nonZero(-6, 6);
     const r = rng.int(level === 1 ? 1 : 0, 8);
     const none = level === 3 && rng.next() < 0.25;
@@ -215,7 +215,7 @@ const carreEquationVariantes = [
 ];
 
 const carreInequationVariantes = [
-  variante('appartient', (rng, level) => {
+  variant('appartient', (rng, level) => {
     const r = rng.int(2, level === 1 ? 5 : 9);
     const k = r * r;
     const t = rng.pick([-r - 1, -r, -r + 1, r - 1, r, r + 1, 0]);
@@ -229,7 +229,7 @@ const carreInequationVariantes = [
       correction: [`$${par(t)}^2 = ${t * t}$`, `$${t * t} ${ok ? op : strict ? '\\geq' : '>'} ${k}$ : ${ok ? 'c’est' : 'ce n’est pas'} une solution.`],
     };
   }),
-  variante('encadrement', (rng, level) => {
+  variant('encadrement', (rng, level) => {
     const a = -rng.int(1, level === 1 ? 4 : 7);
     const b = rng.int(1, level === 1 ? 4 : 7);
     const hi = Math.max(a * a, b * b);
@@ -244,7 +244,7 @@ const carreInequationVariantes = [
 ];
 
 const comparerVariantes = [
-  variante('raisonnement-faux', (rng, level) => {
+  variant('raisonnement-faux', (rng, level) => {
     const a = -rng.int(2, level === 1 ? 6 : 9);
     let b = rng.int(1, 9);
     if (b === -a) b++;
@@ -256,7 +256,7 @@ const comparerVariantes = [
       correction: [`$(${a})^2 = ${a * a}$ et $${b}^2 = ${b * b}$.`, juste ? 'La conclusion est vraie ici… mais le raisonnement est faux : la fonction carré n’est pas croissante sur $\\mathbb{R}$.' : 'La conclusion est fausse : la fonction carré n’est pas croissante sur $\\mathbb{R}$.'],
     };
   }),
-  variante('encadrer-inverse', (rng, level) => {
+  variant('encadrer-inverse', (rng, level) => {
     let a = rng.int(1, level === 1 ? 4 : 8);
     let b = rng.int(1, level === 1 ? 5 : 10);
     if (a === b) b++;
@@ -275,7 +275,7 @@ const comparerVariantes = [
 ];
 
 const inverseVariantes = [
-  variante('inequation', (rng, level) => {
+  variant('inequation', (rng, level) => {
     const k = frac(rng.int(1, 9), level === 1 ? 1 : rng.int(1, 4));
     const inv = frac(k.d, k.n);
     const above = rng.next() < 0.5;
@@ -292,7 +292,7 @@ const inverseVariantes = [
       correction: [`$\\frac{1}{x} = ${fracLatex(k)}$ pour $x = ${fracLatex(inv)}$.`, above ? `Pour $x < 0$, $\\frac{1}{x} < 0$ : aucune solution. Pour $x > 0$, il faut $x < ${fracLatex(inv)}$.` : `Tout $x < 0$ convient ($\\frac{1}{x} < 0$). Pour $x > 0$, il faut $x > ${fracLatex(inv)}$.`, `$S = ${correct}$`],
     };
   }),
-  variante('decale', (rng, level) => {
+  variant('decale', (rng, level) => {
     const a = rng.nonZero(-6, 6);
     const k = frac(rng.nonZero(-6, 6), level === 1 ? 1 : rng.int(1, 3));
     const x = frac(a * k.n + k.d, k.n);
@@ -306,7 +306,7 @@ const inverseVariantes = [
 ];
 
 const racineVariantes = [
-  variante('inequation', (rng, level) => {
+  variant('inequation', (rng, level) => {
     const k = rng.int(1, level === 1 ? 6 : 12);
     const below = rng.next() < 0.5;
     const correct = below ? interval(0, true, k * k, false) : interval(k * k, false, null, false);
@@ -317,7 +317,7 @@ const racineVariantes = [
       correction: [`$\\sqrt{x} = ${k}$ pour $x = ${k * k}$.`, `$S = ${correct}$`],
     };
   }),
-  variante('decale', (rng, level) => {
+  variant('decale', (rng, level) => {
     const a = rng.nonZero(-9, 9);
     const k = level === 1 ? rng.int(1, 8) : rng.int(-2, 9);
     return {
@@ -330,7 +330,7 @@ const racineVariantes = [
 ];
 
 const cubeVariantes = [
-  variante('volume', (rng, level) => {
+  variant('volume', (rng, level) => {
     const r = rng.int(2, level === 1 ? 6 : 12);
     return {
       prompt: `Une boîte cubique a un volume de $${r ** 3}$ cm³. Quelle est la longueur de son arête, en cm ?`,
@@ -339,7 +339,7 @@ const cubeVariantes = [
       correction: [`$a^3 = ${r ** 3}$ et $${r}^3 = ${r ** 3}$, donc $a = ${r}$ cm.`],
     };
   }),
-  variante('comparer', (rng) => {
+  variant('comparer', (rng) => {
     const a = (rng.sign() * rng.int(1, 60)) / 10;
     let b = a;
     while (b === a) b = Math.round((a + rng.nonZero(-9, 9) / 10) * 10) / 10;
@@ -355,10 +355,10 @@ const cubeVariantes = [
 ];
 
 export const FONCTIONS_REFERENCE_SKILLS: Skill[] = [
-  varier(carreEquation, carreEquationVariantes),
-  varier(carreInequation, carreInequationVariantes),
-  varier(comparer, comparerVariantes),
-  varier(inverseEquation, inverseVariantes),
-  varier(racineEquation, racineVariantes),
-  varier(cube, cubeVariantes),
+  enrich(carreEquation, carreEquationVariantes),
+  enrich(carreInequation, carreInequationVariantes),
+  enrich(comparer, comparerVariantes),
+  enrich(inverseEquation, inverseVariantes),
+  enrich(racineEquation, racineVariantes),
+  enrich(cube, cubeVariantes),
 ];

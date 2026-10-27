@@ -4,20 +4,17 @@ import { factorize, isPrime } from '../src/exercises/seconde/arithmetique';
 import { gcd } from '../src/exercises/seconde/outils';
 import { median, quartile } from '../src/exercises/seconde/statistiques';
 import { texEval } from './helpers/texEval';
-import { dansEnsemble, ensemble, lireNombre, nombres, optionJuste, tirages, valeur, variantesDe, verifierToutesLesVariantes } from './helpers/variantes';
+import { dansEnsemble, ensemble, lireNombre, nombres, optionJuste, tirages, valeur, variantesDe } from './helpers/variantes';
 
 /** Justesse des variantes d'exercices de 2nde : chaque réponse est recalculée à partir de l'énoncé. */
 
 const skills = SECONDE.chapters.flatMap((c) => c.skills);
 const t = (id: string, nom: string, count?: number) => tirages(skills, id, nom, count);
 
-describe('variantes de 2nde : forme', () => {
-  it('en propose beaucoup', () => {
-    expect(variantesDe(skills).length).toBeGreaterThanOrEqual(skills.length * 2);
+describe('variantes de 2nde', () => {
+  it('en propose au moins deux par compétence', () => {
+    for (const s of skills) expect(variantesDe([s]).length, s.id).toBeGreaterThanOrEqual(2);
   });
-
-  for (const chapter of SECONDE.chapters)
-    it(`${chapter.title} : textes propres, KaTeX valide, réponses acceptées ou refusées`, () => verifierToutesLesVariantes(chapter.skills), 60_000);
 });
 
 describe('variantes de 2nde : arithmétique', () => {

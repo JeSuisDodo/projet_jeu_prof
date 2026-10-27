@@ -1,6 +1,6 @@
 import { frac, fracLatex } from '../fraction';
 import type { Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { dec, fixedChoice, fracOf } from './outils';
 
 /** Chapitre 13 de 2nde : probabilités et échantillonnage. */
@@ -195,7 +195,7 @@ const CARTES: [string, number][] = [
 ];
 
 const urneVariantes = [
-  variante('cartes', (rng, level) => {
+  variant('cartes', (rng, level) => {
     const [ev, fav] = rng.pick(level === 1 ? CARTES.slice(0, 4) : CARTES);
     return {
       prompt: `On tire une carte au hasard dans un jeu de $32$ cartes (de 7 à l'as, dans les quatre couleurs). Quelle est la probabilité de tirer ${ev} ?`,
@@ -204,7 +204,7 @@ const urneVariantes = [
       correction: [`Il y a $${fav}$ cartes favorables sur $32$.`, `$P = ${ratio(fav, 32)}$`],
     };
   }),
-  variante('composition', (rng, level) => {
+  variant('composition', (rng, level) => {
     const total = rng.pick(level === 1 ? [10, 20, 30] : [12, 18, 24, 40, 45, 60]);
     let rouges: number;
     do rouges = rng.int(1, total - 1);
@@ -220,7 +220,7 @@ const urneVariantes = [
 ];
 
 const contraireVariantes = [
-  variante('au-moins-une', (rng, level) => {
+  variant('au-moins-une', (rng, level) => {
     const p = level === 1 ? rng.int(5, 9) / 10 : rng.int(51, 99) / 100;
     return {
       prompt: `La probabilité qu'une journée se passe sans aucune panne est $${dec(p)}$. Quelle est la probabilité qu'il y ait au moins une panne dans la journée ?`,
@@ -229,7 +229,7 @@ const contraireVariantes = [
       correction: [`$P = 1 - ${dec(p)} = ${dec(1 - p)}$`],
     };
   }),
-  variante('pourcentage', (rng) => {
+  variant('pourcentage', (rng) => {
     const pct = rng.int(5, 95);
     return {
       prompt: `Dans un lycée, $${pct}\\,\\%$ des élèves sont internes. On choisit un élève au hasard. Quelle est la probabilité qu'il ne soit pas interne ? (Donne un nombre décimal.)`,
@@ -241,7 +241,7 @@ const contraireVariantes = [
 ];
 
 const reunionVariantes = [
-  variante('ni-l-un-ni-l-autre', (rng) => {
+  variant('ni-l-un-ni-l-autre', (rng) => {
     const both = rng.int(5, 20);
     const a = both + rng.int(10, 40);
     const b = both + rng.int(5, 30);
@@ -253,7 +253,7 @@ const reunionVariantes = [
       correction: [`$P(S \\cup M) = ${dec(a / 100)} + ${dec(b / 100)} - ${dec(both / 100)} = ${dec((a + b - both) / 100)}$`, `$P = 1 - ${dec((a + b - both) / 100)} = ${dec(none / 100)}$`],
     };
   }),
-  variante('incompatibles', (rng) => {
+  variant('incompatibles', (rng) => {
     const pa = rng.int(2, 8) / 10;
     const pb = rng.int(2, 8) / 10;
     const ok = pa + pb <= 1 + 1e-9;
@@ -267,7 +267,7 @@ const reunionVariantes = [
 ];
 
 const tableauVariantes = [
-  variante('completer', (rng) => {
+  variant('completer', (rng) => {
     const fl = rng.int(5, 40);
     const fn = rng.int(5, 40);
     const gl = rng.int(5, 40);
@@ -281,7 +281,7 @@ const tableauVariantes = [
       correction: [`Case manquante : $${fl + fn} - ${fl} = ${fn}$.`, `$P = ${ratio(fn, total)}$`],
     };
   }),
-  variante('pourcentages', (rng) => {
+  variant('pourcentages', (rng) => {
     const fl = rng.int(5, 30);
     const fn = rng.int(5, 30);
     const gl = rng.int(5, 30);
@@ -299,7 +299,7 @@ const tableauVariantes = [
 ];
 
 const desVariantes = [
-  variante('piece-et-de', (rng) => {
+  variant('piece-et-de', (rng) => {
     const face = rng.pick(['pile', 'face']);
     const kind = rng.pick(['pair', 'un multiple de 3', 'supérieur ou égal à 5', 'égal à 6'] as const);
     const fav = kind === 'pair' ? 3 : kind === 'un multiple de 3' ? 2 : kind === 'supérieur ou égal à 5' ? 2 : 1;
@@ -310,7 +310,7 @@ const desVariantes = [
       correction: [`Issues favorables : ${face} avec un nombre ${kind}, soit $${fav}$ issue${fav > 1 ? 's' : ''} sur $12$.`, `$P = ${ratio(fav, 12)}$`],
     };
   }),
-  variante('somme-au-moins', (rng) => {
+  variant('somme-au-moins', (rng) => {
     const s = rng.int(4, 11);
     const atLeast = rng.next() < 0.5;
     let fav = 0;
@@ -325,7 +325,7 @@ const desVariantes = [
 ];
 
 const echantillonVariantes = [
-  variante('borne', (rng) => {
+  variant('borne', (rng) => {
     const n = rng.pick([100, 400, 625, 2500, 10000]);
     const p = rng.pick([0.2, 0.3, 0.45, 0.5, 0.6, 0.75]);
     const low = rng.next() < 0.5;
@@ -337,7 +337,7 @@ const echantillonVariantes = [
       correction: [`$\\frac{1}{\\sqrt{${n}}} = ${dec(1 / Math.sqrt(n))}$`, `$${dec(p)} ${low ? '-' : '+'} ${dec(1 / Math.sqrt(n))} = ${dec(v)}$`],
     };
   }),
-  variante('taille', (rng) => {
+  variant('taille', (rng) => {
     const m = rng.pick([0.1, 0.05, 0.04, 0.02, 0.01]);
     const n = Math.round(1 / (m * m));
     return {
@@ -350,10 +350,10 @@ const echantillonVariantes = [
 ];
 
 export const PROBABILITES_SKILLS: Skill[] = [
-  varier(urne, urneVariantes),
-  varier(contraire, contraireVariantes),
-  varier(reunion, reunionVariantes),
-  varier(tableau, tableauVariantes),
-  varier(des, desVariantes),
-  varier(echantillon, echantillonVariantes),
+  enrich(urne, urneVariantes),
+  enrich(contraire, contraireVariantes),
+  enrich(reunion, reunionVariantes),
+  enrich(tableau, tableauVariantes),
+  enrich(des, desVariantes),
+  enrich(echantillon, echantillonVariantes),
 ];

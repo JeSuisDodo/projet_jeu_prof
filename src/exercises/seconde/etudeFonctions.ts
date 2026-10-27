@@ -1,6 +1,6 @@
 import { frac, fracLatex } from '../fraction';
 import type { Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { affine, dec, fixedChoice, fracInterval, interval, latexChoice, par, poly2 } from './outils';
 
 /** Chapitre 9 de 2nde : étude graphique et algébrique de fonctions (images, antécédents, signes). */
@@ -221,7 +221,7 @@ const SIGNES = ['Strictement positif', 'Nul', 'Strictement négatif'];
 const signeIndex = (v: number) => (v > 0 ? 0 : v === 0 ? 1 : 2);
 
 const imageVariantes = [
-  variante('programme', (rng, level) => {
+  variant('programme', (rng, level) => {
     const a = rng.nonZero(-6, 6);
     const b = rng.int(1, 12);
     const k = rng.int(-6, 6);
@@ -234,7 +234,7 @@ const imageVariantes = [
       correction: [`$${k} ${a > 0 ? '+' : '-'} ${Math.abs(a)} = ${k + a}$`, square ? `$${par(k + a)}^2 = ${(k + a) ** 2}$` : `$2 \\times ${par(k + a)} = ${2 * (k + a)}$`, `$${square ? (k + a) ** 2 : 2 * (k + a)} - ${b} = ${value}$`],
     };
   }),
-  variante('sur-la-courbe', (rng, level) => {
+  variant('sur-la-courbe', (rng, level) => {
     const a = rng.nonZero(-3, 3);
     const b = rng.int(-5, 5);
     const c = rng.int(-6, 6);
@@ -250,7 +250,7 @@ const imageVariantes = [
       correction: [`$f(${k}) = ${fk}$`, on ? `C'est bien $y_A$ : $A$ est sur la courbe.` : `$${fk} \\neq ${y}$ : $A$ n'est pas sur la courbe.`],
     };
   }),
-  variante('cout', (rng, level) => {
+  variant('cout', (rng, level) => {
     const fixe = rng.int(5, 40) * 10;
     const u = rng.int(2, level === 1 ? 9 : 25);
     const q = rng.int(10, 120);
@@ -267,7 +267,7 @@ const imageVariantes = [
 ];
 
 const antecedentAffineVariantes = [
-  variante('location', (rng, level) => {
+  variant('location', (rng, level) => {
     const a = rng.int(2, level === 1 ? 6 : 12);
     const b = rng.int(3, 20);
     const h = rng.int(1, 12);
@@ -279,7 +279,7 @@ const antecedentAffineVariantes = [
       correction: [`$${a}x + ${b} = ${prix}$`, `$${a}x = ${prix - b}$`, `$x = ${h}$`],
     };
   }),
-  variante('tableau', (rng) => {
+  variant('tableau', (rng) => {
     const a = rng.nonZero(-4, 4);
     const b = rng.int(-6, 6);
     const xs = [-2, -1, 0, 1, 2, 3];
@@ -295,7 +295,7 @@ const antecedentAffineVariantes = [
 ];
 
 const antecedentsCarreVariantes = [
-  variante('combien', (rng) => {
+  variant('combien', (rng) => {
     const a = rng.int(-5, 5);
     const b = rng.int(-6, 6);
     const kind = rng.pick([0, 1, 2, 2]);
@@ -308,7 +308,7 @@ const antecedentsCarreVariantes = [
       correction: [`$f(x) = ${k}$ équivaut à $${square} = ${k - b}$.`, kind === 0 ? 'Un carré n’est jamais négatif : aucun antécédent.' : kind === 1 ? 'Un carré est nul en un seul point : un antécédent.' : 'Un nombre strictement positif est le carré de deux nombres opposés : deux antécédents.'],
     };
   }),
-  variante('forme-factorisee', (rng, level) => {
+  variant('forme-factorisee', (rng, level) => {
     const p = rng.int(-6, 6);
     let q = rng.int(-6, 6);
     if (level === 1 && q === p) q = p + 2;
@@ -323,7 +323,7 @@ const antecedentsCarreVariantes = [
 ];
 
 const signeAffineVariantes = [
-  variante('signe-en-un-point', (rng) => {
+  variant('signe-en-un-point', (rng) => {
     const a = rng.nonZero(-6, 6);
     const b = rng.int(-9, 9);
     const k = rng.next() < 0.2 && b % a === 0 ? -b / a : rng.int(-6, 6);
@@ -335,7 +335,7 @@ const signeAffineVariantes = [
       correction: [`$f(${k}) = ${v}$`, `C'est ${['strictement positif', 'nul', 'strictement négatif'][signeIndex(v)]}.`],
     };
   }),
-  variante('benefice', (rng, level) => {
+  variant('benefice', (rng, level) => {
     const p = rng.int(3, level === 1 ? 10 : 25);
     const fixe = rng.int(20, 400);
     // B(x) = p x - fixe > 0 ⇔ x > fixe / p ; on cherche le plus petit entier.
@@ -350,7 +350,7 @@ const signeAffineVariantes = [
 ];
 
 const signeProduitVariantes = [
-  variante('quotient', (rng, level) => {
+  variant('quotient', (rng, level) => {
     let p = rng.int(-6, 6);
     let q = p;
     while (q === p) q = rng.int(-6, 6);
@@ -371,7 +371,7 @@ const signeProduitVariantes = [
       correction: [`Le quotient s'annule en $${p}$ et n'existe pas en $${q}$.`, `Il est positif à l'extérieur de ces deux valeurs, négatif entre.`, `$S = ${correct}$`],
     };
   }),
-  variante('signe-en-un-point', (rng) => {
+  variant('signe-en-un-point', (rng) => {
     const p = rng.int(-6, 6);
     const q = rng.int(-6, 6);
     const k = rng.int(-7, 7);
@@ -386,7 +386,7 @@ const signeProduitVariantes = [
 ];
 
 const domaineVariantes = [
-  variante('valeur-interdite', (rng, level) => {
+  variant('valeur-interdite', (rng, level) => {
     const a = rng.nonZero(-5, 5);
     const b = rng.int(-9, 9);
     const c = level === 1 ? 1 : rng.nonZero(-4, 4);
@@ -399,7 +399,7 @@ const domaineVariantes = [
       correction: [`$${affine(c, d)} = 0 \\iff x = ${fracLatex(x)}$`],
     };
   }),
-  variante('appartient', (rng) => {
+  variant('appartient', (rng) => {
     const a = rng.int(-7, 7);
     const k = a + rng.int(-4, 4);
     const kind = rng.pick(['racine', 'inverse'] as const);
@@ -415,10 +415,10 @@ const domaineVariantes = [
 ];
 
 export const ETUDE_FONCTIONS_SKILLS: Skill[] = [
-  varier(image, imageVariantes),
-  varier(antecedentAffine, antecedentAffineVariantes),
-  varier(antecedentsCarre, antecedentsCarreVariantes),
-  varier(signeAffine, signeAffineVariantes),
-  varier(signeProduit, signeProduitVariantes),
-  varier(domaine, domaineVariantes),
+  enrich(image, imageVariantes),
+  enrich(antecedentAffine, antecedentAffineVariantes),
+  enrich(antecedentsCarre, antecedentsCarreVariantes),
+  enrich(signeAffine, signeAffineVariantes),
+  enrich(signeProduit, signeProduitVariantes),
+  enrich(domaine, domaineVariantes),
 ];

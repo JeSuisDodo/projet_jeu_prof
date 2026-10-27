@@ -1,7 +1,7 @@
 import { frac, fracLatex } from '../fraction';
 import type { Rng } from '../rng';
 import { type Answer, type Level, type Skill, makeChoice } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { fixedChoice, par } from './outils';
 
 /** Chapitre 5 de 2nde : vecteurs et coordonnées. */
@@ -161,7 +161,7 @@ const ouiNon = (b: boolean) => fixedChoice(['Oui', 'Non'], b ? 0 : 1);
 const LETTRES = ['A', 'B', 'C', 'D', 'E', 'F', 'M', 'N', 'P', 'R', 'S', 'T'];
 
 const coordonneesVariantes = [
-  variante('extremite', (rng, level) => {
+  variant('extremite', (rng, level) => {
     const A = pt(rng, level);
     const u: Vec = [rng.int(-6, 6), rng.int(-6, 6)];
     return {
@@ -171,7 +171,7 @@ const coordonneesVariantes = [
       correction: [`$x_B = ${A[0]} + ${par(u[0])} = ${A[0] + u[0]}$ et $y_B = ${A[1]} + ${par(u[1])} = ${A[1] + u[1]}$`],
     };
   }),
-  variante('egalite', (rng, level) => {
+  variant('egalite', (rng, level) => {
     const A = pt(rng, level);
     const B = pt(rng, level);
     const C = pt(rng, level);
@@ -187,7 +187,7 @@ const coordonneesVariantes = [
 ];
 
 const combinaisonVariantes = [
-  variante('chasles', (rng) => {
+  variant('chasles', (rng) => {
     const [x, y, z] = rng.shuffle(LETTRES).slice(0, 3);
     const kind = rng.pick(['somme', 'difference'] as const);
     // AB + BC = AC ; AB - AC = CB.
@@ -201,7 +201,7 @@ const combinaisonVariantes = [
       correction: kind === 'somme' ? [`$${expr} = ${correct}$ (relation de Chasles).`] : [`$${expr} = \\overrightarrow{${z}${x}} + \\overrightarrow{${x}${y}} = ${correct}$`],
     };
   }),
-  variante('vecteur-manquant', (rng) => {
+  variant('vecteur-manquant', (rng) => {
     const u: Vec = [rng.int(-6, 6), rng.int(-6, 6)];
     const v: Vec = [rng.int(-6, 6), rng.int(-6, 6)];
     const w: Vec = [u[0] + v[0], u[1] + v[1]];
@@ -215,7 +215,7 @@ const combinaisonVariantes = [
 ];
 
 const translationVariantes = [
-  variante('antecedent', (rng, level) => {
+  variant('antecedent', (rng, level) => {
     const A = pt(rng, level);
     const B = pt(rng, level);
     const D = pt(rng, level);
@@ -227,7 +227,7 @@ const translationVariantes = [
       correction: [`$\\overrightarrow{AB}(${B[0] - A[0]}\\,;\\,${B[1] - A[1]})$`, `$x_C = ${D[0]} - ${par(B[0] - A[0])} = ${C[0]}$ et $y_C = ${D[1]} - ${par(B[1] - A[1])} = ${C[1]}$`],
     };
   }),
-  variante('vecteur', (rng, level) => {
+  variant('vecteur', (rng, level) => {
     const A = pt(rng, level);
     const A2 = pt(rng, level);
     return {
@@ -240,7 +240,7 @@ const translationVariantes = [
 ];
 
 const parallelogrammeVariantes = [
-  variante('est-parallelogramme', (rng, level) => {
+  variant('est-parallelogramme', (rng, level) => {
     const A = pt(rng, level);
     const B = pt(rng, level);
     const C = pt(rng, level);
@@ -254,7 +254,7 @@ const parallelogrammeVariantes = [
       correction: [`$\\overrightarrow{AB}(${B[0] - A[0]}\\,;\\,${B[1] - A[1]})$ et $\\overrightarrow{DC}(${C[0] - D[0]}\\,;\\,${C[1] - D[1]})$.`, ok ? 'Ils sont égaux : $ABCD$ est un parallélogramme (éventuellement aplati).' : 'Ils sont différents : ce n’est pas un parallélogramme.'],
     };
   }),
-  variante('sommet-B', (rng, level) => {
+  variant('sommet-B', (rng, level) => {
     const A = pt(rng, level);
     const C = pt(rng, level);
     const D = pt(rng, level);
@@ -269,7 +269,7 @@ const parallelogrammeVariantes = [
 ];
 
 const colineariteVariantes = [
-  variante('alignes', (rng, level) => {
+  variant('alignes', (rng, level) => {
     const A = pt(rng, level);
     const u: Vec = [rng.nonZero(-4, 4), rng.int(-4, 4)];
     const k = rng.pick([2, 3, -1, -2]);
@@ -284,7 +284,7 @@ const colineariteVariantes = [
       correction: [`$\\overrightarrow{AB}(${B[0] - A[0]}\\,;\\,${B[1] - A[1]})$, $\\overrightarrow{AC}(${C[0] - A[0]}\\,;\\,${C[1] - A[1]})$.`, `$\\det = ${d}$ : ${d === 0 ? 'les points sont alignés' : 'les points ne sont pas alignés'}.`],
     };
   }),
-  variante('coefficient', (rng, level) => {
+  variant('coefficient', (rng, level) => {
     const u: Vec = [rng.nonZero(-5, 5), rng.nonZero(-5, 5)];
     const k = level === 3 ? frac(rng.nonZero(-5, 5), 2) : frac(rng.pick([2, 3, -1, -2, -3, 4]));
     // v = k u, à coordonnées entières : en niveau 3, u est pair.
@@ -303,7 +303,7 @@ const colineariteVariantes = [
 ];
 
 const parametreVariantes = [
-  variante('alignement', (rng) => {
+  variant('alignement', (rng) => {
     const A: Vec = [rng.int(-5, 5), rng.int(-5, 5)];
     const u: Vec = [rng.nonZero(-3, 3), rng.nonZero(-4, 4)];
     const B: Vec = [A[0] + u[0], A[1] + u[1]];
@@ -317,7 +317,7 @@ const parametreVariantes = [
       correction: [`$\\det(\\overrightarrow{AB}, \\overrightarrow{AC}) = ${par(u[0])}(m - ${par(A[1])}) - ${par(u[1])} \\times ${par(C[0] - A[0])} = 0$`, `$m = ${C[1]}$`],
     };
   }),
-  variante('paralleles', (rng, level) => {
+  variant('paralleles', (rng, level) => {
     const a = rng.nonZero(-6, 6);
     const b = rng.nonZero(-6, 6);
     const c = level === 1 ? a * rng.pick([2, -1]) : rng.nonZero(-9, 9);
@@ -332,10 +332,10 @@ const parametreVariantes = [
 ];
 
 export const VECTEURS_SKILLS: Skill[] = [
-  varier(coordonnees, coordonneesVariantes),
-  varier(combinaison, combinaisonVariantes),
-  varier(translation, translationVariantes),
-  varier(parallelogramme, parallelogrammeVariantes),
-  varier(colinearite, colineariteVariantes),
-  varier(parametre, parametreVariantes),
+  enrich(coordonnees, coordonneesVariantes),
+  enrich(combinaison, combinaisonVariantes),
+  enrich(translation, translationVariantes),
+  enrich(parallelogramme, parallelogrammeVariantes),
+  enrich(colinearite, colineariteVariantes),
+  enrich(parametre, parametreVariantes),
 ];

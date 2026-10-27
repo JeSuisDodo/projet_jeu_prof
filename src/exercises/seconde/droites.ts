@@ -1,7 +1,7 @@
 import { type Frac, frac, fracLatex } from '../fraction';
 import type { Rng } from '../rng';
 import type { Level, Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { dec, fixedChoice, fracOf, latexChoice, par, terms } from './outils';
 
 /** Chapitre 6 de 2nde : équations de droites. */
@@ -234,7 +234,7 @@ function tarif(rng: Rng, level: Level) {
 }
 
 const coefDirecteurVariantes = [
-  variante('cartesienne', (rng, level) => {
+  variant('cartesienne', (rng, level) => {
     const a = rng.nonZero(-6, 6);
     const b = level === 1 ? rng.pick([1, -1]) : rng.nonZero(-5, 5);
     const c = rng.int(-9, 9);
@@ -246,7 +246,7 @@ const coefDirecteurVariantes = [
       correction: [`$${terms([[b, 'y']])} = ${terms([[-a, 'x'], [-c, '']])}$`, `Le coefficient directeur est $m = ${fracLatex(m)}$.`],
     };
   }),
-  variante('taxi', (rng, level) => {
+  variant('taxi', (rng, level) => {
     const { m, x1, x2, y1, y2 } = tarif(rng, level);
     return {
       prompt: `Le prix d'une course de taxi est une fonction affine de la distance. Une course de $${x1}$ km coûte $${dec(y1)}$ € et une course de $${x2}$ km coûte $${dec(y2)}$ €. Quel est le prix d'un kilomètre, en € ?`,
@@ -255,7 +255,7 @@ const coefDirecteurVariantes = [
       correction: [`$m = \\frac{${dec(y2)} - ${dec(y1)}}{${x2} - ${x1}} = \\frac{${dec(y2 - y1)}}{${x2 - x1}} = ${dec(m)}$`],
     };
   }),
-  variante('pente-route', (rng, level) => {
+  variant('pente-route', (rng, level) => {
     const d = rng.pick([100, 200, 250, 400, 500]);
     const pct = rng.int(2, level === 1 ? 10 : 18);
     const h = (pct * d) / 100;
@@ -269,7 +269,7 @@ const coefDirecteurVariantes = [
 ];
 
 const ordonneeOrigineVariantes = [
-  variante('deux-points', (rng, level) => {
+  variant('deux-points', (rng, level) => {
     const [A, B] = twoPoints(rng, level);
     const m = slopeOf(A, B);
     const p = frac(A[1] * m.d - m.n * A[0], m.d);
@@ -280,7 +280,7 @@ const ordonneeOrigineVariantes = [
       correction: [`$m = ${fracLatex(m)}$`, `$p = y_A - m x_A = ${fracLatex(p)}$`],
     };
   }),
-  variante('prise-en-charge', (rng, level) => {
+  variant('prise-en-charge', (rng, level) => {
     const { p, x1, x2, y1, y2 } = tarif(rng, level);
     return {
       prompt: `Le prix d'une course de taxi est une fonction affine de la distance. Une course de $${x1}$ km coûte $${dec(y1)}$ € et une course de $${x2}$ km coûte $${dec(y2)}$ €. Quel est le montant de la prise en charge (le prix pour $0$ km), en € ?`,
@@ -292,7 +292,7 @@ const ordonneeOrigineVariantes = [
 ];
 
 const equationReduiteVariantes = [
-  variante('coef-et-point', (rng, level) => {
+  variant('coef-et-point', (rng, level) => {
     const m = level === 3 ? frac(rng.nonZero(-5, 5), rng.pick([2, 3])) : frac(rng.nonZero(-5, 5));
     const xA = m.d * rng.int(-3, 3);
     const yA = rng.int(-8, 8);
@@ -305,7 +305,7 @@ const equationReduiteVariantes = [
       correction: [`$${yA} = ${fracLatex(m)} \\times ${par(xA)} + p$ donc $p = ${fracLatex(p)}$.`, `$${correct}$`],
     };
   }),
-  variante('parallele-axe', (rng) => {
+  variant('parallele-axe', (rng) => {
     const A: Pt = [rng.nonZero(-7, 7), rng.nonZero(-7, 7)];
     if (A[0] === A[1]) A[1] = -A[1];
     const axe = rng.pick(['abscisses', 'ordonnées'] as const);
@@ -320,7 +320,7 @@ const equationReduiteVariantes = [
 ];
 
 const appartenanceVariantes = [
-  variante('trouver-ordonnee', (rng, level) => {
+  variant('trouver-ordonnee', (rng, level) => {
     const m = level === 3 ? frac(rng.nonZero(-5, 5), 2) : frac(rng.nonZero(-5, 5));
     const p = rng.int(-9, 9);
     const x = rng.int(-6, 6) * m.d;
@@ -332,7 +332,7 @@ const appartenanceVariantes = [
       correction: [`$y_C = ${fracLatex(m)} \\times ${par(x)} ${p < 0 ? '-' : '+'} ${Math.abs(p)} = ${fracLatex(y)}$`],
     };
   }),
-  variante('trouver-abscisse', (rng, level) => {
+  variant('trouver-abscisse', (rng, level) => {
     const m = rng.nonZero(-5, 5);
     const p = rng.int(-9, 9);
     const x = level === 3 ? frac(rng.nonZero(-9, 9), Math.abs(m)) : frac(rng.int(-6, 6));
@@ -347,7 +347,7 @@ const appartenanceVariantes = [
 ];
 
 const vecteurDirecteurVariantes = [
-  variante('deux-points', (rng) => {
+  variant('deux-points', (rng) => {
     const A: Pt = [rng.int(-6, 6), rng.int(-6, 6)];
     let B: Pt = [rng.int(-6, 6), rng.int(-6, 6)];
     if (B[0] === A[0] && B[1] === A[1]) B = [A[0] + 2, A[1] - 1];
@@ -358,7 +358,7 @@ const vecteurDirecteurVariantes = [
       correction: [`$\\overrightarrow{AB}(${B[0]} - ${par(A[0])}\\,;\\,${B[1]} - ${par(A[1])}) = (${B[0] - A[0]}\\,;\\,${B[1] - A[1]})$`],
     };
   }),
-  variante('depuis-reduite', (rng, level) => {
+  variant('depuis-reduite', (rng, level) => {
     const m = level === 3 ? frac(rng.nonZero(-7, 7), rng.pick([2, 3])) : frac(rng.nonZero(-6, 6));
     const p = frac(rng.int(-9, 9));
     return {
@@ -371,7 +371,7 @@ const vecteurDirecteurVariantes = [
 ];
 
 const cartesienneVariantes = [
-  variante('vers-cartesienne', (rng, level) => {
+  variant('vers-cartesienne', (rng, level) => {
     const m = level === 1 ? frac(rng.nonZero(-5, 5)) : frac(rng.nonZero(-5, 5), rng.pick([1, 2, 3]));
     const p = frac(rng.int(-9, 9));
     // y = (n/d)x + p ⇔ n x - d y + d p = 0
@@ -389,7 +389,7 @@ const cartesienneVariantes = [
       correction: [`$${reduite(m, p)}$ équivaut à $${eq(a, b, c)}$.`],
     };
   }),
-  variante('trouver-c', (rng) => {
+  variant('trouver-c', (rng) => {
     const a = rng.nonZero(-5, 5);
     const b = rng.nonZero(-5, 5);
     const A: Pt = [rng.int(-6, 6), rng.int(-6, 6)];
@@ -404,10 +404,10 @@ const cartesienneVariantes = [
 ];
 
 export const DROITES_SKILLS: Skill[] = [
-  varier(coefDirecteur, coefDirecteurVariantes),
-  varier(ordonneeOrigine, ordonneeOrigineVariantes),
-  varier(equationReduite, equationReduiteVariantes),
-  varier(appartenance, appartenanceVariantes),
-  varier(vecteurDirecteur, vecteurDirecteurVariantes),
-  varier(cartesienneReduite, cartesienneVariantes),
+  enrich(coefDirecteur, coefDirecteurVariantes),
+  enrich(ordonneeOrigine, ordonneeOrigineVariantes),
+  enrich(equationReduite, equationReduiteVariantes),
+  enrich(appartenance, appartenanceVariantes),
+  enrich(vecteurDirecteur, vecteurDirecteurVariantes),
+  enrich(cartesienneReduite, cartesienneVariantes),
 ];

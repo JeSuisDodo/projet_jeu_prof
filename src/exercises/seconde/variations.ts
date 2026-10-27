@@ -1,7 +1,7 @@
 import { frac } from '../fraction';
 import type { Rng } from '../rng';
 import type { Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { affine, dec, distinctInts, fixedChoice, interval, latexChoice, par } from './outils';
 
 /** Chapitre 10 de 2nde : sens de variation, extremums, tableaux de variations. */
@@ -199,7 +199,7 @@ const extremumCarre: Skill = {
 const SENS = ['Croissante', 'Décroissante', 'Constante'];
 
 const sensAffineVariantes = [
-  variante('deux-images', (rng) => {
+  variant('deux-images', (rng) => {
     const x1 = rng.int(-6, 3);
     const x2 = x1 + rng.int(1, 6);
     const y1 = rng.int(-9, 9);
@@ -212,7 +212,7 @@ const sensAffineVariantes = [
       correction: [`$a = \\frac{${y2} - ${par(y1)}}{${x2} - ${par(x1)}} = \\frac{${y2 - y1}}{${x2 - x1}}$`, kind === 0 ? '$a > 0$ : $f$ est croissante.' : kind === 1 ? '$a < 0$ : $f$ est décroissante.' : '$a = 0$ : $f$ est constante.'],
     };
   }),
-  variante('comparer', (rng) => {
+  variant('comparer', (rng) => {
     const a = rng.nonZero(-5, 5);
     const b = rng.int(-9, 9);
     const u = rng.int(-200, 200) / 10;
@@ -239,7 +239,7 @@ function tableauDistinct(rng: Rng, n: number) {
 }
 
 const extremumTableauVariantes = [
-  variante('nombre-solutions', (rng, level) => {
+  variant('nombre-solutions', (rng, level) => {
     const { xs, ys } = tableauDistinct(rng, level === 1 ? 3 : 4);
     let k = rng.int(Math.min(...ys), Math.max(...ys));
     while (ys.includes(k)) k++;
@@ -252,7 +252,7 @@ const extremumTableauVariantes = [
       correction: [`On compte les flèches qui « traversent » la valeur $${k}$.`, `Il y a $${count}$ solution${count > 1 ? 's' : ''}.`],
     };
   }),
-  variante('ou-atteint', (rng, level) => {
+  variant('ou-atteint', (rng, level) => {
     const { xs, ys } = tableauDistinct(rng, level === 1 ? 3 : 4);
     const wantMax = rng.next() < 0.5;
     const value = wantMax ? Math.max(...ys) : Math.min(...ys);
@@ -266,7 +266,7 @@ const extremumTableauVariantes = [
 ];
 
 const comparerTableauVariantes = [
-  variante('sans-conclusion', (rng) => {
+  variant('sans-conclusion', (rng) => {
     const lo = rng.int(-8, -3);
     const m = lo + rng.int(2, 4);
     const hi = m + rng.int(2, 4);
@@ -282,7 +282,7 @@ const comparerTableauVariantes = [
       correction: [`$${dec(a)}$ et $${dec(b)}$ sont de part et d'autre de $${m}$, où $f$ change de sens.`, 'Sans autre information, on ne peut pas comparer leurs images.'],
     };
   }),
-  variante('tableau', (rng) => {
+  variant('tableau', (rng) => {
     const { xs, ys } = tableauDistinct(rng, 4);
     const i = rng.int(0, 2);
     const span = xs[i + 1] - xs[i];
@@ -303,7 +303,7 @@ const comparerTableauVariantes = [
 ];
 
 const extremumAffineVariantes = [
-  variante('image-intervalle', (rng) => {
+  variant('image-intervalle', (rng) => {
     const a = rng.nonZero(-5, 5);
     const b = rng.int(-9, 9);
     const [lo, hi] = distinctInts(rng, 2, -6, 6).sort((p, q) => p - q);
@@ -316,7 +316,7 @@ const extremumAffineVariantes = [
       correction: [`$f(${lo}) = ${a * lo + b}$ et $f(${hi}) = ${a * hi + b}$.`, `Donc $f(x) \\in ${correct}$.`],
     };
   }),
-  variante('concret', (rng) => {
+  variant('concret', (rng) => {
     const a = -rng.int(1, 4);
     const b = rng.int(15, 40);
     const h = rng.int(3, 8);
@@ -330,7 +330,7 @@ const extremumAffineVariantes = [
 ];
 
 const variationsCarreVariantes = [
-  variante('sur-un-intervalle', (rng, level) => {
+  variant('sur-un-intervalle', (rng, level) => {
     const s = level === 1 ? 1 : rng.sign();
     const alpha = rng.int(-6, 6);
     const beta = rng.int(-9, 9);
@@ -345,7 +345,7 @@ const variationsCarreVariantes = [
       correction: [`$[${p}\\,;\\,${q}]$ est ${right ? 'à droite' : 'à gauche'} de $${alpha}$.`, `$f$ y est ${up ? 'croissante' : 'décroissante'}.`],
     };
   }),
-  variante('forme-developpee', (rng) => {
+  variant('forme-developpee', (rng) => {
     const alpha = rng.int(-6, 6);
     const c = rng.int(-9, 9);
     // x² - 2αx + c = (x - α)² + c - α²
@@ -360,7 +360,7 @@ const variationsCarreVariantes = [
 ];
 
 const extremumCarreVariantes = [
-  variante('balle', (rng) => {
+  variant('balle', (rng) => {
     const t0 = rng.int(1, 4);
     const hmax = rng.int(6, 25);
     const k = rng.pick([1, 2, 5]);
@@ -372,7 +372,7 @@ const extremumCarreVariantes = [
       correction: [`$h(t) \\leq ${hmax}$, avec égalité pour $t = ${t0}$.`, `La hauteur maximale est $${hmax}$ m, atteinte au bout de $${t0}$ s.`],
     };
   }),
-  variante('vrai-faux', (rng, level) => {
+  variant('vrai-faux', (rng, level) => {
     const s = level === 1 ? 1 : rng.sign();
     const alpha = rng.int(-6, 6);
     const beta = rng.int(-9, 9);
@@ -388,10 +388,10 @@ const extremumCarreVariantes = [
 ];
 
 export const VARIATIONS_SKILLS: Skill[] = [
-  varier(sensAffine, sensAffineVariantes),
-  varier(extremumTableau, extremumTableauVariantes),
-  varier(comparerTableau, comparerTableauVariantes),
-  varier(extremumAffine, extremumAffineVariantes),
-  varier(variationsCarre, variationsCarreVariantes),
-  varier(extremumCarre, extremumCarreVariantes),
+  enrich(sensAffine, sensAffineVariantes),
+  enrich(extremumTableau, extremumTableauVariantes),
+  enrich(comparerTableau, comparerTableauVariantes),
+  enrich(extremumAffine, extremumAffineVariantes),
+  enrich(variationsCarre, variationsCarreVariantes),
+  enrich(extremumCarre, extremumCarreVariantes),
 ];

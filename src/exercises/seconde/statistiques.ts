@@ -1,7 +1,7 @@
 import { frac } from '../fraction';
 import type { Rng } from '../rng';
 import type { Level, Skill } from '../types';
-import { variante, varier } from '../varier';
+import { enrich, variant } from '../variantes';
 import { dec, fixedChoice, fracOf, par } from './outils';
 
 /** Chapitre 12 de 2nde : statistique descriptive (moyenne, médiane, quartiles, étendue). */
@@ -172,7 +172,7 @@ const tableauEffectifs = (values: number[], counts: number[], label = 'Valeur') 
 const deplier = (values: number[], counts: number[]) => values.flatMap((v, i) => Array<number>(counts[i]).fill(v));
 
 const moyenneVariantes = [
-  variante('note-manquante', (rng, level) => {
+  variant('note-manquante', (rng, level) => {
     const n = level === 1 ? 4 : rng.int(4, 6);
     const mean = rng.int(8, 15);
     let xs: number[];
@@ -189,7 +189,7 @@ const moyenneVariantes = [
       correction: [`Somme totale : $${n} \\times ${mean} = ${n * mean}$.`, `Note oubliée : $${n * mean} - ${xs.reduce((a, b) => a + b, 0)} = ${x}$.`],
     };
   }),
-  variante('ajout', (rng, level) => {
+  variant('ajout', (rng, level) => {
     const n = rng.pick([4, 9, 19, 24]);
     const mean = rng.int(9, 14);
     const extra = rng.int(0, 20);
@@ -204,7 +204,7 @@ const moyenneVariantes = [
 ];
 
 const ponderee = [
-  variante('coefficients', (rng, level) => {
+  variant('coefficients', (rng, level) => {
     const k = level === 1 ? 2 : 3;
     const notes = series(rng, k, 4, 20);
     let coefs = series(rng, k, 1, 4);
@@ -222,7 +222,7 @@ const ponderee = [
       correction: [`$${notes.map((v, i) => `${v} \\times ${coefs[i]}`).join(' + ')} = ${total}$`, `$\\frac{${total}}{${C}} = ${dec(total / C)}$`],
     };
   }),
-  variante('note-necessaire', (rng) => {
+  variant('note-necessaire', (rng) => {
     let C: number;
     let c: number;
     let target: number;
@@ -246,7 +246,7 @@ const ponderee = [
 ];
 
 const medianeVariantes = [
-  variante('tableau', (rng, level) => {
+  variant('tableau', (rng, level) => {
     const values = sorted([...new Set(series(rng, 8, 0, 20))]).slice(0, level === 1 ? 4 : 5);
     const counts = values.map(() => rng.int(1, level === 1 ? 4 : 8));
     const m = median(deplier(values, counts));
@@ -257,7 +257,7 @@ const medianeVariantes = [
       correction: [`Effectif total : $${counts.reduce((a, b) => a + b, 0)}$.`, `La médiane vaut $${dec(m)}$.`],
     };
   }),
-  variante('moyenne-ou-mediane', (rng) => {
+  variant('moyenne-ou-mediane', (rng) => {
     const xs = series(rng, rng.pick([5, 7]), 0, 20);
     // Une valeur extrême tire la moyenne mais pas la médiane.
     xs[0] = rng.pick([60, 80, 100]);
@@ -273,7 +273,7 @@ const medianeVariantes = [
 ];
 
 const quartilesVariantes = [
-  variante('tableau', (rng, level) => {
+  variant('tableau', (rng, level) => {
     const values = sorted([...new Set(series(rng, 8, 0, 20))]).slice(0, 4);
     const counts = values.map(() => rng.int(1, level === 1 ? 5 : 9));
     const q = rng.pick([1, 3] as const);
@@ -285,7 +285,7 @@ const quartilesVariantes = [
       correction: [`Effectif total : $N = ${counts.reduce((a, b) => a + b, 0)}$.`, `$Q_${q} = ${v}$`],
     };
   }),
-  variante('interpretation', (rng) => {
+  variant('interpretation', (rng) => {
     const q = rng.pick([1, 3] as const);
     const v = rng.int(8, 15);
     const opts = ['$25\\,\\%$', '$50\\,\\%$', '$75\\,\\%$', '$100\\,\\%$'];
@@ -299,7 +299,7 @@ const quartilesVariantes = [
 ];
 
 const dispersionVariantes = [
-  variante('valeur-manquante', (rng) => {
+  variant('valeur-manquante', (rng) => {
     const min = rng.int(0, 15);
     const e = rng.int(5, 30);
     const askMax = rng.next() < 0.5;
@@ -310,7 +310,7 @@ const dispersionVariantes = [
       correction: [askMax ? `$${min} + ${e} = ${min + e}$` : `$${min + e} - ${e} = ${min}$`],
     };
   }),
-  variante('valeur-extreme', (rng) => {
+  variant('valeur-extreme', (rng) => {
     const n = rng.int(8, 12);
     const xs = series(rng, n, 0, 30);
     const s = sorted(xs);
@@ -330,7 +330,7 @@ const dispersionVariantes = [
 ];
 
 const transformeeVariantes = [
-  variante('fahrenheit', (rng) => {
+  variant('fahrenheit', (rng) => {
     const c = rng.pick([5, 10, 15, 20, 25, 30, -5, -10]);
     const f = Math.round((1.8 * c + 32) * 100) / 100;
     return {
@@ -340,7 +340,7 @@ const transformeeVariantes = [
       correction: [`$1{,}8 \\times ${par(c)} + 32 = ${dec(f)}$`],
     };
   }),
-  variante('retrouver', (rng) => {
+  variant('retrouver', (rng) => {
     const mean = rng.int(6, 14);
     const a = rng.pick([1, 2]);
     const b = rng.nonZero(-3, 5);
@@ -355,10 +355,10 @@ const transformeeVariantes = [
 ];
 
 export const STATISTIQUES_SKILLS: Skill[] = [
-  varier(moyenne, moyenneVariantes),
-  varier(moyennePonderee, ponderee),
-  varier(mediane, medianeVariantes),
-  varier(quartiles, quartilesVariantes),
-  varier(dispersion, dispersionVariantes),
-  varier(moyenneTransformee, transformeeVariantes),
+  enrich(moyenne, moyenneVariantes),
+  enrich(moyennePonderee, ponderee),
+  enrich(mediane, medianeVariantes),
+  enrich(quartiles, quartilesVariantes),
+  enrich(dispersion, dispersionVariantes),
+  enrich(moyenneTransformee, transformeeVariantes),
 ];
