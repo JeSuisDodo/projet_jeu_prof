@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { APPLICATIONS_DERIVATION } from '../src/content/premiere/applications-derivation';
 import { DERIVATION } from '../src/content/premiere/derivation';
+import { baseOf } from '../src/exercises/variantes';
 import { Rng } from '../src/exercises/rng';
 import type { Exercise, Level, Skill } from '../src/exercises/types';
 
 /** Recalcule indépendamment les réponses à partir de l'énoncé (dérivée numérique, recherche de racines…). */
 
-const skill = (chapter: { skills: Skill[] }, id: string) => chapter.skills.find((s) => s.id === id)!;
+const skill = (chapter: { skills: Skill[] }, id: string) => baseOf(chapter.skills.find((s) => s.id === id)!);
 
 function* exercises(s: Skill, n = 200): Generator<Exercise> {
   for (const level of [1, 2, 3] as Level[]) for (let seed = 1; seed <= n; seed++) yield s.generate(new Rng(seed * 15485863 + level), level);
