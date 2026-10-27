@@ -100,26 +100,19 @@ function borne(tex: string, evaluer: (s: string) => number): number {
 }
 
 /**
- * Teste si x appartient à un ensemble écrit en LaTeX : intervalles (crochets « à la française »),
- * réunions avec \cup, \varnothing, \mathbb{R}.
+ * Prédicat d'appartenance à un ensemble écrit en LaTeX : intervalles (crochets « à la française »),
+ * réunions avec \cup, \varnothing, \mathbb{R}. Les bornes sont lues une seule fois.
  */
-export function dansEnsemble(tex: string, x: number, evaluer: (s: string) => number): boolean {
+export function ensemble(tex: string, evaluer: (s: string) => number): (x: number) => boolean {
   const s = tex.replace(/\$/g, '').trim();
-  if (s === '\\varnothing') return false;
-  if (s === '\\mathbb{R}') return true;
-  return s.split(' \\cup ').some((part) => {
+  if (s === '\\varnothing') return () => false;
+  if (s === '\\mathbb{R}') return () => true;
+  const parts = s.split(' \\cup ').map((part) => {
     const m = /^(\[|\\mathopen\{\]\})(.+)\\,;\\,(.+?)(\]|\\mathclose\{\[\})$/.exec(part.trim());
     if (!m) throw new Error(`intervalle illisible : ${part}`);
-    const lo = borne(m[2], evaluer);
-    const hi = borne(m[3], evaluer);
-    const loOk = m[1] === '[' ? x >= lo - 1e-12 : x > lo + 1e-12;
-    const hiOk = m[4] === ']' ? x <= hi + 1e-12 : x < hi - 1e-12;
-    return loOk && hiOk;
+    return { lo: borne(m[2], evaluer), hi: borne(m[3], evaluer), lc: m[1] === '[', hc: m[4] === ']' };
   });
+  return (x) => parts.some(({ lo, hi, lc, hc }) => (lc ? x >= lo - 1e-12 : x > lo + 1e-12) && (hc ? x <= hi + 1e-12 : x < hi - 1e-12));
 }
 
-/** Deux ensembles égaux, testés sur une grille fine de points (entiers, demis, quarts). */
-export function memesEnsembles(a: string, b: string, evaluer: (s: string) => number): boolean {
-  for (let k = -200; k <= 200; k++) if (dansEnsemble(a, k / 4, evaluer) !== dansEnsemble(b, k / 4, evaluer)) return false;
-  return true;
-}
+export const dansEnsemble = (tex: string, x: number, evaluer: (s: string) => number) => ensemble(tex, evaluer)(x);

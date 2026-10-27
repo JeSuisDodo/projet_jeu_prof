@@ -1,6 +1,7 @@
 import { frac, fracLatex } from '../fraction';
 import type { Skill } from '../types';
-import { dec, fixedChoice, interval, latexChoice } from './outils';
+import { variante, varier } from '../varier';
+import { dec, fixedChoice, fracInterval, interval, latexChoice, par } from './outils';
 
 /** Chapitre 8 de 2nde : fonctions de référence (carré, inverse, racine carrée, cube). */
 
@@ -184,4 +185,180 @@ const cube: Skill = {
   },
 };
 
-export const FONCTIONS_REFERENCE_SKILLS: Skill[] = [carreEquation, carreInequation, comparer, inverseEquation, racineEquation, cube];
+/* ---------- Variantes : d'autres façons de poser les mêmes notions ---------- */
+
+const decale = (a: number) => (a === 0 ? 'x' : `x ${a > 0 ? '-' : '+'} ${Math.abs(a)}`);
+
+const carreEquationVariantes = [
+  variante('aire-carre', (rng, level) => {
+    const r = rng.int(2, level === 1 ? 12 : 30);
+    return {
+      prompt: `Un jardin carré a une aire de $${r * r}$ m². Combien mesure son côté, en m ?`,
+      answer: { kind: 'number', value: frac(r) },
+      hint: 'Le côté $c$ vérifie $c^2 = $ aire, et une longueur est positive.',
+      correction: [`$c^2 = ${r * r}$ et $c > 0$, donc $c = \\sqrt{${r * r}} = ${r}$ m.`, `(La solution $-${r}$ de l'équation ne convient pas pour une longueur.)`],
+    };
+  }),
+  variante('decale', (rng, level) => {
+    const a = rng.nonZero(-6, 6);
+    const r = rng.int(level === 1 ? 1 : 0, 8);
+    const none = level === 3 && rng.next() < 0.25;
+    const k = none ? -rng.int(1, 9) : r * r;
+    const values = none ? [] : r === 0 ? [frac(a)] : [frac(a - r), frac(a + r)];
+    return {
+      prompt: `Résous dans $\\mathbb{R}$ l'équation $(${decale(a)})^2 = ${k}$.`,
+      answer: { kind: 'set', values },
+      hint: 'Pose $X = ' + decale(a) + '$ : tu retombes sur $X^2 = k$.',
+      correction: none ? ['Un carré n’est jamais négatif : $S = \\varnothing$.'] : r === 0 ? [`$${decale(a)} = 0$, donc $x = ${a}$.`] : [`$${decale(a)} = ${r}$ ou $${decale(a)} = -${r}$`, `$x = ${a + r}$ ou $x = ${a - r}$`],
+    };
+  }),
+];
+
+const carreInequationVariantes = [
+  variante('appartient', (rng, level) => {
+    const r = rng.int(2, level === 1 ? 5 : 9);
+    const k = r * r;
+    const t = rng.pick([-r - 1, -r, -r + 1, r - 1, r, r + 1, 0]);
+    const strict = rng.next() < 0.5;
+    const op = strict ? '<' : '\\leq';
+    const ok = strict ? t * t < k : t * t <= k;
+    return {
+      prompt: `Le nombre $${t}$ est-il solution de l'inéquation $x^2 ${op} ${k}$ ?`,
+      answer: fixedChoice(['Oui', 'Non'], ok ? 0 : 1),
+      hint: 'Calcule le carré du nombre (attention aux nombres négatifs) et compare.',
+      correction: [`$${par(t)}^2 = ${t * t}$`, `$${t * t} ${ok ? op : strict ? '\\geq' : '>'} ${k}$ : ${ok ? 'c’est' : 'ce n’est pas'} une solution.`],
+    };
+  }),
+  variante('encadrement', (rng, level) => {
+    const a = -rng.int(1, level === 1 ? 4 : 7);
+    const b = rng.int(1, level === 1 ? 4 : 7);
+    const hi = Math.max(a * a, b * b);
+    const enc = (lo: number, h: number) => `${lo} \\leq x^2 \\leq ${h}`;
+    return {
+      prompt: `On sait que $${a} \\leq x \\leq ${b}$. Quel est le meilleur encadrement de $x^2$ ?`,
+      answer: latexChoice(rng, enc(0, hi), [enc(a * a, b * b), enc(b * b, a * a), enc(-hi, hi), enc(Math.min(a * a, b * b), hi)], () => enc(1, hi)),
+      hint: 'Attention : $0$ est dans l’intervalle, et la fonction carré n’est pas monotone sur $\\mathbb{R}$.',
+      correction: [`Sur $[${a}\\,;\\,0]$, $x^2$ va de $${a * a}$ à $0$ ; sur $[0\\,;\\,${b}]$, de $0$ à $${b * b}$.`, `Donc $${enc(0, hi)}$.`],
+    };
+  }),
+];
+
+const comparerVariantes = [
+  variante('raisonnement-faux', (rng, level) => {
+    const a = -rng.int(2, level === 1 ? 6 : 9);
+    let b = rng.int(1, 9);
+    if (b === -a) b++;
+    const juste = a * a < b * b;
+    return {
+      prompt: `Un élève écrit : « $${a} < ${b}$, donc $(${a})^2 < ${b}^2$. » Sa conclusion est-elle vraie ?`,
+      answer: fixedChoice(['Vrai', 'Faux'], juste ? 0 : 1),
+      hint: 'La fonction carré ne conserve l’ordre que pour des nombres positifs. Calcule les deux carrés.',
+      correction: [`$(${a})^2 = ${a * a}$ et $${b}^2 = ${b * b}$.`, juste ? 'La conclusion est vraie ici… mais le raisonnement est faux : la fonction carré n’est pas croissante sur $\\mathbb{R}$.' : 'La conclusion est fausse : la fonction carré n’est pas croissante sur $\\mathbb{R}$.'],
+    };
+  }),
+  variante('encadrer-inverse', (rng, level) => {
+    let a = rng.int(1, level === 1 ? 4 : 8);
+    let b = rng.int(1, level === 1 ? 5 : 10);
+    if (a === b) b++;
+    if (a > b) [a, b] = [b, a];
+    const neg = level === 3 && rng.next() < 0.5;
+    const [lo, hi] = neg ? [-b, -a] : [a, b];
+    const f = (v: number) => fracLatex(frac(1, v));
+    const enc = (x: string, y: string) => `${x} < \\frac{1}{x} < ${y}`;
+    return {
+      prompt: `On sait que $${lo} < x < ${hi}$. Quel encadrement de $\\frac{1}{x}$ en déduit-on ?`,
+      answer: latexChoice(rng, enc(f(hi), f(lo)), [enc(f(lo), f(hi)), enc(f(-lo), f(-hi)), enc(`${lo}`, `${hi}`)], () => enc('0', f(lo))),
+      hint: 'La fonction inverse est décroissante sur chacun des intervalles où elle est définie : elle inverse l’ordre.',
+      correction: [`$${lo}$ et $${hi}$ ont le même signe, et la fonction inverse est décroissante sur cet intervalle.`, `Donc $${enc(f(hi), f(lo))}$.`],
+    };
+  }),
+];
+
+const inverseVariantes = [
+  variante('inequation', (rng, level) => {
+    const k = frac(rng.int(1, 9), level === 1 ? 1 : rng.int(1, 4));
+    const inv = frac(k.d, k.n);
+    const above = rng.next() < 0.5;
+    const correct = above ? fracInterval(frac(0), false, inv, false) : `${fracInterval(null, false, frac(0), false)} \\cup ${fracInterval(inv, false, null, false)}`;
+    return {
+      prompt: `Résous dans $\\mathbb{R}^*$ l'inéquation $\\frac{1}{x} ${above ? '>' : '<'} ${fracLatex(k)}$.`,
+      answer: latexChoice(
+        rng,
+        correct,
+        [above ? fracInterval(inv, false, null, false) : fracInterval(frac(0), false, inv, false), fracInterval(null, false, inv, false), fracInterval(frac(0), false, k, false), above ? `${fracInterval(null, false, frac(0), false)} \\cup ${fracInterval(inv, false, null, false)}` : fracInterval(inv, false, null, false)],
+        () => fracInterval(frac(0), true, inv, true),
+      ),
+      hint: 'Trace la courbe de la fonction inverse et la droite horizontale $y = k$. N’oublie pas les $x$ négatifs.',
+      correction: [`$\\frac{1}{x} = ${fracLatex(k)}$ pour $x = ${fracLatex(inv)}$.`, above ? `Pour $x < 0$, $\\frac{1}{x} < 0$ : aucune solution. Pour $x > 0$, il faut $x < ${fracLatex(inv)}$.` : `Tout $x < 0$ convient ($\\frac{1}{x} < 0$). Pour $x > 0$, il faut $x > ${fracLatex(inv)}$.`, `$S = ${correct}$`],
+    };
+  }),
+  variante('decale', (rng, level) => {
+    const a = rng.nonZero(-6, 6);
+    const k = frac(rng.nonZero(-6, 6), level === 1 ? 1 : rng.int(1, 3));
+    const x = frac(a * k.n + k.d, k.n);
+    return {
+      prompt: `Résous l'équation $\\frac{1}{${decale(a)}} = ${fracLatex(k)}$.`,
+      answer: { kind: 'number', value: x },
+      hint: 'Le dénominateur est l’inverse du membre de droite.',
+      correction: [`$${decale(a)} = ${fracLatex(frac(k.d, k.n))}$`, `$x = ${fracLatex(x)}$`],
+    };
+  }),
+];
+
+const racineVariantes = [
+  variante('inequation', (rng, level) => {
+    const k = rng.int(1, level === 1 ? 6 : 12);
+    const below = rng.next() < 0.5;
+    const correct = below ? interval(0, true, k * k, false) : interval(k * k, false, null, false);
+    return {
+      prompt: `Résous dans $${interval(0, true, null, false)}$ l'inéquation $\\sqrt{x} ${below ? '<' : '>'} ${k}$.`,
+      answer: latexChoice(rng, correct, [below ? interval(0, true, k, false) : interval(k, false, null, false), below ? interval(null, false, k * k, false) : interval(k * k, true, null, false), below ? interval(k * k, false, null, false) : interval(0, true, k * k, false)], () => interval(0, true, 2 * k, false)),
+      hint: 'La fonction racine carrée est croissante sur $[0\\,;\\,+\\infty[$ : elle conserve l’ordre.',
+      correction: [`$\\sqrt{x} = ${k}$ pour $x = ${k * k}$.`, `$S = ${correct}$`],
+    };
+  }),
+  variante('decale', (rng, level) => {
+    const a = rng.nonZero(-9, 9);
+    const k = level === 1 ? rng.int(1, 8) : rng.int(-2, 9);
+    return {
+      prompt: `Résous dans $\\mathbb{R}$ l'équation $\\sqrt{${decale(a)}} = ${k}$.`,
+      answer: { kind: 'set', values: k < 0 ? [] : [frac(k * k + a)] },
+      hint: 'Si $k \\geq 0$, $\\sqrt{X} = k$ équivaut à $X = k^2$.',
+      correction: k < 0 ? ['Une racine carrée n’est jamais négative : $S = \\varnothing$.'] : [`$${decale(a)} = ${k * k}$`, `$x = ${k * k + a}$`],
+    };
+  }),
+];
+
+const cubeVariantes = [
+  variante('volume', (rng, level) => {
+    const r = rng.int(2, level === 1 ? 6 : 12);
+    return {
+      prompt: `Une boîte cubique a un volume de $${r ** 3}$ cm³. Quelle est la longueur de son arête, en cm ?`,
+      answer: { kind: 'number', value: frac(r) },
+      hint: 'L’arête $a$ vérifie $a^3 = $ volume.',
+      correction: [`$a^3 = ${r ** 3}$ et $${r}^3 = ${r ** 3}$, donc $a = ${r}$ cm.`],
+    };
+  }),
+  variante('comparer', (rng) => {
+    const a = (rng.sign() * rng.int(1, 60)) / 10;
+    let b = a;
+    while (b === a) b = Math.round((a + rng.nonZero(-9, 9) / 10) * 10) / 10;
+    const A = `(${dec(a)})^3`;
+    const B = `(${dec(b)})^3`;
+    return {
+      prompt: `Sans calculer, compare $${A}$ et $${B}$.`,
+      answer: fixedChoice([`$${A} < ${B}$`, `$${A} > ${B}$`], a < b ? 0 : 1),
+      hint: 'La fonction cube est croissante sur $\\mathbb{R}$, même pour les nombres négatifs.',
+      correction: [`$${dec(a)} ${a < b ? '<' : '>'} ${dec(b)}$ et la fonction cube est croissante sur $\\mathbb{R}$.`, `Donc $${A} ${a < b ? '<' : '>'} ${B}$.`],
+    };
+  }),
+];
+
+export const FONCTIONS_REFERENCE_SKILLS: Skill[] = [
+  varier(carreEquation, carreEquationVariantes),
+  varier(carreInequation, carreInequationVariantes),
+  varier(comparer, comparerVariantes),
+  varier(inverseEquation, inverseVariantes),
+  varier(racineEquation, racineVariantes),
+  varier(cube, cubeVariantes),
+];

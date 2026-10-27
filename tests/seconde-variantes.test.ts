@@ -3,7 +3,7 @@ import { SECONDE } from '../src/content/seconde';
 import { factorize, isPrime } from '../src/exercises/seconde/arithmetique';
 import { gcd } from '../src/exercises/seconde/outils';
 import { texEval } from './helpers/texEval';
-import { dansEnsemble, lireNombre, nombres, optionJuste, tirages, valeur, variantesDe, verifierToutesLesVariantes } from './helpers/variantes';
+import { dansEnsemble, ensemble, lireNombre, nombres, optionJuste, tirages, valeur, variantesDe, verifierToutesLesVariantes } from './helpers/variantes';
 
 /** Justesse des variantes d'exercices de 2nde : chaque réponse est recalculée à partir de l'énoncé. */
 
@@ -493,6 +493,154 @@ describe('variantes de 2nde : étude de fonctions', () => {
       const k = Number(/f\((-?\d+)\)/.exec(ex.prompt)![1]);
       const f = /f\(x\) = (.+)\$ \?/.exec(ex.prompt)![1];
       expect(optionJuste(ex), ex.prompt).toBe(Number.isFinite(texEval(f, k)) ? 'Oui' : 'Non');
+    }
+  });
+});
+
+/** Ensemble des solutions d'une inéquation, comparé point par point à l'intervalle proposé. */
+function memeSolution(S: string, ok: (x: number) => boolean, where: string) {
+  const inS = ensemble(S, (s) => texEval(s));
+  for (let k = -400; k <= 400; k++) {
+    const x = k / 8;
+    if (inS(x) !== ok(x)) expect(inS(x), `${where} en ${x}`).toBe(ok(x));
+  }
+}
+
+describe('variantes de 2nde : fonctions de référence', () => {
+  it('résout des équations avec les fonctions de référence', () => {
+    for (const ex of t('2nde-carre-equation', 'aire-carre')) expect(valeur(ex) ** 2).toBe(nombres(ex.prompt)[0]);
+    for (const nom of ['decale'])
+      for (const id of ['2nde-carre-equation', '2nde-racine-equation']) {
+        for (const ex of t(id, nom)) {
+          const [, l, r] = /l'équation \$(.+) = (-?\d+)\$\.$/.exec(ex.prompt)!;
+          if (ex.answer.kind !== 'set') throw new Error();
+          for (const v of ex.answer.values) expect(texEval(l, v.n), ex.prompt).toBeCloseTo(Number(r));
+          for (let x = -100; x <= 100; x++) if (Math.abs(texEval(l, x) - Number(r)) < 1e-9) expect(ex.answer.values.some((v) => v.n === x), ex.prompt).toBe(true);
+        }
+      }
+    for (const ex of t('2nde-inverse-equation', 'decale')) {
+      const [, l, r] = /l'équation \$(.+) = (.+)\$\.$/.exec(ex.prompt)!;
+      expect(texEval(l, valeur(ex))).toBeCloseTo(texEval(r));
+    }
+    for (const ex of t('2nde-cube-equation', 'volume')) expect(valeur(ex) ** 3).toBe(nombres(ex.prompt)[0]);
+  });
+
+  it('résout des inéquations avec les fonctions de référence', () => {
+    for (const ex of t('2nde-carre-inequation', 'appartient')) {
+      const [, x, op, k] = /nombre \$(-?\d+)\$ est-il solution de l'inéquation \$x\^2 (<|\\leq) (\d+)\$/.exec(ex.prompt)!;
+      const v = Number(x) ** 2;
+      expect(optionJuste(ex)).toBe((op === '<' ? v < +k : v <= +k) ? 'Oui' : 'Non');
+    }
+    for (const ex of t('2nde-inverse-equation', 'inequation')) {
+      const [, op, k] = /\\frac\{1\}\{x\} (<|>) (.+)\$\.$/.exec(ex.prompt)!;
+      const kv = texEval(k);
+      memeSolution(optionJuste(ex), (x) => x !== 0 && (op === '>' ? 1 / x > kv : 1 / x < kv), ex.prompt);
+    }
+    for (const ex of t('2nde-racine-equation', 'inequation')) {
+      const [, op, k] = /\\sqrt\{x\} (<|>) (\d+)\$\.$/.exec(ex.prompt)!;
+      memeSolution(optionJuste(ex), (x) => x >= 0 && (op === '<' ? Math.sqrt(x) < +k : Math.sqrt(x) > +k), ex.prompt);
+    }
+  });
+
+  it('compare et encadre sans calculatrice', () => {
+    for (const ex of t('2nde-carre-inequation', 'encadrement')) {
+      const [a, b] = nombres(ex.prompt.replace(' \\leq x \\leq ', '$ $'));
+      const xs = Array.from({ length: 1001 }, (_, i) => a + ((b - a) * i) / 1000);
+      const [, lo, hi] = /(-?\d+) \\leq x\^2 \\leq (-?\d+)/.exec(optionJuste(ex))!;
+      expect(Number(lo)).toBeCloseTo(Math.min(...xs.map((x) => x * x)));
+      expect(Number(hi)).toBeCloseTo(Math.max(...xs.map((x) => x * x)));
+    }
+    for (const ex of t('2nde-comparer-images', 'raisonnement-faux')) {
+      const [, a, b] = /« \$(-?\d+) < (\d+)\$/.exec(ex.prompt)!;
+      expect(optionJuste(ex)).toBe(Number(a) ** 2 < Number(b) ** 2 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('2nde-comparer-images', 'encadrer-inverse')) {
+      const [, lo, hi] = /\$(-?\d+) < x < (-?\d+)\$/.exec(ex.prompt)!;
+      const [, l, h] = /^\$(.+) < \\frac\{1\}\{x\} < (.+)\$$/.exec(optionJuste(ex))!;
+      const vals = [1 / Number(lo), 1 / Number(hi)];
+      expect(texEval(l)).toBeCloseTo(Math.min(...vals));
+      expect(texEval(h)).toBeCloseTo(Math.max(...vals));
+    }
+    for (const ex of t('2nde-cube-equation', 'comparer')) {
+      const [a, b] = [...ex.prompt.matchAll(/\((-?[\d{},]+)\)\^3/g)].map((m) => lireNombre(m[1]) ** 3);
+      expect(optionJuste(ex)).toContain(a < b ? '<' : '>');
+    }
+  });
+});
+
+const dist2 = (A: number[], B: number[]) => (B[0] - A[0]) ** 2 + (B[1] - A[1]) ** 2;
+const paire = (ex: { answer: import('../src/exercises/types').Answer }) => {
+  if (ex.answer.kind !== 'pair') throw new Error();
+  return ex.answer.values.map((f) => f.n / f.d);
+};
+
+describe('variantes de 2nde : géométrie repérée', () => {
+  it('calcule milieux, symétriques et quatrièmes sommets', () => {
+    for (const ex of t('2nde-milieu', 'est-milieu')) {
+      const { A, B, M } = points(ex.prompt);
+      expect(optionJuste(ex)).toBe(M[0] * 2 === A[0] + B[0] && M[1] * 2 === A[1] + B[1] ? 'Oui' : 'Non');
+    }
+    for (const ex of t('2nde-milieu', 'centre-parallelogramme')) {
+      const { A, C } = points(ex.prompt);
+      expect(paire(ex)).toEqual([(A[0] + C[0]) / 2, (A[1] + C[1]) / 2]);
+    }
+    for (const ex of t('2nde-symetrique', 'symetrique-point')) {
+      const { A, C } = points(ex.prompt);
+      const [x, y] = paire(ex);
+      expect([(A[0] + x) / 2, (A[1] + y) / 2]).toEqual(C);
+    }
+    for (const ex of t('2nde-symetrique', 'quatrieme-sommet')) {
+      const { A, B, C } = points(ex.prompt);
+      const D = paire(ex);
+      // ABCD parallélogramme : AB = DC.
+      expect([B[0] - A[0], B[1] - A[1]]).toEqual([C[0] - D[0], C[1] - D[1]]);
+      expect((B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]), ex.prompt).not.toBe(0);
+    }
+  });
+
+  it('calcule des distances et reconnaît les triangles', () => {
+    for (const ex of t('2nde-longueur', 'carre-distance')) {
+      const { A, B } = points(ex.prompt);
+      expect(valeur(ex)).toBe(dist2(A, B));
+    }
+    for (const ex of t('2nde-longueur', 'isocele')) {
+      const { A, B, C } = points(ex.prompt);
+      expect((B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]), ex.prompt).not.toBe(0);
+      expect(optionJuste(ex)).toBe(dist2(A, B) === dist2(A, C) ? 'Oui' : 'Non');
+    }
+    for (const ex of t('2nde-longueur', 'cercle')) {
+      const { M, C } = points(ex.prompt);
+      const r = Number(/rayon \$(\d+)\$/.exec(ex.prompt)![1]);
+      expect(optionJuste(ex)).toBe(dist2(C, M) === r * r ? 'Oui' : 'Non');
+    }
+    for (const ex of t('2nde-reciproque', 'repere')) {
+      const { A, B, C } = points(ex.prompt);
+      const dot = (B[0] - A[0]) * (C[0] - A[0]) + (B[1] - A[1]) * (C[1] - A[1]);
+      expect(optionJuste(ex)).toBe(dot === 0 ? 'Oui' : 'Non');
+    }
+    for (const ex of t('2nde-reciproque', 'troisieme-cote')) {
+      const [a, b] = nombres(ex.prompt);
+      expect(valeur(ex) ** 2).toBe(a * a + b * b);
+    }
+  });
+
+  it('applique Pythagore et la trigonométrie à des situations', () => {
+    for (const ex of t('2nde-pythagore', 'echelle')) {
+      const [c, p] = nombres(ex.prompt);
+      expect(valeur(ex) ** 2 + p * p).toBeCloseTo(c * c);
+    }
+    for (const ex of t('2nde-pythagore', 'diagonale')) {
+      const [a, b] = nombres(ex.prompt);
+      expect(valeur(ex) ** 2).toBe(a * a + b * b);
+    }
+    for (const ex of t('2nde-trigo', 'longueur')) {
+      const bc = Number(/BC = (\d+)/.exec(ex.prompt)![1]);
+      const r = texEval(/\(\\widehat\{ABC\}\) = (.+)\$\. Calcule/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeCloseTo(bc * r);
+    }
+    for (const ex of t('2nde-trigo', 'hauteur-arbre')) {
+      const [d, tan] = nombres(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo(d * tan);
     }
   });
 });
