@@ -919,3 +919,141 @@ describe('variantes de 1re : variables aléatoires', () => {
     }
   });
 });
+
+describe('variantes de 1re : second degré', () => {
+  const trinome = (s: string) => f(formule(s));
+  const ens = (ex: Exercise) => (ex.answer.kind === 'set' ? ex.answer.values.map((v) => v.n / v.d) : []);
+  const paire = (ex: Exercise) => (ex.answer.kind === 'pair' ? ex.answer.values.map((v) => v.n / v.d) : []);
+  /** Racines réelles (avec multiplicité 1) d'un polynôme, cherchées parmi les entiers de [-30 ; 30]. */
+  const racinesEntieres = (g: (x: number) => number) => Array.from({ length: 61 }, (_, i) => i - 30).filter((x) => Math.abs(g(x)) < 1e-9);
+  const coefs = (g: (x: number) => number) => {
+    const [g0, g1, gm] = [g(0), g(1), g(-1)];
+    return { a: (g1 + gm) / 2 - g0, b: (g1 - gm) / 2, c: g0 };
+  };
+  const NB = ['Aucune', 'Une seule', 'Deux'];
+  const nb = (d: number) => NB[d < 0 ? 0 : d === 0 ? 1 : 2];
+
+  it('calcule images, antécédents et discriminants', () => {
+    for (const ex of t('image', 'antecedents')) {
+      const g = trinome(ex.prompt);
+      const k = Number(/f\(x\) = (-?\d+)\$\.$/.exec(ex.prompt)![1]);
+      expect(ens(ex)).toEqual(racinesEntieres((x) => g(x) - k));
+    }
+    for (const ex of t('image', 'depuis-canonique')) {
+      const k = Number(/Calcule \$f\((-?\d+)\)/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeCloseTo(trinome(ex.prompt)(k), 9);
+    }
+    for (const ex of t('discriminant', 'racine-double')) {
+      const eq = /l'équation \$(.+) = 0\$/.exec(ex.prompt)![1].replace('m', `(${valeur(ex)})`);
+      const { a, b, c } = coefs((x) => texEval(eq, x));
+      expect(b * b - 4 * a * c).toBeCloseTo(0, 9);
+    }
+    for (const ex of t('discriminant', 'signes-contraires')) {
+      const { a, c } = coefs((x) => texEval(/l'équation \$(.+) = 0\$/.exec(ex.prompt)![1], x));
+      expect(optionJuste(ex).startsWith('Oui')).toBe(a * c < 0);
+    }
+  });
+
+  it('compte et calcule des solutions', () => {
+    for (const ex of t('nb-solutions', 'parabole-droite')) {
+      const [p, d] = [...ex.prompt.matchAll(/\$y = (.+?)\$/g)].map((m) => m[1]);
+      const { a, b, c } = coefs((x) => texEval(p, x) - texEval(d, x));
+      expect(optionJuste(ex)).toBe(nb(Math.round(b * b - 4 * a * c)));
+    }
+    for (const ex of t('nb-solutions', 'condition-sur-m')) {
+      const eq = /l'équation \$(.+) = 0\$/.exec(ex.prompt)![1];
+      const [op, v] = /\$m (<|>|=) (-?\d+)\$/.exec(optionJuste(ex))!.slice(1);
+      // m = v ± 1/2 : deux solutions exactement du côté annoncé.
+      for (const m of [Number(v) - 0.5, Number(v) + 0.5, Number(v)]) {
+        const { a, b, c } = coefs((x) => texEval(eq.replace('m', `(${m})`), x));
+        const deux = b * b - 4 * a * c > 1e-9;
+        expect(deux).toBe(op === '<' ? m < Number(v) : op === '>' ? m > Number(v) : m === Number(v));
+      }
+    }
+    for (const ex of t('resoudre', 'rectangle')) {
+      const [P, A] = [/périmètre \$(\d+)\$/, /aire \$(\d+)\$/].map((r) => Number(r.exec(ex.prompt)![1]));
+      const L = valeur(ex);
+      const l = P / 2 - L;
+      expect(L * l).toBe(A);
+      expect(L).toBeGreaterThanOrEqual(l);
+    }
+    for (const ex of t('resoudre', 'entiers-consecutifs')) {
+      const [p] = nombres(ex.prompt);
+      expect(valeur(ex) * (valeur(ex) + 1)).toBe(p);
+      expect(valeur(ex)).toBeGreaterThanOrEqual(0);
+    }
+    for (const ex of t('resoudre', 'bicarree')) {
+      const eq = /l'équation \$(.+) = 0\$/.exec(ex.prompt)![1];
+      expect(ens(ex)).toEqual(racinesEntieres((x) => texEval(eq, x)));
+    }
+  });
+
+  it('utilise sommet, formes et racines', () => {
+    for (const ex of t('sommet', 'depuis-racines')) {
+      const g = trinome(ex.prompt);
+      const { a, b } = coefs(g);
+      const alpha = -b / (2 * a);
+      expect(paire(ex)[0]).toBeCloseTo(alpha, 9);
+      expect(paire(ex)[1]).toBeCloseTo(g(alpha), 9);
+    }
+    for (const ex of t('sommet', 'axe-symetrie')) {
+      const { a, b } = coefs(trinome(ex.prompt));
+      expect(valeur(ex)).toBeCloseTo(-b / (2 * a), 9);
+    }
+    for (const ex of t('forme-canonique', 'completer-carre')) {
+      const [lhs, rhs] = /\$(.+) = (.+) \+ k\$/.exec(ex.prompt)!.slice(1);
+      for (const x of [-1, 0, 2]) expect(texEval(rhs, x) + valeur(ex)).toBeCloseTo(texEval(lhs, x), 9);
+    }
+    for (const ex of t('forme-canonique', 'developper')) {
+      const g = trinome(ex.prompt);
+      const h = f(optionJuste(ex).replace(/^\$f\(x\) = |\$$/g, ''));
+      for (const x of [-2, 0, 1.5]) expect(h(x)).toBeCloseTo(g(x), 9);
+    }
+    for (const ex of t('factorisation', 'vrai-faux')) {
+      const [l, r] = /\$x\$, \$(.+) = (.+)\$\.$/.exec(ex.prompt)!.slice(1);
+      const ok = [-2, 0.5, 3].every((x) => Math.abs(texEval(l, x) - texEval(r, x)) < 1e-9);
+      expect(optionJuste(ex), ex.prompt).toBe(ok ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('factorisation', 'coefficient-par-un-point')) {
+      const [r1, r2] = /racines \$(-?\d+)\$ et \$(-?\d+)\$/.exec(ex.prompt)!.slice(1).map(Number);
+      const [x0, y0] = /f\((-?\d+)\) = (-?\d+)/.exec(ex.prompt)!.slice(1).map(Number);
+      expect(valeur(ex) * (x0 - r1) * (x0 - r2)).toBe(y0);
+    }
+    for (const ex of t('autre-racine', 'somme-produit')) {
+      const eq = /l'équation \$(.+) = 0\$/.exec(ex.prompt)![1];
+      const r = racinesEntieres((x) => texEval(eq, x));
+      expect(valeur(ex)).toBeCloseTo(ex.prompt.includes('la somme') ? r[0] + r[1] : r[0] * r[1], 9);
+    }
+    for (const ex of t('autre-racine', 'deux-nombres')) {
+      const [s, p] = nombres(ex.prompt);
+      const [x, y] = ens(ex);
+      expect([x + y + 0, x * y + 0]).toEqual([s + 0, p + 0]);
+    }
+  });
+
+  it('étudie signes et extremums', () => {
+    for (const ex of t('signe', 'toujours-positif')) {
+      const [p, op] = /\$x\$, \$(.+) (>|<) 0\$/.exec(ex.prompt)!.slice(1);
+      const xs = Array.from({ length: 401 }, (_, i) => -20 + i / 10);
+      const ok = xs.every((x) => (op === '>' ? texEval(p, x) > 0 : texEval(p, x) < 0));
+      const { a, b, c } = coefs((x) => texEval(p, x));
+      // La grille peut manquer une racine double non entière : on recoupe avec le discriminant.
+      expect(optionJuste(ex), ex.prompt).toBe(ok && b * b - 4 * a * c < 0 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('signe', 'entiers-solutions')) {
+      const [p, op] = /vérifient \$(.+) (\\leq|\\geq) 0\$/.exec(ex.prompt)!.slice(1);
+      const n = Array.from({ length: 81 }, (_, i) => i - 40).filter((x) => (op === '\\leq' ? texEval(p, x) <= 1e-9 : texEval(p, x) >= -1e-9)).length;
+      expect(valeur(ex)).toBe(n);
+    }
+    for (const ex of t('extremum', 'balle')) {
+      const h = f(/h\(t\) = (.+?)\$/.exec(ex.prompt)![1].replace(/t/g, 'x'));
+      const max = Math.max(...Array.from({ length: 1001 }, (_, i) => h(i / 100)));
+      expect(valeur(ex)).toBeCloseTo(max, 9);
+    }
+    for (const ex of t('extremum', 'depuis-racines')) {
+      const g = trinome(ex.prompt);
+      const vals = Array.from({ length: 401 }, (_, i) => g(-10 + i / 20));
+      expect(valeur(ex)).toBeCloseTo(ex.prompt.includes('minimum') ? Math.min(...vals) : Math.max(...vals), 9);
+    }
+  });
+});
