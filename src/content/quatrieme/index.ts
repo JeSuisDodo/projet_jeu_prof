@@ -1,3 +1,5 @@
+import { VARIANTES_4E } from '../../exercises/quatrieme/variantes';
+import { enrichChapters } from '../../exercises/variantes';
 import type { GradeDef } from '../types';
 import { ARITHMETIQUE } from './arithmetique';
 import { CALCUL_LITTERAL } from './calcul-litteral';
@@ -23,7 +25,7 @@ export const QUATRIEME: GradeDef = {
   name: '4e',
   stage: 'college',
   island: 'Île des Passerelles',
-  chapters: [
+  chapters: enrichChapters([
     RELATIFS,
     FRACTIONS,
     PUISSANCES,
@@ -38,5 +40,5 @@ export const QUATRIEME: GradeDef = {
     ESPACE,
     STATISTIQUES,
     PROBABILITES,
-  ],
+  ], VARIANTES_4E),
 };
