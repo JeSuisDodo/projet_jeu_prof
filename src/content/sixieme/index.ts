@@ -1,3 +1,5 @@
+import { VARIANTES_6E } from '../../exercises/sixieme/variantes';
+import { enrichChapters } from '../../exercises/variantes';
 import type { GradeDef } from '../types';
 import { AIRES } from './aires';
 import { ANGLES } from './angles';
@@ -25,21 +27,24 @@ export const SIXIEME: GradeDef = {
   name: '6e',
   stage: 'college',
   island: 'Île des Découvertes',
-  chapters: [
-    NOMBRES,
-    OPERATIONS,
-    DIVISION,
-    FRACTIONS,
-    EXPRESSIONS,
-    PROPORTIONNALITE,
-    DONNEES,
-    DROITES,
-    ANGLES,
-    FIGURES,
-    SYMETRIE,
-    PERIMETRES,
-    AIRES,
-    SOLIDES,
-    DUREES,
-  ],
+  chapters: enrichChapters(
+    [
+      NOMBRES,
+      OPERATIONS,
+      DIVISION,
+      FRACTIONS,
+      EXPRESSIONS,
+      PROPORTIONNALITE,
+      DONNEES,
+      DROITES,
+      ANGLES,
+      FIGURES,
+      SYMETRIE,
+      PERIMETRES,
+      AIRES,
+      SOLIDES,
+      DUREES,
+    ],
+    VARIANTES_6E,
+  ),
 };
