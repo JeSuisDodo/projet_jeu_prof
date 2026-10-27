@@ -630,3 +630,82 @@ describe('variantes de Terminale : primitives et équations différentielles', (
     for (const ex of t('tle-equadiff-condition', 'limite')) expect(valeur(ex)).toBeCloseTo(ev(/y\(x\) = (.+?)\$/.exec(ex.prompt)![1], 50), 9);
   });
 });
+
+describe('variantes de Terminale : calcul intégral', () => {
+  const ev = (s: string, x = 0) =>
+    texEval(
+      s.replace(/\$/g, '').replace(/\\ln\s*(\d+)/g, (_, n: string) => `(${Math.log(Number(n))})`).replace(/\\ln x/g, `(${Math.log(x)})`),
+      x,
+    );
+  const simpson = (f: string, a: number, b: number, n = 200) => {
+    const h = (b - a) / n;
+    let s = ev(f, a) + ev(f, b);
+    for (let i = 1; i < n; i++) s += (i % 2 ? 4 : 2) * ev(f, a + i * h);
+    return (s * h) / 3;
+  };
+  /** Intégrale écrite dans l'énoncé : bornes et fonction. */
+  const lire = (s: string) => {
+    const m = /\\int_\{(.+?)\}\^\{(.+?)\} (.+?)\\,dx/.exec(s)!;
+    return { a: ev(m[1]), b: m[2] === 't' ? NaN : ev(m[2]), f: m[3] };
+  };
+  const calcule = (s: string) => {
+    const { a, b, f } = lire(s);
+    return simpson(f, a, b);
+  };
+  // Moins de tirages : chaque intégrale coûte quelques centaines d'évaluations.
+  const ti = (id: string, nom: string) => t(id, nom, 40);
+  const poly2 = (ex: { prompt: string }) => /f\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+
+  it('calcule des intégrales', () => {
+    for (const ex of ti('tle-integrale-polynome', 'inverse-carre')) expect(valeur(ex), ex.prompt).toBeCloseTo(calcule(ex.prompt), 6);
+    for (const ex of ti('tle-integrale-polynome', 'retrouver-borne')) {
+      const { f } = lire(ex.prompt);
+      const V = Number(/dx = (-?\d+)\$/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeGreaterThan(0);
+      expect(simpson(f, 0, valeur(ex)), ex.prompt).toBeCloseTo(V, 6);
+      // Unicité : l'intégrande est 2x + c, l'intégrale vaut t² + ct et l'autre racine -c - t n'est pas > 0.
+      expect(-ev(f, 0) - valeur(ex)).toBeLessThanOrEqual(0);
+    }
+    for (const ex of ti('tle-integrale-exp', 'borne-ln')) expect(valeur(ex), ex.prompt).toBeCloseTo(calcule(ex.prompt), 6);
+    for (const ex of ti('tle-integrale-exp', 'exp-negative')) expect(ev(optionJuste(ex)), ex.prompt).toBeCloseTo(calcule(ex.prompt), 6);
+    for (const ex of ti('tle-integration-parties', 'affine-exp')) {
+      if (ex.answer.kind !== 'choice') throw new Error('QCM attendu');
+      const I = calcule(ex.prompt);
+      ex.answer.options.forEach((o, i) => expect(Math.abs(ev(o) - I) < 1e-6, `${ex.prompt} ${o}`).toBe(i === (ex.answer as { correct: number }).correct));
+    }
+    for (const ex of ti('tle-integration-parties', 'logarithme')) expect(valeur(ex), ex.prompt).toBeCloseTo(calcule(ex.prompt), 6);
+  });
+
+  it('utilise moyennes, aires et propriétés', () => {
+    for (const ex of ti('tle-valeur-moyenne', 'retrouver-integrale')) {
+      const [a, b] = /\[(-?\d+)\\,;\\,(-?\d+)\]/.exec(ex.prompt)!.slice(1).map(Number);
+      expect(valeur(ex)).toBe((b - a) * Number(/vaut \$(-?\d+)\$/.exec(ex.prompt)![1]));
+    }
+    for (const ex of ti('tle-valeur-moyenne', 'inverse-carre')) {
+      const b = Number(/\[1\\,;\\,(\d+)\]/.exec(ex.prompt)![1]);
+      expect(valeur(ex), ex.prompt).toBeCloseTo(simpson(poly2(ex), 1, b) / (b - 1), 6);
+    }
+    for (const nom of ['sous-courbe', 'fonction-negative']) {
+      for (const ex of ti('tle-aire-entre-courbes', nom)) {
+        const [a, b] = /\[(-?\d+)\\,;\\,(-?\d+)\]/.exec(ex.prompt)!.slice(1).map(Number);
+        const f = poly2(ex);
+        // Signe annoncé dans l'énoncé vérifié, puis aire = intégrale de |f|.
+        const signe = nom === 'sous-courbe' ? 1 : -1;
+        for (let i = 0; i <= 20; i++) expect(signe * ev(f, a + ((b - a) * i) / 20)).toBeGreaterThanOrEqual(-1e-12);
+        expect(valeur(ex), ex.prompt).toBeCloseTo(signe * simpson(f, a, b), 6);
+      }
+    }
+    for (const ex of ti('tle-integrale-linearite', 'chasles-difference')) {
+      const v = [...ex.prompt.matchAll(/dx = (-?\d+)\$/g)].map((m) => Number(m[1]));
+      expect(valeur(ex)).toBe(v[0] - v[1]);
+    }
+    for (const ex of ti('tle-integrale-linearite', 'bornes-inversees')) {
+      const I = Number(/dx = (-?\d+)\$/.exec(ex.prompt)![1]);
+      const m = /\\int_\{(-?\d+)\}\^\{(-?\d+)\} (-?\d*)f\(x\)\\,dx\$\.$/.exec(ex.prompt)!;
+      const k = m[3] === '' ? 1 : m[3] === '-' ? -1 : Number(m[3]);
+      // Bornes échangées par rapport à la donnée.
+      expect(Number(m[1])).toBeGreaterThan(Number(m[2]));
+      expect(valeur(ex) + 0).toBe(-k * I + 0);
+    }
+  });
+});

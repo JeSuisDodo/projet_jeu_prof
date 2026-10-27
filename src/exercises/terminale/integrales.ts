@@ -1,6 +1,7 @@
 import type { Skill } from '../types';
 import type { Rng } from '../rng';
-import { F, choiceTex, div, num, numF, plus, poly, skill, sub, tex } from './util';
+import { enrich, variant } from '../variantes';
+import { F, choiceTex, div, num, numF, par, plus, poly, skill, sub, tex } from './util';
 import { evalFrac, polyFrac, primitiveCoefs } from './primitives';
 
 /** Chapitre « Calcul intégral » (Terminale spécialité). */
@@ -122,4 +123,167 @@ const ipp = skill('tle-integration-parties', 'Intégrer par parties', (rng) => {
   };
 });
 
-export const INTEGRALES_SKILLS: Skill[] = [polynome, exponentielle, moyenne, aire, linearite, ipp];
+const front = (c: number) => (c === 1 ? '' : c === -1 ? '-' : String(c));
+const integ = (a: number | string, b: number | string, f: string) => `\\displaystyle\\int_{${a}}^{${b}} ${f}\\,dx`;
+
+const polynomeVariantes = [
+  variant('inverse-carre', (rng) => {
+    const a = rng.nonZero(-6, 6);
+    const b = rng.int(2, 6);
+    const value = F(a * (b - 1), b);
+    return {
+      prompt: `Calcule $${integ(1, b, `\\frac{${a}}{x^2}`)}$ (fraction).`,
+      answer: numF(value),
+      hint: 'Une primitive de $\\frac{1}{x^2}$ est $-\\frac{1}{x}$.',
+      correction: [`$\\left[-\\frac{${a}}{x}\\right]_1^{${b}} = ${tex(F(-a, b))} + ${par(a)} = ${tex(value)}$`],
+    };
+  }),
+  variant('retrouver-borne', (rng) => {
+    const t = rng.int(1, 5);
+    const c = rng.int(-t, 5);
+    const V = t * t + c * t;
+    return {
+      prompt: `Trouve le réel $t > 0$ tel que $${integ(0, 't', `(${poly([2, c])})`)} = ${V}$.`,
+      answer: num(t),
+      hint: 'Calcule l’intégrale en fonction de $t$, puis résous l’équation du second degré obtenue.',
+      correction: [`$${integ(0, 't', `(${poly([2, c])})`)} = ${poly([1, c, 0], 't')}$.`, `$${poly([1, c, -V], 't')} = 0$ a pour solution positive $t = ${t}$.`],
+    };
+  }),
+];
+
+const exponentielleVariantes = [
+  variant('borne-ln', (rng) => {
+    const k = rng.int(2, 9);
+    const m = rng.nonZero(-4, 4);
+    return {
+      prompt: `Calcule $${integ(0, `\\ln ${k}`, `${front(m)}e^x`)}$.`,
+      answer: num(m * (k - 1)),
+      hint: '$e^{\\ln k} = k$.',
+      correction: [`$\\left[${front(m)}e^x\\right]_0^{\\ln ${k}} = ${m}\\times ${k} - ${par(m)}\\times 1 = ${m * (k - 1)}$`],
+    };
+  }),
+  variant('exp-negative', (rng) => {
+    const b = rng.int(1, 3);
+    const p = b === 1 ? 'e^{-1}' : `e^{-${b}}`;
+    return {
+      prompt: `Calcule $${integ(0, b, 'e^{-x}')}$.`,
+      answer: choiceTex(rng, `1 - ${p}`, [`${p} - 1`, `1 + ${p}`, `${ePow(b)} - 1`], () => p),
+      hint: 'Une primitive de $e^{-x}$ est $-e^{-x}$ : attention au signe.',
+      correction: [`$\\left[-e^{-x}\\right]_0^{${b}} = -${p} - (-1) = 1 - ${p}$`],
+    };
+  }),
+];
+
+const moyenneVariantes = [
+  variant('retrouver-integrale', (rng) => {
+    const a = rng.int(-3, 2);
+    const b = a + rng.int(1, 5);
+    const mu = rng.nonZero(-7, 7);
+    return {
+      prompt: `La valeur moyenne d’une fonction continue $f$ sur $[${a}\\,;\\,${b}]$ vaut $${mu}$. Calcule $${integ(a, b, 'f(x)')}$.`,
+      answer: num(mu * (b - a)),
+      hint: '$\\mu = \\frac{1}{b - a}\\displaystyle\\int_a^b f$, donc $\\displaystyle\\int_a^b f = (b - a)\\mu$.',
+      correction: [`$${integ(a, b, 'f(x)')} = ${b - a}\\times ${par(mu)} = ${mu * (b - a)}$`],
+    };
+  }),
+  variant('inverse-carre', (rng) => {
+    const a = rng.nonZero(-6, 6);
+    const b = rng.int(2, 6);
+    const value = F(a, b);
+    return {
+      prompt: `Quelle est la valeur moyenne de $f(x) = \\frac{${a}}{x^2}$ sur $[1\\,;\\,${b}]$ (fraction) ?`,
+      answer: numF(value),
+      hint: 'Calcule l’intégrale avec la primitive $-\\frac{1}{x}$, puis divise par la longueur de l’intervalle.',
+      correction: [`$${integ(1, b, 'f(x)')} = ${tex(F(a * (b - 1), b))}$`, `$\\mu = \\frac{1}{${b - 1}}\\times ${tex(F(a * (b - 1), b))} = ${tex(value)}$`],
+    };
+  }),
+];
+
+const aireVariantes = [
+  variant('sous-courbe', (rng) => {
+    const r1 = rng.int(-3, 1);
+    const r2 = r1 + rng.int(1, 4);
+    const k = rng.int(1, 3);
+    const f = [-k, k * (r1 + r2), -k * r1 * r2];
+    const value = F(k * (r2 - r1) ** 3, 6);
+    return {
+      prompt: `$f(x) = ${poly(f)}$ est positive sur $[${r1}\\,;\\,${r2}]$. Calcule l’aire du domaine compris entre sa courbe, l’axe des abscisses et les droites $x = ${r1}$ et $x = ${r2}$.`,
+      answer: numF(value),
+      hint: 'Pour une fonction positive, l’aire est $\\displaystyle\\int_a^b f(x)\\,dx$.',
+      correction: [`Une primitive est $${polyFrac(primitiveCoefs(f))}$.`, `Aire $= ${tex(value)}$ unités d’aire.`],
+    };
+  }),
+  variant('fonction-negative', (rng) => {
+    const p = rng.int(1, 3) * 3;
+    const q = rng.int(1, 5);
+    const b = rng.int(1, 3);
+    const value = F((p * b ** 3) / 3 + q * b);
+    return {
+      prompt: `$f(x) = ${poly([-p, 0, -q])}$ est négative sur $[0\\,;\\,${b}]$. Calcule l’aire du domaine compris entre sa courbe, l’axe des abscisses et les droites $x = 0$ et $x = ${b}$.`,
+      answer: numF(value),
+      hint: 'Pour une fonction négative, l’aire est $-\\displaystyle\\int_a^b f(x)\\,dx$ : une aire est toujours positive.',
+      correction: [`$${integ(0, b, 'f(x)')} = \\left[${polyFrac(primitiveCoefs([-p, 0, -q]))}\\right]_0^{${b}} = ${tex(F(-value.n, value.d))}$`, `Aire $= ${tex(value)}$ unités d’aire.`],
+    };
+  }),
+];
+
+const lineariteVariantes = [
+  variant('chasles-difference', (rng) => {
+    const c = rng.int(1, 4);
+    const d = c + rng.int(1, 4);
+    const I = rng.int(-9, 9);
+    const J = rng.int(-9, 9);
+    return {
+      prompt: `$${integ(0, d, 'f(x)')} = ${I}$ et $${integ(0, c, 'f(x)')} = ${J}$. Calcule $${integ(c, d, 'f(x)')}$.`,
+      answer: num(I - J),
+      hint: 'Chasles : $\\int_0^c + \\int_c^d = \\int_0^d$.',
+      correction: [`$${integ(c, d, 'f(x)')} = ${I} - ${par(J)} = ${I - J}$`],
+    };
+  }),
+  variant('bornes-inversees', (rng) => {
+    const a = rng.int(-2, 2);
+    const b = a + rng.int(1, 4);
+    const I = rng.nonZero(-9, 9);
+    const k = rng.nonZero(-4, 4);
+    return {
+      prompt: `$${integ(a, b, 'f(x)')} = ${I}$. Calcule $${integ(b, a, `${front(k)}f(x)`)}$.`,
+      answer: num(-k * I),
+      hint: 'Échanger les bornes change le signe : $\\int_b^a f = -\\int_a^b f$.',
+      correction: [`$${integ(b, a, `${front(k)}f(x)`)} = -${par(k)}\\times ${par(I)} = ${-k * I}$`],
+    };
+  }),
+];
+
+const ippVariantes = [
+  variant('affine-exp', (rng) => {
+    const a = rng.nonZero(-3, 3);
+    let b = rng.nonZero(-3, 3);
+    if (a + b === 0) b = a;
+    // ∫_0^1 (ax + b)e^x dx = [(ax + b)e^x]_0^1 - a(e - 1) = b(e - 1) + a.
+    const correct = `${front(b)}e${plus(a - b)}`;
+    return {
+      prompt: `Calcule $${integ(0, 1, `(${poly([a, b])})e^x`)}$.`,
+      answer: choiceTex(rng, correct, [`${front(a + b)}e${plus(-b)}`, `${front(a + b)}e${plus(a - b)}`, `${front(b)}e${plus(-b)}`, `${front(b)}e${plus(a + b)}`], () => `${front(b + 1)}e${plus(a - b)}`),
+      hint: 'Pose $u = ax + b$ et $v\' = e^x$.',
+      correction: [`$\\left[(${poly([a, b])})e^x\\right]_0^1 - ${integ(0, 1, `${a}e^x`)}$`, `$= ${front(a + b)}e - ${par(b)} - ${par(a)}(e - 1) = ${correct}$`],
+    };
+  }),
+  variant('logarithme', (rng) => {
+    const k = rng.nonZero(-6, 6);
+    return {
+      prompt: `Calcule $${integ(1, 'e', `${front(k)}\\ln x`)}$.`,
+      answer: num(k),
+      hint: 'Intègre par parties avec $u = \\ln x$ et $v\' = 1$ : une primitive de $\\ln x$ est $x\\ln x - x$.',
+      correction: [`$${integ(1, 'e', '\\ln x')} = \\left[x\\ln x - x\\right]_1^e = (e - e) - (0 - 1) = 1$`, `Par linéarité, l’intégrale vaut $${k}$.`],
+    };
+  }),
+];
+
+export const INTEGRALES_SKILLS: Skill[] = [
+  enrich(polynome, polynomeVariantes),
+  enrich(exponentielle, exponentielleVariantes),
+  enrich(moyenne, moyenneVariantes),
+  enrich(aire, aireVariantes),
+  enrich(linearite, lineariteVariantes),
+  enrich(ipp, ippVariantes),
+];
