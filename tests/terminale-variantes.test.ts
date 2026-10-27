@@ -458,3 +458,83 @@ describe('variantes de Terminale : logarithme', () => {
     }
   });
 });
+
+describe('variantes de Terminale : trigonométrie', () => {
+  const ev = (s: string, x = 0) => texEval(s.replace(/\$/g, ''), x);
+  const expr = (ex: { prompt: string }) => /f\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+  const d1 = (f: string, x: number) => (ev(f, x + 1e-6) - ev(f, x - 1e-6)) / 2e-6;
+
+  it('connaît les valeurs et dérive', () => {
+    for (const ex of t('tle-trigo-valeurs', 'tangente')) {
+      const angle = ev(/\\tan\\left\((.+?)\\right\)\$/.exec(ex.prompt)![1]);
+      expect(ev(optionJuste(ex)), ex.prompt).toBeCloseTo(Math.tan(angle), 9);
+    }
+    for (const ex of t('tle-trigo-valeurs', 'retrouver-angle')) {
+      const [, fn, v] = /\\(cos|sin) x = (.+?)\$/.exec(ex.prompt)!;
+      const x = ev(optionJuste(ex));
+      expect(fn === 'cos' ? Math.cos(x) : Math.sin(x), ex.prompt).toBeCloseTo(ev(v), 9);
+      if (fn === 'cos') expect(x >= -1e-9 && x <= Math.PI + 1e-9).toBe(true);
+      else expect(Math.abs(x) <= Math.PI / 2 + 1e-9).toBe(true);
+    }
+    for (const ex of t('tle-trigo-derivee', 'valeur')) expect(valeur(ex), ex.prompt).toBeCloseTo(d1(expr(ex), Math.PI), 5);
+    for (const ex of t('tle-trigo-derivee', 'produit')) {
+      const x0 = ex.prompt.includes("f'\\left(0") ? 0 : Math.PI / 2;
+      expect(valeur(ex), ex.prompt).toBeCloseTo(d1(expr(ex), x0), 5);
+    }
+  });
+
+  it('étudie périodes et parité', () => {
+    const periodique = (f: string, T: number) => [0.3, 1.1, 2.7].every((x) => Math.abs(ev(f, x + T) - ev(f, x)) < 1e-9);
+    for (const ex of t('tle-trigo-periode', 'fraction')) {
+      const f = expr(ex);
+      const T = ev(optionJuste(ex));
+      expect(periodique(f, T), ex.prompt).toBe(true);
+      for (const m of [2, 3, 4]) expect(periodique(f, T / m), ex.prompt).toBe(false);
+    }
+    for (const ex of t('tle-trigo-periode', 'vrai-faux')) {
+      const T = ev(/faux : \$(.+?)\$/.exec(ex.prompt)![1]);
+      expect(optionJuste(ex), ex.prompt).toBe(periodique(expr(ex), T) ? 'Vrai' : 'Faux');
+    }
+    for (const [nom, options] of [
+      ['combinaison', ['Paire', 'Impaire', 'Ni paire ni impaire']],
+      ['symetrie', ['L’axe des ordonnées', 'L’origine du repère', 'Ni l’un ni l’autre']],
+    ] as const) {
+      for (const ex of t('tle-trigo-parite', nom)) {
+        const f = expr(ex);
+        const xs = [0.4, 1.3, 2.2];
+        const type = xs.every((x) => Math.abs(ev(f, -x) - ev(f, x)) < 1e-9) ? 0 : xs.every((x) => Math.abs(ev(f, -x) + ev(f, x)) < 1e-9) ? 1 : 2;
+        expect(optionJuste(ex), ex.prompt).toBe(options[type]);
+      }
+    }
+  });
+
+  it('compte des solutions et calcule des limites', () => {
+    for (const ex of t('tle-trigo-equation', 'nombre-solutions')) {
+      const [, fn, v] = /\\(cos|sin) x = (.+?)\$/.exec(ex.prompt)!;
+      const fin = ev(/\[0\\,;\\,(\d\\pi)\[/.exec(ex.prompt)![1]);
+      const c = ev(v);
+      const g = (x: number) => (fn === 'cos' ? Math.cos(x) : Math.sin(x)) - c;
+      // Compte les zéros, les changements de signe et les contacts (minimums de |g| sans changement de signe).
+      const pas = 1e-3;
+      const ys = Array.from({ length: Math.round(fin / pas) }, (_, i) => g(i * pas));
+      let n = 0;
+      ys.forEach((y, i) => {
+        const [avant, apres] = [ys[i - 1], ys[i + 1]];
+        if (y === 0 || (apres !== undefined && y * apres < 0)) n++;
+        else if (avant !== undefined && apres !== undefined && Math.abs(y) < 1e-6 && Math.abs(y) < Math.abs(avant) && Math.abs(y) <= Math.abs(apres) && y * avant > 0 && y * apres > 0) n++;
+      });
+      expect(valeur(ex), ex.prompt).toBe(n);
+    }
+    for (const ex of t('tle-trigo-equation', 'angle-multiple')) {
+      const g = /\$(.+) = 0\$/.exec(ex.prompt)![1];
+      let n = 0;
+      // Grille de [-0,003 ; 2π - 0,003] : on garde 0 et on exclut 2π.
+      const xs = Array.from({ length: 201 }, (_, i) => -3e-3 + (i * 2 * Math.PI) / 200);
+      for (let i = 0; i < 200; i++) if (ev(g, xs[i]) * ev(g, xs[i + 1]) < 0) n++;
+      expect(valeur(ex), ex.prompt).toBe(n);
+    }
+    for (const nom of ['quotient-sinus', 'inverse']) {
+      for (const ex of t('tle-trigo-limite', nom)) expect(valeur(ex), ex.prompt).toBeCloseTo(ev(/0\} (.+?)\$/.exec(ex.prompt)![1], 1e-6), 6);
+    }
+  });
+});
