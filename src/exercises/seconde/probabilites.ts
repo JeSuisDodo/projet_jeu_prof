@@ -1,5 +1,6 @@
 import { frac, fracLatex } from '../fraction';
 import type { Skill } from '../types';
+import { enrich, variant } from '../variantes';
 import { dec, fixedChoice, fracOf } from './outils';
 
 /** Chapitre 13 de 2nde : probabilités et échantillonnage. */
@@ -179,4 +180,180 @@ const echantillon: Skill = {
   },
 };
 
-export const PROBABILITES_SKILLS: Skill[] = [urne, contraire, reunion, tableau, des, echantillon];
+/* ---------- Variantes : d'autres façons de poser les mêmes notions ---------- */
+
+/** Événements d'un jeu de 32 cartes (7 à As, quatre couleurs), avec leur nombre d'issues. */
+const CARTES: [string, number][] = [
+  ['un roi', 4],
+  ['un cœur', 8],
+  ['une figure (valet, dame ou roi)', 12],
+  ['une carte rouge', 16],
+  ['un as ou un roi', 8],
+  ['le roi de cœur', 1],
+  ['un cœur ou un roi', 11],
+  ['une carte noire qui n’est pas une figure', 10],
+];
+
+const urneVariantes = [
+  variant('cartes', (rng, level) => {
+    const [ev, fav] = rng.pick(level === 1 ? CARTES.slice(0, 4) : CARTES);
+    return {
+      prompt: `On tire une carte au hasard dans un jeu de $32$ cartes (de 7 à l'as, dans les quatre couleurs). Quelle est la probabilité de tirer ${ev} ?`,
+      answer: { kind: 'number', value: frac(fav, 32) },
+      hint: 'Compte les cartes favorables : chaque couleur a 8 cartes (7, 8, 9, 10, valet, dame, roi, as).',
+      correction: [`Il y a $${fav}$ cartes favorables sur $32$.`, `$P = ${ratio(fav, 32)}$`],
+    };
+  }),
+  variant('composition', (rng, level) => {
+    const total = rng.pick(level === 1 ? [10, 20, 30] : [12, 18, 24, 40, 45, 60]);
+    let rouges: number;
+    do rouges = rng.int(1, total - 1);
+    while (frac(rouges, total).d === total && level > 1);
+    const p = frac(rouges, total);
+    return {
+      prompt: `Une urne contient $${total}$ jetons. La probabilité de tirer un jeton rouge est $${fracLatex(p)}$. Combien y a-t-il de jetons rouges ?`,
+      answer: { kind: 'number', value: frac(rouges) },
+      hint: 'Nombre de jetons rouges = probabilité × nombre total.',
+      correction: [`$${fracLatex(p)} \\times ${total} = ${rouges}$`],
+    };
+  }),
+];
+
+const contraireVariantes = [
+  variant('au-moins-une', (rng, level) => {
+    const p = level === 1 ? rng.int(5, 9) / 10 : rng.int(51, 99) / 100;
+    return {
+      prompt: `La probabilité qu'une journée se passe sans aucune panne est $${dec(p)}$. Quelle est la probabilité qu'il y ait au moins une panne dans la journée ?`,
+      answer: { kind: 'number', value: fracOf(1 - p) },
+      hint: '« Au moins une panne » est l’événement contraire de « aucune panne ».',
+      correction: [`$P = 1 - ${dec(p)} = ${dec(1 - p)}$`],
+    };
+  }),
+  variant('pourcentage', (rng) => {
+    const pct = rng.int(5, 95);
+    return {
+      prompt: `Dans un lycée, $${pct}\\,\\%$ des élèves sont internes. On choisit un élève au hasard. Quelle est la probabilité qu'il ne soit pas interne ? (Donne un nombre décimal.)`,
+      answer: { kind: 'number', value: frac(100 - pct, 100) },
+      hint: 'Convertis le pourcentage en probabilité, puis prends le contraire.',
+      correction: [`$P(I) = ${dec(pct / 100)}$`, `$P(\\overline{I}) = 1 - ${dec(pct / 100)} = ${dec(1 - pct / 100)}$`],
+    };
+  }),
+];
+
+const reunionVariantes = [
+  variant('ni-l-un-ni-l-autre', (rng) => {
+    const both = rng.int(5, 20);
+    const a = both + rng.int(10, 40);
+    const b = both + rng.int(5, 30);
+    const none = 100 - (a + b - both);
+    return {
+      prompt: `Dans un lycée, $${a}\\,\\%$ des élèves font du sport en club, $${b}\\,\\%$ font de la musique et $${both}\\,\\%$ font les deux. Quelle est la probabilité qu'un élève choisi au hasard ne fasse ni l'un ni l'autre ?`,
+      answer: { kind: 'number', value: frac(none, 100) },
+      hint: 'Calcule d’abord $P(S \\cup M)$, puis prends le contraire.',
+      correction: [`$P(S \\cup M) = ${dec(a / 100)} + ${dec(b / 100)} - ${dec(both / 100)} = ${dec((a + b - both) / 100)}$`, `$P = 1 - ${dec((a + b - both) / 100)} = ${dec(none / 100)}$`],
+    };
+  }),
+  variant('incompatibles', (rng) => {
+    const pa = rng.int(2, 8) / 10;
+    const pb = rng.int(2, 8) / 10;
+    const ok = pa + pb <= 1 + 1e-9;
+    return {
+      prompt: `On sait que $P(A) = ${dec(pa)}$ et $P(B) = ${dec(pb)}$. Les événements $A$ et $B$ peuvent-ils être incompatibles ?`,
+      answer: fixedChoice(['Oui', 'Non'], ok ? 0 : 1),
+      hint: 'S’ils étaient incompatibles, on aurait $P(A \\cup B) = P(A) + P(B)$, et une probabilité ne dépasse jamais 1.',
+      correction: [`$P(A) + P(B) = ${dec(pa + pb)}$`, ok ? 'Cette somme ne dépasse pas 1 : c’est possible.' : 'Cette somme dépasse 1 : $A$ et $B$ ne peuvent pas être incompatibles.'],
+    };
+  }),
+];
+
+const tableauVariantes = [
+  variant('completer', (rng) => {
+    const fl = rng.int(5, 40);
+    const fn = rng.int(5, 40);
+    const gl = rng.int(5, 40);
+    const gn = rng.int(5, 40);
+    const total = fl + fn + gl + gn;
+    const table = `\\begin{array}{|l|c|c|c|} \\hline & \\text{Externe} & \\text{Demi-pension} & \\text{Total} \\\\ \\hline \\text{Seconde} & ${fl} & ? & ${fl + fn} \\\\ \\hline \\text{Première} & ${gl} & ${gn} & ${gl + gn} \\\\ \\hline \\text{Total} & ${fl + gl} & ${fn + gn} & ${total} \\\\ \\hline \\end{array}`;
+    return {
+      prompt: `Dans ce tableau, une case a été effacée : $${table}$ On choisit un élève au hasard. Quelle est la probabilité qu'il soit en seconde et demi-pensionnaire ?`,
+      answer: { kind: 'number', value: frac(fn, total) },
+      hint: 'Retrouve d’abord la case manquante grâce aux totaux.',
+      correction: [`Case manquante : $${fl + fn} - ${fl} = ${fn}$.`, `$P = ${ratio(fn, total)}$`],
+    };
+  }),
+  variant('pourcentages', (rng) => {
+    const fl = rng.int(5, 30);
+    const fn = rng.int(5, 30);
+    const gl = rng.int(5, 30);
+    const gn = 100 - fl - fn - gl;
+    const table = `\\begin{array}{|l|c|c|} \\hline & \\text{Vaccinés} & \\text{Non vaccinés} \\\\ \\hline \\text{Malades} & ${fl}\\,\\% & ${fn}\\,\\% \\\\ \\hline \\text{Non malades} & ${gl}\\,\\% & ${gn}\\,\\% \\\\ \\hline \\end{array}`;
+    const ask = rng.pick(['vaccinée', 'malade'] as const);
+    const p = ask === 'vaccinée' ? fl + gl : fl + fn;
+    return {
+      prompt: `Le tableau donne la répartition (en pourcentage) d'une population : $${table}$ On choisit une personne au hasard. Quelle est la probabilité qu'elle soit ${ask} ?`,
+      answer: { kind: 'number', value: frac(p, 100) },
+      hint: ask === 'vaccinée' ? 'Additionne la colonne des vaccinés.' : 'Additionne la ligne des malades.',
+      correction: [`$${ask === 'vaccinée' ? `${fl} + ${gl}` : `${fl} + ${fn}`} = ${p}$ %`, `$P = ${dec(p / 100)}$`],
+    };
+  }),
+];
+
+const desVariantes = [
+  variant('piece-et-de', (rng) => {
+    const face = rng.pick(['pile', 'face']);
+    const kind = rng.pick(['pair', 'un multiple de 3', 'supérieur ou égal à 5', 'égal à 6'] as const);
+    const fav = kind === 'pair' ? 3 : kind === 'un multiple de 3' ? 2 : kind === 'supérieur ou égal à 5' ? 2 : 1;
+    return {
+      prompt: `On lance une pièce équilibrée puis un dé équilibré à six faces. Quelle est la probabilité d'obtenir ${face} et un nombre ${kind} ?`,
+      answer: { kind: 'number', value: frac(fav, 12) },
+      hint: 'Il y a $2 \\times 6 = 12$ issues équiprobables.',
+      correction: [`Issues favorables : ${face} avec un nombre ${kind}, soit $${fav}$ issue${fav > 1 ? 's' : ''} sur $12$.`, `$P = ${ratio(fav, 12)}$`],
+    };
+  }),
+  variant('somme-au-moins', (rng) => {
+    const s = rng.int(4, 11);
+    const atLeast = rng.next() < 0.5;
+    let fav = 0;
+    for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) if (atLeast ? a + b >= s : a + b <= s) fav++;
+    return {
+      prompt: `On lance deux dés équilibrés à six faces. Quelle est la probabilité que la somme soit ${atLeast ? 'supérieure ou égale' : 'inférieure ou égale'} à $${s}$ ?`,
+      answer: { kind: 'number', value: frac(fav, 36) },
+      hint: 'Dresse le tableau des 36 sommes possibles, puis compte.',
+      correction: [`$${fav}$ cases du tableau conviennent sur $36$.`, `$P = ${ratio(fav, 36)}$`],
+    };
+  }),
+];
+
+const echantillonVariantes = [
+  variant('borne', (rng) => {
+    const n = rng.pick([100, 400, 625, 2500, 10000]);
+    const p = rng.pick([0.2, 0.3, 0.45, 0.5, 0.6, 0.75]);
+    const low = rng.next() < 0.5;
+    const v = Math.round((p + (low ? -1 : 1) / Math.sqrt(n)) * 1e4) / 1e4;
+    return {
+      prompt: `Pour une proportion $p = ${dec(p)}$ et des échantillons de taille $n = ${n}$, quelle est la borne ${low ? 'inférieure' : 'supérieure'} de l'intervalle $\\left[p - \\frac{1}{\\sqrt{n}}\\,;\\,p + \\frac{1}{\\sqrt{n}}\\right]$ ?`,
+      answer: { kind: 'number', value: fracOf(v) },
+      hint: 'Calcule $\\frac{1}{\\sqrt{n}}$ : $n$ est un carré parfait.',
+      correction: [`$\\frac{1}{\\sqrt{${n}}} = ${dec(1 / Math.sqrt(n))}$`, `$${dec(p)} ${low ? '-' : '+'} ${dec(1 / Math.sqrt(n))} = ${dec(v)}$`],
+    };
+  }),
+  variant('taille', (rng) => {
+    const m = rng.pick([0.1, 0.05, 0.04, 0.02, 0.01]);
+    const n = Math.round(1 / (m * m));
+    return {
+      prompt: `Quelle taille d'échantillon $n$ faut-il pour que $\\frac{1}{\\sqrt{n}} = ${dec(m)}$ ?`,
+      answer: { kind: 'number', value: frac(n) },
+      hint: '$\\sqrt{n} = \\frac{1}{' + dec(m) + '}$, puis élève au carré.',
+      correction: [`$\\sqrt{n} = ${dec(1 / m)}$ donc $n = ${n}$.`],
+    };
+  }),
+];
+
+export const PROBABILITES_SKILLS: Skill[] = [
+  enrich(urne, urneVariantes),
+  enrich(contraire, contraireVariantes),
+  enrich(reunion, reunionVariantes),
+  enrich(tableau, tableauVariantes),
+  enrich(des, desVariantes),
+  enrich(echantillon, echantillonVariantes),
+];

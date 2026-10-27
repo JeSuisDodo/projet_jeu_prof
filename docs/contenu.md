@@ -69,6 +69,10 @@ branché par `enrichChapters` dans le `GradeDef` de la classe (modèle : la 3e).
 l'indice et la correction. Le jeu tire au sort la forme d'origine ou l'une des variantes ; les
 identifiants ne changent pas, la sauvegarde n'est donc pas touchée.
 
+Quand une variante a besoin des outils privés d'un chapitre, on peut aussi l'écrire à côté du
+générateur d'origine et brancher directement `enrich(compétence, variantes)` dans la liste exportée
+(modèle : la 2nde, `src/exercises/seconde/*.ts`, testée par `tests/seconde-variantes.test.ts`).
+
 `tests/variantes.test.ts` vérifie chaque variante seule (énoncé propre, LaTeX lisible, bonne réponse
 acceptée, mauvaise refusée). La justesse se teste à part en recalculant la réponse depuis l'énoncé,
 avec `variantOf(compétence, nom)` (modèle : `tests/troisieme-variantes.test.ts`). Les tests qui relisent

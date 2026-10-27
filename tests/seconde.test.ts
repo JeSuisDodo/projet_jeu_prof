@@ -8,11 +8,12 @@ import { reduite } from '../src/exercises/seconde/droites';
 import { affine, dec, interval, poly2 } from '../src/exercises/seconde/outils';
 import { median, quartile } from '../src/exercises/seconde/statistiques';
 import { type Answer, type Exercise, type Level, type Response, checkAnswer } from '../src/exercises/types';
+import { baseOf } from '../src/exercises/variantes';
 
 /** Vérifications propres à la 2nde, en plus des tests communes de tests/content.test.ts. */
 
 const skills = SECONDE.chapters.flatMap((c) => c.skills);
-const skill = (id: string) => skills.find((s) => s.id === id)!;
+const skill = (id: string) => baseOf(skills.find((s) => s.id === id)!);
 
 function* draws(id: string, count = 120): Generator<Exercise> {
   for (const level of [1, 2, 3] as Level[])

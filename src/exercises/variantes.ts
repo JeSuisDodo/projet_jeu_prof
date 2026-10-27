@@ -18,10 +18,14 @@ export interface Variant {
   make: (rng: Rng, level: Level) => Draft;
 }
 
+/** Raccourci pour écrire une variante : `variant('nom', (rng, level) => ({ … }))`. */
+export const variant = (name: string, make: Variant['make'], from?: Level): Variant => ({ name, make, from });
+
 /** Ajoute des variantes à une compétence existante. */
 export function enrich(base: Skill, variants: Variant[]): Skill {
   const forms = [
-    { name: 'origine', from: 1 as Level, generate: base.generate },
+    // Appel lié à `base` : certains générateurs lisent `this.id`.
+    { name: 'origine', from: 1 as Level, generate: (rng: Rng, level: Level) => base.generate(rng, level) },
     ...variants.map((v) => ({
       name: v.name,
       from: v.from ?? 1,
