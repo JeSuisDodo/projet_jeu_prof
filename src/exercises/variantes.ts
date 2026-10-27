@@ -66,3 +66,19 @@ export function enrichChapters<C extends { skills: Skill[] }>(chapters: C[], cat
   if (unknown.length) throw new Error(`Variantes pour des compétences inconnues : ${unknown.join(', ')}`);
   return chapters.map((c) => ({ ...c, skills: enrichAll(c.skills, catalog) }));
 }
+
+/** Reprend certaines variantes d'un catalogue (par exemple celles de 3e pour la 4e). */
+export function pickVariants(catalog: Record<string, Variant[]>, id: string, names: string[]): Variant[] {
+  return names.map((n) => {
+    const v = catalog[id]?.find((x) => x.name === n);
+    if (!v) throw new Error(`Variante absente : ${id} / ${n}`);
+    return v;
+  });
+}
+
+/** Réunit plusieurs catalogues, compétence par compétence. */
+export function mergeCatalogs(...catalogs: Record<string, Variant[]>[]): Record<string, Variant[]> {
+  const out: Record<string, Variant[]> = {};
+  for (const c of catalogs) for (const [id, vs] of Object.entries(c)) out[id] = [...(out[id] ?? []), ...vs];
+  return out;
+}

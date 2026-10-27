@@ -1,3 +1,5 @@
+import { VARIANTES_5E } from '../../exercises/cinquieme/variantes';
+import { enrichChapters } from '../../exercises/variantes';
 import type { GradeDef } from '../types';
 import { AIRES } from './aires';
 import { ANGLES } from './angles';
@@ -21,7 +23,7 @@ export const CINQUIEME: GradeDef = {
   name: '5e',
   stage: 'college',
   island: 'Île des Explorateurs',
-  chapters: [
+  chapters: enrichChapters([
     PRIORITES,
     RELATIFS,
     DIVISIBILITE,
@@ -37,5 +39,5 @@ export const CINQUIEME: GradeDef = {
     AIRES,
     VOLUMES,
     PROGRAMMATION,
-  ],
+  ], VARIANTES_5E),
 };
