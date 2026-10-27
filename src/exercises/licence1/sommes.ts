@@ -1,5 +1,7 @@
 import type { Skill } from '../types';
 import { F, add, binom, fpow, num, numF, par, skill, sub, tex } from './util';
+import { enrichir } from '../licenceVariantes';
+import { SOMMES_VARIANTES } from './variantes/sommes';
 
 /** Chapitre « Sommes, produits et binôme » (Licence 1). */
 
@@ -116,4 +118,4 @@ const doubleSomme = skill('l1-somme-double', 'Calculer une somme double', (rng, 
   };
 });
 
-export const SOMMES_SKILLS: Skill[] = [sommesUsuelles, geometrique, telescopique, binome, sommeBinomiale, doubleSomme];
+export const SOMMES_SKILLS: Skill[] = enrichir([sommesUsuelles, geometrique, telescopique, binome, sommeBinomiale, doubleSomme], SOMMES_VARIANTES);

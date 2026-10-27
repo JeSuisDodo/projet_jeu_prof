@@ -1,5 +1,7 @@
 import type { Skill } from '../types';
 import { F, add, affine, div, linComb, mul, num, numF, pairOf, par, plus, poly, skill, sub, tex } from './util';
+import { enrichir } from '../licenceVariantes';
+import { SUITES_VARIANTES } from './variantes/suites';
 
 /** Chapitre « Suites réelles » (Licence 1). */
 
@@ -122,4 +124,4 @@ const seuil = skill('l1-seuil-convergence', 'Trouver un rang à partir duquel un
   };
 });
 
-export const SUITES_SKILLS: Skill[] = [limiteRationnelle, arithmeticoGeometrique, recurrenceOrdre2, geometriqueQuotient, seuil];
+export const SUITES_SKILLS: Skill[] = enrichir([limiteRationnelle, arithmeticoGeometrique, recurrenceOrdre2, geometriqueQuotient, seuil], SUITES_VARIANTES);

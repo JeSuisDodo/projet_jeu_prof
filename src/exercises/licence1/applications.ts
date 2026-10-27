@@ -1,6 +1,8 @@
 import type { Rng } from '../rng';
 import type { Skill } from '../types';
 import { F, affine, fact, fixedChoice, num, numF, par, plus, setOf, setTex, skill, tex } from './util';
+import { enrichir } from '../licenceVariantes';
+import { APPLICATIONS_VARIANTES } from './variantes/applications';
 
 /** Chapitre « Applications » (Licence 1). */
 
@@ -165,4 +167,4 @@ const compterApplications = skill('l1-compter-applications', 'Compter des applic
   };
 });
 
-export const APPLICATIONS_SKILLS: Skill[] = [imageDirecte, composition, injSurj, reciproque, compterApplications];
+export const APPLICATIONS_SKILLS: Skill[] = enrichir([imageDirecte, composition, injSurj, reciproque, compterApplications], APPLICATIONS_VARIANTES);

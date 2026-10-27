@@ -1,5 +1,7 @@
 import type { Skill } from '../types';
 import { bezout, gcd, mod, num, skill } from './util';
+import { enrichir } from '../licenceVariantes';
+import { ARITHMETIQUE_VARIANTES } from './variantes/arithmetique';
 
 /** Chapitre « Arithmétique dans ℤ » (Licence 1). */
 
@@ -134,4 +136,4 @@ const valuation = skill('l1-valuation', 'Calculer une valuation p-adique', (rng,
   };
 });
 
-export const ARITHMETIQUE_SKILLS: Skill[] = [pgcd, congruence, diviseurs, inverseModulaire, bezoutSkill, valuation];
+export const ARITHMETIQUE_SKILLS: Skill[] = enrichir([pgcd, congruence, diviseurs, inverseModulaire, bezoutSkill, valuation], ARITHMETIQUE_VARIANTES);

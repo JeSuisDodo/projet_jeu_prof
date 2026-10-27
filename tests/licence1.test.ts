@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { LICENCE1 } from '../src/content/licence1';
 import { frac } from '../src/exercises/fraction';
 import { bezout, cx, cxDiv, cxMul, det, gcd, rank } from '../src/exercises/licence1/util';
+import { origine } from '../src/exercises/licenceVariantes';
 import { Rng } from '../src/exercises/rng';
+import { checkVariants, drawsOf, numberOf } from './helpers/variantes';
 import { type Answer, type Exercise, type Level, type Response, checkAnswer } from '../src/exercises/types';
 
 /** Vérifications propres à la Licence 1, en plus de tests/content.test.ts. */
@@ -22,7 +24,7 @@ function badResponse(answer: Answer): Response {
 }
 
 const skills = LICENCE1.chapters.flatMap((c) => c.skills);
-const skillOf = (id: string) => skills.find((s) => s.id === id)!;
+const skillOf = (id: string) => origine(skills.find((s) => s.id === id)!);
 const value = (ex: Exercise) => {
   if (ex.answer.kind !== 'number') throw new Error(`${ex.skill} : réponse non numérique`);
   return ex.answer.value.n / ex.answer.value.d;
@@ -162,6 +164,51 @@ describe('Licence 1 : réponses justes, recalculées depuis l’énoncé', () =>
         };
         expect(coef('x') * x + coef('y') * y, `${ex.prompt} : ${row}`).toBeCloseTo(Number(rhs), 9);
       }
+    }
+  });
+});
+
+describe('Licence 1 : variantes', () => {
+  checkVariants(skills, 2);
+});
+
+describe('Licence 1 : variantes justes, recalculées depuis l’énoncé', () => {
+  const all = (id: string, k: number) => drawsOf(skills, id, k);
+  const brute = (N: number, f: (k: number) => boolean) => Array.from({ length: N }, (_, i) => i + 1).filter(f).length;
+
+  it('logique et ensembles', () => {
+    for (const ex of all('l1-cardinal-union', 1)) {
+      const [N, a, b] = /de \$1\$ à \$(\d+)\$.*par \$(\d+)\$.*par \$(\d+)\$/.exec(ex.prompt)!.slice(1).map(Number);
+      const neither = ex.prompt.includes(' ni ');
+      expect(numberOf(ex), ex.prompt).toBe(brute(N, (k) => (k % a === 0 || k % b === 0) !== neither));
+    }
+    for (const ex of all('l1-cardinal-union', 3)) {
+      const [a, b, u] = /\|A\| = (\d+)\$, \$\|B\| = (\d+)\$ et \$\|A \\cup B\| = (\d+)/.exec(ex.prompt)!.slice(1).map(Number);
+      expect(numberOf(ex), ex.prompt).toBe(a - (a + b - u));
+    }
+    const subsets = (n: number) => Array.from({ length: 2 ** n }, (_, m) => Array.from({ length: n }, (_, i) => i + 1).filter((x) => m & (1 << (x - 1))));
+    for (const ex of all('l1-parties', 1)) {
+      const n = Number(/\\dots, (\d+)/.exec(ex.prompt)![1]);
+      const tests: [string, (s: number[]) => boolean][] = [
+        ['contiennent l’élément', (s) => s.includes(1)],
+        ['non vides', (s) => s.length > 0],
+        ['ni $1$ ni $2$', (s) => !s.includes(1) && !s.includes(2)],
+        ['au plus', (s) => s.length <= 2],
+        ['mais pas', (s) => s.includes(1) && !s.includes(2)],
+      ];
+      const f = tests.find(([key]) => ex.prompt.includes(key))![1];
+      expect(numberOf(ex), ex.prompt).toBe(subsets(n).filter(f).length);
+    }
+    for (const ex of all('l1-parties', 2)) {
+      const n = Number(/a \$(\d+)\$ éléments/.exec(ex.prompt)![1]);
+      const S = subsets(n);
+      const ok = ex.prompt.includes('cap') ? (a: number[], b: number[]) => a.every((x) => !b.includes(x)) : (a: number[], b: number[]) => a.every((x) => b.includes(x));
+      expect(numberOf(ex), ex.prompt).toBe(S.flatMap((a) => S.map((b) => ok(a, b))).filter(Boolean).length);
+    }
+    for (const ex of all('l1-operations-ensembles', 4)) {
+      const [N, p, q] = /1, \\dots, (\d+)\\\}.*multiples de \$(\d+)\$.*multiples de \$(\d+)\$/.exec(ex.prompt)!.slice(1).map(Number);
+      const diff = ex.prompt.includes('setminus');
+      expect(numberOf(ex), ex.prompt).toBe(brute(N, (k) => k % p === 0 && (diff ? k % q !== 0 : k % q === 0)));
     }
   });
 });

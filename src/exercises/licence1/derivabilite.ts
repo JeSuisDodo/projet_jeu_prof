@@ -1,5 +1,7 @@
 import type { Skill } from '../types';
 import { F, affine, fact, mul, num, numF, pairOf, par, plus, poly, skill, sub, tex } from './util';
+import { enrichir } from '../licenceVariantes';
+import { DERIVABILITE_VARIANTES } from './variantes/derivabilite';
 
 /** Chapitre « Dérivabilité » (Licence 1). */
 
@@ -166,4 +168,4 @@ const extremum = skill('l1-extremum-local', 'Trouver un extremum local', (rng, l
   };
 });
 
-export const DERIVABILITE_SKILLS: Skill[] = [deriveeComposee, tangente, extremum, deriveeNieme, accroissementsFinis];
+export const DERIVABILITE_SKILLS: Skill[] = enrichir([deriveeComposee, tangente, extremum, deriveeNieme, accroissementsFinis], DERIVABILITE_VARIANTES);

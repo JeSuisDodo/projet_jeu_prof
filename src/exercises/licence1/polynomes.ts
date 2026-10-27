@@ -1,5 +1,7 @@
 import type { Skill } from '../types';
 import { F, binom, div, mul, num, numF, pairOf, par, poly, setOf, skill, sub, tex } from './util';
+import { enrichir } from '../licenceVariantes';
+import { POLYNOMES_VARIANTES } from './variantes/polynomes';
 
 /** Chapitre « Polynômes » (Licence 1). Coefficients du plus haut degré au terme constant. */
 
@@ -134,4 +136,4 @@ const degre = skill('l1-degre-coefficient', 'Trouver le degré et le coefficient
   };
 });
 
-export const POLYNOMES_SKILLS: Skill[] = [division, racines, degre, multiplicite, relations, taylor];
+export const POLYNOMES_SKILLS: Skill[] = enrichir([division, racines, degre, multiplicite, relations, taylor], POLYNOMES_VARIANTES);

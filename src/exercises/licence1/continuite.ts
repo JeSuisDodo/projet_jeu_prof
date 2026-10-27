@@ -1,5 +1,7 @@
 import type { Skill } from '../types';
 import { F, affine, num, numF, par, plus, poly, skill, tex, texChoice } from './util';
+import { enrichir } from '../licenceVariantes';
+import { CONTINUITE_VARIANTES } from './variantes/continuite';
 
 /** Chapitre « Limites et continuité » (Licence 1). */
 
@@ -148,4 +150,4 @@ const partieEntiere = skill('l1-partie-entiere', 'Manipuler la partie entière',
   };
 });
 
-export const CONTINUITE_SKILLS: Skill[] = [formeIndeterminee, limitesUsuelles, parametre, equivalent, partieEntiere];
+export const CONTINUITE_SKILLS: Skill[] = enrichir([formeIndeterminee, limitesUsuelles, parametre, equivalent, partieEntiere], CONTINUITE_VARIANTES);
