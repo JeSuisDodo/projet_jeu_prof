@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { SECONDE } from '../src/content/seconde';
 import { factorize, isPrime } from '../src/exercises/seconde/arithmetique';
 import { gcd } from '../src/exercises/seconde/outils';
@@ -10,6 +10,10 @@ import { dansEnsemble, ensemble, lireNombre, nombres, optionJuste, tirages, vale
 
 const skills = SECONDE.chapters.flatMap((c) => c.skills);
 const t = (id: string, nom: string, count?: number) => tirages(skills, id, nom, count);
+
+// Rend la main à la boucle d'événements entre deux tests : sans cela, le worker calcule trop longtemps
+// d'affilée sur les machines de CI et le dialogue avec vitest expire (« Timeout calling onTaskUpdate »).
+afterEach(() => new Promise((resolve) => setTimeout(resolve, 0)));
 
 describe('variantes de 2nde', () => {
   it('en propose au moins deux par compétence', () => {

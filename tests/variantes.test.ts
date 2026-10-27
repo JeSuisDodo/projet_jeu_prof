@@ -1,5 +1,5 @@
 import katex from 'katex';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { GRADES } from '../src/content';
 import { Rng } from '../src/exercises/rng';
 import { type Answer, type Level, type Response, checkAnswer } from '../src/exercises/types';
@@ -10,6 +10,10 @@ import { type Answer, type Level, type Response, checkAnswer } from '../src/exer
  */
 
 const text = (f: { n: number; d: number }) => (f.d === 1 ? String(f.n) : `${f.n}/${f.d}`);
+
+// Rend la main à la boucle d'événements entre deux tests : sans cela, le worker calcule trop longtemps
+// d'affilée sur les machines de CI et le dialogue avec vitest expire (« Timeout calling onTaskUpdate »).
+afterEach(() => new Promise((resolve) => setTimeout(resolve, 0)));
 
 function good(answer: Answer): Response {
   switch (answer.kind) {
