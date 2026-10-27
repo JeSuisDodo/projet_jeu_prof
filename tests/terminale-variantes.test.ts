@@ -380,3 +380,81 @@ describe('variantes de Terminale : dérivation', () => {
     }
   });
 });
+
+describe('variantes de Terminale : logarithme', () => {
+  /** Évalue une expression où \ln(…) et \ln x sont remplacés par leur valeur. */
+  const lnEval = (s: string, x = 0) =>
+    texEval(
+      s.replace(/\\ln\s*\(([^()]*)\)/g, (_, u: string) => `(${Math.log(texEval(u, x))})`).replace(/\\ln x/g, `(${Math.log(x)})`),
+      x,
+    );
+  const expr = (ex: { prompt: string }) => /f\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+  const d1 = (f: string, x: number) => (lnEval(f, x + 1e-5) - lnEval(f, x - 1e-5)) / 2e-5;
+
+  it('calcule avec les propriétés de ln et résout des équations', () => {
+    for (const ex of t('tle-ln-proprietes', 'exponentielle')) expect(valeur(ex)).toBeCloseTo(lnEval(/A = (.+?)\$/.exec(ex.prompt)![1]), 9);
+    for (const ex of t('tle-ln-proprietes', 'vrai-faux')) {
+      const [g, d] = /\$(.+)\$/.exec(ex.prompt)![1].split(' = ').map((s) => lnEval(s));
+      expect(optionJuste(ex), ex.prompt).toBe(Math.abs(g - d) < 1e-9 ? 'Vrai' : 'Faux');
+    }
+    for (const nom of ['ln-nul', 'carre']) {
+      for (const ex of t('tle-ln-equation', nom)) {
+        if (ex.answer.kind !== 'set') throw new Error('ensemble attendu');
+        const [g, d] = /: \$(.+)\$/.exec(ex.prompt)![1].split(' = ');
+        for (const v of ex.answer.values) expect(lnEval(g, v.n / v.d), ex.prompt).toBeCloseTo(lnEval(d), 9);
+      }
+    }
+    for (const ex of t('tle-ln-equation', 'carre')) if (ex.answer.kind === 'set') expect(ex.answer.values).toHaveLength(2);
+    for (const ex of t('tle-exp-equation', 'deux-exponentielles')) {
+      const [g, d] = [...ex.prompt.matchAll(/e\^\{(.+?)\}/g)].map((m) => m[1]);
+      expect(texEval(g, valeur(ex)) + 0).toBe(texEval(d, valeur(ex)) + 0);
+    }
+    for (const ex of t('tle-exp-equation', 'nombre-solutions')) {
+      const g = /\$(.+) = 0\$/.exec(ex.prompt)![1];
+      // Les racines X = e^x sont entières : on échantillonne X entre les entiers.
+      const v = [0.01, 0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 50].map((X) => texEval(g, Math.log(X)));
+      const changes = v.slice(1).filter((y, i) => y * v[i] < 0).length;
+      expect(Number(optionJuste(ex)), ex.prompt).toBe(changes);
+    }
+  });
+
+  it('dérive, cherche des limites et des seuils', () => {
+    for (const ex of t('tle-ln-derivee', 'ln-carre')) {
+      const x0 = Number(/f'\((-?\d+)\)/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeCloseTo(d1(expr(ex), x0), 5);
+    }
+    for (const ex of t('tle-ln-derivee', 'produit')) expect(valeur(ex)).toBeCloseTo(d1(expr(ex), 1), 5);
+    for (const [nom, x] of [['polynome-ln', 1e9], ['en-zero', 1e-9]] as const) {
+      for (const ex of t('tle-ln-limites', nom)) {
+        const v = lnEval(/limite de \$(.+?)\$ quand/.exec(ex.prompt)![1], x);
+        expect(optionJuste(ex), ex.prompt).toBe(v > 0 ? '$+\\infty$' : '$-\\infty$');
+        expect(Math.abs(v)).toBeGreaterThan(1e6);
+      }
+    }
+    for (const ex of t('tle-ln-seuil', 'croissance')) {
+      const [n, d, s] = /\\frac\{(\d+)\}\{(\d+)\}\\right\)\^n > (\d+)/.exec(ex.prompt)!.slice(1).map(Number);
+      const k = valeur(ex);
+      expect((n / d) ** k).toBeGreaterThan(s);
+      expect((n / d) ** (k - 1)).toBeLessThanOrEqual(s);
+    }
+    for (const ex of t('tle-ln-seuil', 'pourcentage')) {
+      const q = 1 - Number(/de \$(\d+)\\,\\%/.exec(ex.prompt)![1]) / 100;
+      const frac = ex.prompt.includes('moitié') ? 0.5 : ex.prompt.includes('quart') ? 0.25 : 0.1;
+      const k = valeur(ex);
+      expect(q ** k).toBeLessThan(frac);
+      expect(q ** (k - 1)).toBeGreaterThanOrEqual(frac);
+    }
+  });
+
+  it('trouve des extremums', () => {
+    for (const [nom, signe] of [['maximum', -1], ['carre', 1]] as const) {
+      for (const ex of t('tle-ln-variations', nom)) {
+        const f = expr(ex);
+        const x0 = valeur(ex);
+        expect(d1(f, x0), ex.prompt).toBeCloseTo(0, 4);
+        expect(signe * (lnEval(f, x0 * 0.9) - lnEval(f, x0)), ex.prompt).toBeGreaterThan(0);
+        expect(signe * (lnEval(f, x0 * 1.1) - lnEval(f, x0)), ex.prompt).toBeGreaterThan(0);
+      }
+    }
+  });
+});
