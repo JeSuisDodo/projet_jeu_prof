@@ -458,7 +458,7 @@ export const ALGEBRE_L2_VARIANTES: Variantes = {
       const d = det2(A);
       // A² = tA − dI ; A³ = tA² − dA = (t² − d)A − tdI.
       return {
-        prompt: `$A = ${mat(A)}$. D’après Cayley-Hamilton, $A^3 = pA + qI$. Donne $p$ et $q$.`,
+        prompt: `Pour $A = ${mat(A)}$, utilise deux fois le théorème de Cayley-Hamilton pour écrire $A^3 = pA + qI$. Donne $p$ et $q$.`,
         answer: pairOf(t * t - d, -t * d, ['p', 'q']),
         hint: '$A^2 = \\mathrm{tr}(A)A - \\det(A)I$, puis multiplie par $A$.',
         correction: [`$A^2 = ${t}A ${-d < 0 ? '-' : '+'} ${Math.abs(d)}I$`, `$A^3 = ${t}A^2 ${-d < 0 ? '-' : '+'} ${Math.abs(d)}A = ${t * t - d}A ${-t * d < 0 ? '-' : '+'} ${Math.abs(t * d)}I$`],
@@ -472,7 +472,7 @@ export const ALGEBRE_L2_VARIANTES: Variantes = {
       const t = trace(A);
       const d = det2(A);
       return {
-        prompt: `$A = ${mat(A)}$. D’après Cayley-Hamilton, $A^{-1} = pA + qI$. Donne $p$ et $q$.`,
+        prompt: `La matrice $A = ${mat(A)}$ est inversible. Grâce au théorème de Cayley-Hamilton, écris $A^{-1}$ sous la forme $pA + qI$ : donne $p$ et $q$.`,
         answer: pairOf(F(-1, d), F(t, d), ['p', 'q']),
         hint: '$A^2 - \\mathrm{tr}(A)A + \\det(A)I = 0$ : multiplie par $A^{-1}$.',
         correction: [`$A - ${par(t)}I + ${par(d)}A^{-1} = 0$`, `$A^{-1} = ${tex(F(-1, d))}A + ${tex(F(t, d)).startsWith('-') ? `(${tex(F(t, d))})` : tex(F(t, d))}I$`],
