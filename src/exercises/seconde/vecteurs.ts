@@ -1,6 +1,7 @@
 import { frac, fracLatex } from '../fraction';
 import type { Rng } from '../rng';
-import type { Answer, Level, Skill } from '../types';
+import { type Answer, type Level, type Skill, makeChoice } from '../types';
+import { variante, varier } from '../varier';
 import { fixedChoice, par } from './outils';
 
 /** Chapitre 5 de 2nde : vecteurs et coordonnées. */
@@ -154,4 +155,187 @@ const parametre: Skill = {
   },
 };
 
-export const VECTEURS_SKILLS: Skill[] = [coordonnees, combinaison, translation, parallelogramme, colinearite, parametre];
+/* ---------- Variantes : d'autres façons de poser les mêmes notions ---------- */
+
+const ouiNon = (b: boolean) => fixedChoice(['Oui', 'Non'], b ? 0 : 1);
+const LETTRES = ['A', 'B', 'C', 'D', 'E', 'F', 'M', 'N', 'P', 'R', 'S', 'T'];
+
+const coordonneesVariantes = [
+  variante('extremite', (rng, level) => {
+    const A = pt(rng, level);
+    const u: Vec = [rng.int(-6, 6), rng.int(-6, 6)];
+    return {
+      prompt: `On donne $${P('A', A)}$ et $${V('u', u)}$. Quelles sont les coordonnées du point $B$ tel que $\\overrightarrow{AB} = \\vec{u}$ ?`,
+      answer: pair([A[0] + u[0], A[1] + u[1]], ['x_B', 'y_B']),
+      hint: '$x_B - x_A = x_{\\vec{u}}$, donc $x_B = x_A + x_{\\vec{u}}$.',
+      correction: [`$x_B = ${A[0]} + ${par(u[0])} = ${A[0] + u[0]}$ et $y_B = ${A[1]} + ${par(u[1])} = ${A[1] + u[1]}$`],
+    };
+  }),
+  variante('egalite', (rng, level) => {
+    const A = pt(rng, level);
+    const B = pt(rng, level);
+    const C = pt(rng, level);
+    const same = rng.next() < 0.5;
+    const D: Vec = same ? [C[0] + B[0] - A[0], C[1] + B[1] - A[1]] : [C[0] + B[0] - A[0] + rng.nonZero(-2, 2), C[1] + B[1] - A[1]];
+    return {
+      prompt: `On donne $${P('A', A)}$, $${P('B', B)}$, $${P('C', C)}$ et $${P('D', D)}$. A-t-on $\\overrightarrow{AB} = \\overrightarrow{CD}$ ?`,
+      answer: ouiNon(same),
+      hint: 'Deux vecteurs sont égaux s’ils ont les mêmes coordonnées.',
+      correction: [`$\\overrightarrow{AB}(${B[0] - A[0]}\\,;\\,${B[1] - A[1]})$ et $\\overrightarrow{CD}(${D[0] - C[0]}\\,;\\,${D[1] - C[1]})$.`, same ? 'Mêmes coordonnées : les vecteurs sont égaux.' : 'Coordonnées différentes : les vecteurs ne sont pas égaux.'],
+    };
+  }),
+];
+
+const combinaisonVariantes = [
+  variante('chasles', (rng) => {
+    const [x, y, z] = rng.shuffle(LETTRES).slice(0, 3);
+    const kind = rng.pick(['somme', 'difference'] as const);
+    // AB + BC = AC ; AB - AC = CB.
+    const expr = kind === 'somme' ? `\\overrightarrow{${x}${y}} + \\overrightarrow{${y}${z}}` : `\\overrightarrow{${x}${y}} - \\overrightarrow{${x}${z}}`;
+    const correct = kind === 'somme' ? `\\overrightarrow{${x}${z}}` : `\\overrightarrow{${z}${y}}`;
+    const v = (a: string, b: string) => `$\\overrightarrow{${a}${b}}$`;
+    return {
+      prompt: `Simplifie $${expr}$.`,
+      answer: makeChoice(rng, `$${correct}$`, [v(z, x), v(y, z), v(x, y), v(y, x), v(x, z), v(z, y), '$\\vec{0}$'], () => '$\\vec{0}$'),
+      hint: 'Relation de Chasles : $\\overrightarrow{AB} + \\overrightarrow{BC} = \\overrightarrow{AC}$. Et $-\\overrightarrow{AC} = \\overrightarrow{CA}$.',
+      correction: kind === 'somme' ? [`$${expr} = ${correct}$ (relation de Chasles).`] : [`$${expr} = \\overrightarrow{${z}${x}} + \\overrightarrow{${x}${y}} = ${correct}$`],
+    };
+  }),
+  variante('vecteur-manquant', (rng) => {
+    const u: Vec = [rng.int(-6, 6), rng.int(-6, 6)];
+    const v: Vec = [rng.int(-6, 6), rng.int(-6, 6)];
+    const w: Vec = [u[0] + v[0], u[1] + v[1]];
+    return {
+      prompt: `On donne $${V('u', u)}$ et $${V('w', w)}$. Quelles sont les coordonnées du vecteur $\\vec{v}$ tel que $\\vec{u} + \\vec{v} = \\vec{w}$ ?`,
+      answer: pair(v, ['x', 'y']),
+      hint: '$\\vec{v} = \\vec{w} - \\vec{u}$',
+      correction: [`$\\vec{v}(${w[0]} - ${par(u[0])}\\,;\\,${w[1]} - ${par(u[1])}) = (${v[0]}\\,;\\,${v[1]})$`],
+    };
+  }),
+];
+
+const translationVariantes = [
+  variante('antecedent', (rng, level) => {
+    const A = pt(rng, level);
+    const B = pt(rng, level);
+    const D = pt(rng, level);
+    const C: Vec = [D[0] - (B[0] - A[0]), D[1] - (B[1] - A[1])];
+    return {
+      prompt: `On donne $${P('A', A)}$, $${P('B', B)}$ et $${P('D', D)}$. Quel point $C$ a pour image $D$ par la translation de vecteur $\\overrightarrow{AB}$ ?`,
+      answer: pair(C, ['x_C', 'y_C']),
+      hint: '$\\overrightarrow{CD} = \\overrightarrow{AB}$, donc $C = D - \\overrightarrow{AB}$.',
+      correction: [`$\\overrightarrow{AB}(${B[0] - A[0]}\\,;\\,${B[1] - A[1]})$`, `$x_C = ${D[0]} - ${par(B[0] - A[0])} = ${C[0]}$ et $y_C = ${D[1]} - ${par(B[1] - A[1])} = ${C[1]}$`],
+    };
+  }),
+  variante('vecteur', (rng, level) => {
+    const A = pt(rng, level);
+    const A2 = pt(rng, level);
+    return {
+      prompt: `Une translation transforme $${P('A', A)}$ en $${P("A'", A2)}$. Quelles sont les coordonnées de son vecteur ?`,
+      answer: pair([A2[0] - A[0], A2[1] - A[1]], ['x', 'y']),
+      hint: "Le vecteur de la translation est $\\overrightarrow{AA'}$.",
+      correction: [`$\\overrightarrow{AA'}(${A2[0]} - ${par(A[0])}\\,;\\,${A2[1]} - ${par(A[1])}) = (${A2[0] - A[0]}\\,;\\,${A2[1] - A[1]})$`],
+    };
+  }),
+];
+
+const parallelogrammeVariantes = [
+  variante('est-parallelogramme', (rng, level) => {
+    const A = pt(rng, level);
+    const B = pt(rng, level);
+    const C = pt(rng, level);
+    const yes = rng.next() < 0.5;
+    const D: Vec = [A[0] + C[0] - B[0] + (yes ? 0 : rng.nonZero(-2, 2)), A[1] + C[1] - B[1]];
+    const ok = B[0] - A[0] === C[0] - D[0] && B[1] - A[1] === C[1] - D[1];
+    return {
+      prompt: `$ABCD$ est-il un parallélogramme, avec $${P('A', A)}$, $${P('B', B)}$, $${P('C', C)}$ et $${P('D', D)}$ ?`,
+      answer: ouiNon(ok),
+      hint: 'Compare $\\overrightarrow{AB}$ et $\\overrightarrow{DC}$.',
+      correction: [`$\\overrightarrow{AB}(${B[0] - A[0]}\\,;\\,${B[1] - A[1]})$ et $\\overrightarrow{DC}(${C[0] - D[0]}\\,;\\,${C[1] - D[1]})$.`, ok ? 'Ils sont égaux : $ABCD$ est un parallélogramme (éventuellement aplati).' : 'Ils sont différents : ce n’est pas un parallélogramme.'],
+    };
+  }),
+  variante('sommet-B', (rng, level) => {
+    const A = pt(rng, level);
+    const C = pt(rng, level);
+    const D = pt(rng, level);
+    const B: Vec = [A[0] + C[0] - D[0], A[1] + C[1] - D[1]];
+    return {
+      prompt: `On donne $${P('A', A)}$, $${P('C', C)}$ et $${P('D', D)}$. Quelles sont les coordonnées de $B$ pour que $ABCD$ soit un parallélogramme ?`,
+      answer: pair(B, ['x_B', 'y_B']),
+      hint: '$\\overrightarrow{AB} = \\overrightarrow{DC}$',
+      correction: [`$x_B = x_A + x_C - x_D = ${B[0]}$ et $y_B = y_A + y_C - y_D = ${B[1]}$`],
+    };
+  }),
+];
+
+const colineariteVariantes = [
+  variante('alignes', (rng, level) => {
+    const A = pt(rng, level);
+    const u: Vec = [rng.nonZero(-4, 4), rng.int(-4, 4)];
+    const k = rng.pick([2, 3, -1, -2]);
+    const yes = rng.next() < 0.5;
+    const B: Vec = [A[0] + u[0], A[1] + u[1]];
+    const C: Vec = [A[0] + k * u[0], A[1] + k * u[1] + (yes ? 0 : rng.nonZero(-2, 2))];
+    const d = det([B[0] - A[0], B[1] - A[1]], [C[0] - A[0], C[1] - A[1]]);
+    return {
+      prompt: `Les points $${P('A', A)}$, $${P('B', B)}$ et $${P('C', C)}$ sont-ils alignés ?`,
+      answer: ouiNon(d === 0),
+      hint: 'Teste la colinéarité de $\\overrightarrow{AB}$ et $\\overrightarrow{AC}$.',
+      correction: [`$\\overrightarrow{AB}(${B[0] - A[0]}\\,;\\,${B[1] - A[1]})$, $\\overrightarrow{AC}(${C[0] - A[0]}\\,;\\,${C[1] - A[1]})$.`, `$\\det = ${d}$ : ${d === 0 ? 'les points sont alignés' : 'les points ne sont pas alignés'}.`],
+    };
+  }),
+  variante('coefficient', (rng, level) => {
+    const u: Vec = [rng.nonZero(-5, 5), rng.nonZero(-5, 5)];
+    const k = level === 3 ? frac(rng.nonZero(-5, 5), 2) : frac(rng.pick([2, 3, -1, -2, -3, 4]));
+    // v = k u, à coordonnées entières : en niveau 3, u est pair.
+    if (k.d === 2) {
+      u[0] *= 2;
+      u[1] *= 2;
+    }
+    const v: Vec = [(k.n * u[0]) / k.d, (k.n * u[1]) / k.d];
+    return {
+      prompt: `Les vecteurs $${V('u', u)}$ et $${V('v', v)}$ sont colinéaires. Quel est le réel $k$ tel que $\\vec{v} = k\\vec{u}$ ?`,
+      answer: { kind: 'number', value: k },
+      hint: 'Divise une coordonnée de $\\vec{v}$ par la coordonnée correspondante de $\\vec{u}$.',
+      correction: [`$k = \\frac{${v[0]}}{${u[0]}} = ${fracLatex(k)}$ (et on vérifie : $\\frac{${v[1]}}{${u[1]}} = ${fracLatex(k)}$).`],
+    };
+  }),
+];
+
+const parametreVariantes = [
+  variante('alignement', (rng) => {
+    const A: Vec = [rng.int(-5, 5), rng.int(-5, 5)];
+    const u: Vec = [rng.nonZero(-3, 3), rng.nonZero(-4, 4)];
+    const B: Vec = [A[0] + u[0], A[1] + u[1]];
+    const t = rng.nonZero(-3, 3);
+    // C = A + t u : on cache son ordonnée.
+    const C: Vec = [A[0] + t * u[0], A[1] + t * u[1]];
+    return {
+      prompt: `Pour quelle valeur de $m$ les points $${P('A', A)}$, $${P('B', B)}$ et $C(${C[0]}\\,;\\,m)$ sont-ils alignés ?`,
+      answer: { kind: 'number', value: frac(C[1]) },
+      hint: 'Écris que $\\overrightarrow{AB}$ et $\\overrightarrow{AC}$ sont colinéaires (déterminant nul).',
+      correction: [`$\\det(\\overrightarrow{AB}, \\overrightarrow{AC}) = ${par(u[0])}(m - ${par(A[1])}) - ${par(u[1])} \\times ${par(C[0] - A[0])} = 0$`, `$m = ${C[1]}$`],
+    };
+  }),
+  variante('paralleles', (rng, level) => {
+    const a = rng.nonZero(-6, 6);
+    const b = rng.nonZero(-6, 6);
+    const c = level === 1 ? a * rng.pick([2, -1]) : rng.nonZero(-9, 9);
+    const m = frac(b * c, a);
+    return {
+      prompt: `On donne $\\overrightarrow{AB}\\begin{pmatrix}${a}\\\\${b}\\end{pmatrix}$ et $\\overrightarrow{CD}\\begin{pmatrix}${c}\\\\m\\end{pmatrix}$. Pour quelle valeur de $m$ les droites $(AB)$ et $(CD)$ sont-elles parallèles ?`,
+      answer: { kind: 'number', value: m },
+      hint: 'Deux droites sont parallèles si leurs vecteurs directeurs sont colinéaires.',
+      correction: [`$${par(a)} \\times m - ${par(b)} \\times ${par(c)} = 0$`, `$m = ${fracLatex(m)}$`],
+    };
+  }),
+];
+
+export const VECTEURS_SKILLS: Skill[] = [
+  varier(coordonnees, coordonneesVariantes),
+  varier(combinaison, combinaisonVariantes),
+  varier(translation, translationVariantes),
+  varier(parallelogramme, parallelogrammeVariantes),
+  varier(colinearite, colineariteVariantes),
+  varier(parametre, parametreVariantes),
+];

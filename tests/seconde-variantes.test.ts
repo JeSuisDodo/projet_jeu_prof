@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SECONDE } from '../src/content/seconde';
 import { factorize, isPrime } from '../src/exercises/seconde/arithmetique';
 import { gcd } from '../src/exercises/seconde/outils';
+import { median, quartile } from '../src/exercises/seconde/statistiques';
 import { texEval } from './helpers/texEval';
 import { dansEnsemble, ensemble, lireNombre, nombres, optionJuste, tirages, valeur, variantesDe, verifierToutesLesVariantes } from './helpers/variantes';
 
@@ -869,6 +870,228 @@ describe('variantes de 2nde : probabilités', () => {
     for (const ex of t('2nde-echantillonnage', 'taille')) {
       const m = lireNombre(/= ([\d{},]+)\$ \?/.exec(ex.prompt)![1]);
       expect(1 / Math.sqrt(valeur(ex))).toBeCloseTo(m);
+    }
+  });
+});
+
+/** Valeurs et effectifs d'un tableau « Valeur / Effectif ». */
+function effectifs(s: string): number[] {
+  const rows = [...s.matchAll(/\\text\{(?:Valeur|Effectif)\} & ([^\\]+?) \\\\/g)].map((m) => m[1].split(' & ').map(Number));
+  return rows[0].flatMap((v, i) => Array<number>(rows[1][i]).fill(v));
+}
+/** Lignes x / f(x) d'un tableau de variations. */
+function tableauVariations(s: string) {
+  const top = /x & (.+?) \\\\ \\hline/.exec(s)![1].split(' & ').filter((c) => c !== '').map(Number);
+  const bottom = /f\(x\) & (.+?) \\end\{array\}/.exec(s)![1].split(' & ').filter((c) => !c.includes('arrow')).map(Number);
+  return { xs: top, ys: bottom };
+}
+
+describe('variantes de 2nde : statistiques', () => {
+  it('calcule moyennes et notes manquantes', () => {
+    for (const ex of t('2nde-moyenne', 'note-manquante')) {
+      const xs = nombres(ex.prompt.split(' et une')[0]);
+      const [n, mean] = nombres(ex.prompt.split('oubliée.')[1]);
+      expect(valeur(ex)).toBeGreaterThanOrEqual(0);
+      expect(valeur(ex)).toBeLessThanOrEqual(20);
+      expect((xs.reduce((a, b) => a + b, 0) + valeur(ex)) / n).toBe(mean);
+    }
+    for (const ex of t('2nde-moyenne', 'ajout')) {
+      const [n, mean, extra] = nombres(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo((n * mean + extra) / (n + 1));
+    }
+    for (const ex of t('2nde-moyenne-ponderee', 'coefficients')) {
+      const pairs = [...ex.prompt.matchAll(/\$(\d+)\$ \(coefficient \$(\d+)\$\)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+      const C = pairs.reduce((a, [, c]) => a + c, 0);
+      expect(valeur(ex)).toBeCloseTo(pairs.reduce((a, [v, c]) => a + v * c, 0) / C);
+    }
+    for (const ex of t('2nde-moyenne-ponderee', 'note-necessaire')) {
+      const [m, C, c, target] = nombres(ex.prompt);
+      expect((m * C + valeur(ex) * c) / (C + c)).toBeCloseTo(target);
+      expect(m).toBeLessThanOrEqual(20);
+    }
+    for (const ex of t('2nde-moyenne-transformee', 'fahrenheit')) expect(valeur(ex)).toBeCloseTo(1.8 * nombres(ex.prompt)[0] + 32);
+    for (const ex of t('2nde-moyenne-transformee', 'retrouver')) {
+      const a = ex.prompt.includes('multiplie') ? 2 : 1;
+      const b = (ex.prompt.includes('ajoute') ? 1 : -1) * Number(/(?:ajoute|retire) \$(\d+)\$/.exec(ex.prompt)![1]);
+      const result = Number(/moyenne est \$(\d+)\$/.exec(ex.prompt)![1]);
+      expect(a * valeur(ex) + b).toBe(result);
+    }
+  });
+
+  it('lit médianes, quartiles et étendues', () => {
+    for (const ex of t('2nde-mediane', 'tableau')) expect(valeur(ex)).toBeCloseTo(median(effectifs(ex.prompt)));
+    for (const ex of t('2nde-quartiles', 'tableau')) {
+      const q = ex.prompt.includes('premier') ? 1 : 3;
+      expect(valeur(ex)).toBe(quartile(effectifs(ex.prompt), q));
+    }
+    for (const ex of t('2nde-mediane', 'moyenne-ou-mediane')) {
+      const xs = nombres(ex.prompt);
+      const mean = xs.reduce((a, b) => a + b, 0) / xs.length;
+      const m = median(xs);
+      expect(optionJuste(ex)).toBe(mean > m ? 'La moyenne' : mean < m ? 'La médiane' : 'Ils sont égaux');
+    }
+    for (const ex of t('2nde-quartiles', 'interpretation')) expect(optionJuste(ex)).toBe(ex.prompt.includes('premier') ? '$25\\,\\%$' : '$75\\,\\%$');
+    for (const ex of t('2nde-etendue', 'valeur-manquante')) {
+      const [e, v] = nombres(ex.prompt);
+      expect(valeur(ex)).toBe(ex.prompt.includes('plus petite valeur est') ? v + e : v - e);
+    }
+    for (const ex of t('2nde-etendue', 'valeur-extreme')) {
+      const xs = nombres(ex.prompt.split('. ')[0].split('on remplace')[0]);
+      const [old, big] = nombres(ex.prompt.split('on remplace')[1]);
+      const ys = [...xs.filter((_, i) => i !== xs.lastIndexOf(old)), big];
+      const before = ex.prompt.includes('L’étendue') ? Math.max(...xs) - Math.min(...xs) : quartile(xs, 3) - quartile(xs, 1);
+      const after = ex.prompt.includes('L’étendue') ? Math.max(...ys) - Math.min(...ys) : quartile(ys, 3) - quartile(ys, 1);
+      expect(optionJuste(ex)).toBe(before !== after ? 'Oui' : 'Non');
+    }
+  });
+});
+
+describe('variantes de 2nde : variations', () => {
+  it('lit les tableaux de variations', () => {
+    for (const ex of t('2nde-extremum-tableau', 'nombre-solutions')) {
+      const { xs, ys } = tableauVariations(ex.prompt);
+      expect(xs.length).toBe(ys.length);
+      const k = Number(/f\(x\) = (-?\d+)\$ a-t-elle/.exec(ex.prompt)![1]);
+      let c = 0;
+      for (let i = 0; i + 1 < ys.length; i++) if ((ys[i] - k) * (ys[i + 1] - k) < 0) c++;
+      expect(ys.includes(k)).toBe(false);
+      expect(valeur(ex)).toBe(c);
+    }
+    for (const ex of t('2nde-extremum-tableau', 'ou-atteint')) {
+      const { xs, ys } = tableauVariations(ex.prompt);
+      const v = ex.prompt.includes('maximum') ? Math.max(...ys) : Math.min(...ys);
+      expect(valeur(ex)).toBe(xs[ys.indexOf(v)]);
+    }
+    for (const ex of t('2nde-comparer-tableau', 'tableau')) {
+      const { xs, ys } = tableauVariations(ex.prompt);
+      const [a, b] = [...ex.prompt.matchAll(/Compare \$f\((-?[\d{},]+)\)\$ et \$f\((-?[\d{},]+)\)\$/g)][0].slice(1).map(lireNombre);
+      const i = xs.findIndex((x, j) => j + 1 < xs.length && a >= x && a <= xs[j + 1] && b >= x && b <= xs[j + 1]);
+      expect(i, ex.prompt).toBeGreaterThanOrEqual(0);
+      const smaller = (a < b) === ys[i + 1] > ys[i];
+      expect(optionJuste(ex)).toContain(smaller ? '<' : '>');
+    }
+    for (const ex of t('2nde-comparer-tableau', 'sans-conclusion')) expect(optionJuste(ex)).toBe('On ne peut pas conclure');
+  });
+
+  it('étudie fonctions affines et du second degré', () => {
+    for (const ex of t('2nde-sens-affine', 'deux-images')) {
+      const [y1, y2] = [...ex.prompt.matchAll(/f\(-?\d+\) = (-?\d+)/g)].map((m) => Number(m[1]));
+      expect(optionJuste(ex)).toBe(y2 > y1 ? 'Croissante' : y2 < y1 ? 'Décroissante' : 'Constante');
+    }
+    for (const ex of t('2nde-sens-affine', 'comparer')) {
+      const f = /f\(x\) = (.+)\$\. Sans/.exec(ex.prompt)![1];
+      const [a, b] = [...ex.prompt.matchAll(/compare \$f\((-?[\d{},]+)\)\$ et \$f\((-?[\d{},]+)\)\$/g)][0].slice(1).map(lireNombre);
+      expect(optionJuste(ex)).toContain(texEval(f, a) < texEval(f, b) ? '<' : '>');
+    }
+    for (const ex of t('2nde-extremum-affine', 'image-intervalle')) {
+      const f = /f\(x\) = (.+)\$\. Quand/.exec(ex.prompt)![1];
+      const [, lo, hi] = /parcourt \$\[(-?\d+)\\,;\\,(-?\d+)\]\$/.exec(ex.prompt)!.map(Number);
+      const vals = [texEval(f, lo), texEval(f, hi)];
+      const S = optionJuste(ex);
+      expect(dans(S, Math.min(...vals)) && dans(S, Math.max(...vals)) && !dans(S, Math.min(...vals) - 0.5) && !dans(S, Math.max(...vals) + 0.5)).toBe(true);
+    }
+    for (const ex of t('2nde-extremum-affine', 'concret')) {
+      const f = /T\(x\) = (.+)\$, pour/.exec(ex.prompt)![1];
+      const h = Number(/et \$(\d+)\$\./.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBe(Math.min(texEval(f, 0), texEval(f, h)));
+    }
+    for (const ex of t('2nde-variations-carre', 'sur-un-intervalle')) {
+      const f = /f\(x\) = (.+)\$ est-elle/.exec(ex.prompt)![1];
+      const [, p, q] = /\$\[(-?\d+)\\,;\\,(-?\d+)\]\$/.exec(ex.prompt)!.map(Number);
+      const up = texEval(f, q) > texEval(f, p) && texEval(f, (p + q) / 2) > texEval(f, p);
+      expect(optionJuste(ex)).toBe(up ? 'Croissante' : 'Décroissante');
+    }
+    for (const ex of t('2nde-variations-carre', 'forme-developpee')) {
+      const f = /f\(x\) = (.+)\$ s'écrit/.exec(ex.prompt)![1];
+      const a = valeur(ex);
+      expect(texEval(f, a - 1)).toBeCloseTo(texEval(f, a + 1));
+      expect(texEval(f, a)).toBeLessThan(texEval(f, a + 1));
+    }
+    for (const ex of t('2nde-extremum-carre', 'balle')) {
+      const f = /h\(t\) = (.+)\$, où/.exec(ex.prompt)![1].replace(/t/g, 'x');
+      const max = Math.max(...Array.from({ length: 1001 }, (_, i) => texEval(f, i / 100)));
+      expect(valeur(ex)).toBeCloseTo(max);
+    }
+    for (const ex of t('2nde-extremum-carre', 'vrai-faux')) {
+      const [, f, op, k] = /\$(.+) (\\geq|\\leq) (-?\d+)\$\.$/.exec(ex.prompt)!;
+      const vals = Array.from({ length: 2001 }, (_, i) => texEval(f.slice(f.lastIndexOf('$') + 1), -10 + i / 100));
+      const ok = op === '\\geq' ? Math.min(...vals) >= Number(k) - 1e-9 : Math.max(...vals) <= Number(k) + 1e-9;
+      expect(optionJuste(ex), ex.prompt).toBe(ok ? 'Vrai' : 'Faux');
+    }
+  });
+});
+
+describe('variantes de 2nde : vecteurs', () => {
+  const vec = (s: string, name: string) => {
+    const m = new RegExp(`\\\\vec\\{${name}\\}\\\\begin\\{pmatrix\\}(-?\\d+)\\\\\\\\(-?\\d+)\\\\end`).exec(s)!;
+    return [Number(m[1]), Number(m[2])];
+  };
+  it('calcule avec les coordonnées', () => {
+    for (const ex of t('2nde-coord-vecteur', 'extremite')) {
+      const { A } = points(ex.prompt);
+      const u = vec(ex.prompt, 'u');
+      expect(paire(ex)).toEqual([A[0] + u[0], A[1] + u[1]]);
+    }
+    for (const ex of t('2nde-coord-vecteur', 'egalite')) {
+      const { A, B, C, D } = points(ex.prompt);
+      expect(optionJuste(ex)).toBe(B[0] - A[0] === D[0] - C[0] && B[1] - A[1] === D[1] - C[1] ? 'Oui' : 'Non');
+    }
+    for (const ex of t('2nde-combinaison', 'vecteur-manquant')) {
+      const u = vec(ex.prompt, 'u');
+      const w = vec(ex.prompt, 'w');
+      expect(paire(ex)).toEqual([w[0] - u[0], w[1] - u[1]]);
+    }
+    for (const ex of t('2nde-combinaison', 'chasles')) {
+      const m = /\\overrightarrow\{(\w)(\w)\} ([+-]) \\overrightarrow\{(\w)(\w)\}/.exec(ex.prompt)!;
+      // Chaque point est un vecteur position aléatoire : on vérifie l'égalité vectorielle.
+      const pos: Record<string, number> = {};
+      for (const l of [m[1], m[2], m[4], m[5]]) pos[l] ??= l.charCodeAt(0) ** 2 % 97;
+      const v = (a: string, b: string) => pos[b] - pos[a];
+      const lhs = v(m[1], m[2]) + (m[3] === '+' ? 1 : -1) * v(m[4], m[5]);
+      const r = /\\overrightarrow\{(\w)(\w)\}/.exec(optionJuste(ex))!;
+      expect(v(r[1], r[2])).toBe(lhs);
+    }
+    for (const ex of t('2nde-translation', 'antecedent')) {
+      const { A, B, D } = points(ex.prompt);
+      const C = paire(ex);
+      expect([D[0] - C[0], D[1] - C[1]]).toEqual([B[0] - A[0], B[1] - A[1]]);
+    }
+    for (const ex of t('2nde-translation', 'vecteur')) {
+      const [A, A2] = [...ex.prompt.matchAll(/A'?\((-?\d+)\\,;\\,(-?\d+)\)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+      expect(paire(ex)).toEqual([A2[0] - A[0], A2[1] - A[1]]);
+    }
+    for (const ex of t('2nde-parallelogramme', 'est-parallelogramme')) {
+      const { A, B, C, D } = points(ex.prompt);
+      expect(optionJuste(ex)).toBe(B[0] - A[0] === C[0] - D[0] && B[1] - A[1] === C[1] - D[1] ? 'Oui' : 'Non');
+    }
+    for (const ex of t('2nde-parallelogramme', 'sommet-B')) {
+      const { A, C, D } = points(ex.prompt);
+      const B = paire(ex);
+      expect([B[0] - A[0], B[1] - A[1]]).toEqual([C[0] - D[0], C[1] - D[1]]);
+    }
+  });
+
+  it('teste colinéarités et alignements', () => {
+    for (const ex of t('2nde-colinearite', 'alignes')) {
+      const { A, B, C } = points(ex.prompt);
+      const d = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]);
+      expect(optionJuste(ex)).toBe(d === 0 ? 'Oui' : 'Non');
+    }
+    for (const ex of t('2nde-colinearite', 'coefficient')) {
+      const u = vec(ex.prompt, 'u');
+      const v = vec(ex.prompt, 'v');
+      expect(v[0]).toBeCloseTo(valeur(ex) * u[0]);
+      expect(v[1]).toBeCloseTo(valeur(ex) * u[1]);
+    }
+    for (const ex of t('2nde-colineaire-m', 'alignement')) {
+      const { A, B } = points(ex.prompt);
+      const cx = Number(/C\((-?\d+)\\,;\\,m\)/.exec(ex.prompt)![1]);
+      const m = valeur(ex);
+      expect((B[0] - A[0]) * (m - A[1]) - (B[1] - A[1]) * (cx - A[0])).toBe(0);
+    }
+    for (const ex of t('2nde-colineaire-m', 'paralleles')) {
+      const [a, b, c] = [...ex.prompt.matchAll(/\\begin\{pmatrix\}(-?\d+)\\\\(-?\d+|m)\\end/g)].flatMap((m) => [m[1], m[2]]).filter((x) => x !== 'm').map(Number);
+      expect(a * valeur(ex) - b * c).toBeCloseTo(0);
     }
   });
 });

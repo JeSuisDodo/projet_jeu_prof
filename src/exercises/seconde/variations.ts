@@ -1,6 +1,7 @@
 import { frac } from '../fraction';
 import type { Rng } from '../rng';
 import type { Skill } from '../types';
+import { variante, varier } from '../varier';
 import { affine, dec, distinctInts, fixedChoice, interval, latexChoice, par } from './outils';
 
 /** Chapitre 10 de 2nde : sens de variation, extremums, tableaux de variations. */
@@ -193,4 +194,204 @@ const extremumCarre: Skill = {
   },
 };
 
-export const VARIATIONS_SKILLS: Skill[] = [sensAffine, extremumTableau, comparerTableau, extremumAffine, variationsCarre, extremumCarre];
+/* ---------- Variantes : d'autres façons de poser les mêmes notions ---------- */
+
+const SENS = ['Croissante', 'Décroissante', 'Constante'];
+
+const sensAffineVariantes = [
+  variante('deux-images', (rng) => {
+    const x1 = rng.int(-6, 3);
+    const x2 = x1 + rng.int(1, 6);
+    const y1 = rng.int(-9, 9);
+    const y2 = rng.next() < 0.1 ? y1 : y1 + rng.nonZero(-9, 9);
+    const kind = y2 > y1 ? 0 : y2 < y1 ? 1 : 2;
+    return {
+      prompt: `$f$ est une fonction affine telle que $f(${x1}) = ${y1}$ et $f(${x2}) = ${y2}$. Quel est son sens de variation ?`,
+      answer: fixedChoice(SENS, kind),
+      hint: 'Le signe du coefficient directeur est celui de $\\frac{f(x_2) - f(x_1)}{x_2 - x_1}$.',
+      correction: [`$a = \\frac{${y2} - ${par(y1)}}{${x2} - ${par(x1)}} = \\frac{${y2 - y1}}{${x2 - x1}}$`, kind === 0 ? '$a > 0$ : $f$ est croissante.' : kind === 1 ? '$a < 0$ : $f$ est décroissante.' : '$a = 0$ : $f$ est constante.'],
+    };
+  }),
+  variante('comparer', (rng) => {
+    const a = rng.nonZero(-5, 5);
+    const b = rng.int(-9, 9);
+    const u = rng.int(-200, 200) / 10;
+    let v = u;
+    while (v === u) v = rng.int(-200, 200) / 10;
+    const fu = `f(${dec(u)})`;
+    const fv = `f(${dec(v)})`;
+    const smaller = a * u < a * v;
+    return {
+      prompt: `Soit $f(x) = ${affine(a, b)}$. Sans calculer, compare $${fu}$ et $${fv}$.`,
+      answer: fixedChoice([`$${fu} < ${fv}$`, `$${fu} > ${fv}$`], smaller ? 0 : 1),
+      hint: 'Trouve d’abord le sens de variation de $f$.',
+      correction: [`$a = ${a}$ : $f$ est ${a > 0 ? 'croissante (elle conserve l’ordre)' : 'décroissante (elle inverse l’ordre)'}.`, `$${dec(u)} ${u < v ? '<' : '>'} ${dec(v)}$ donc $${fu} ${smaller ? '<' : '>'} ${fv}$.`],
+    };
+  }),
+];
+
+/** Tableau de variations à n valeurs toutes distinctes. */
+function tableauDistinct(rng: Rng, n: number) {
+  const xs = distinctInts(rng, n, -8, 8).sort((p, q) => p - q);
+  let ys = zigzag(rng, n, rng.next() < 0.5);
+  while (new Set(ys).size < n) ys = zigzag(rng, n, rng.next() < 0.5);
+  return { xs, ys };
+}
+
+const extremumTableauVariantes = [
+  variante('nombre-solutions', (rng, level) => {
+    const { xs, ys } = tableauDistinct(rng, level === 1 ? 3 : 4);
+    let k = rng.int(Math.min(...ys), Math.max(...ys));
+    while (ys.includes(k)) k++;
+    let count = 0;
+    for (let i = 0; i + 1 < ys.length; i++) if ((ys[i] - k) * (ys[i + 1] - k) < 0) count++;
+    return {
+      prompt: `Voici le tableau de variations d'une fonction $f$ continue sur $[${xs[0]}\\,;\\,${xs[xs.length - 1]}]$ : $${table(xs, ys)}$ Combien de solutions l'équation $f(x) = ${k}$ a-t-elle sur cet intervalle ?`,
+      answer: { kind: 'number', value: frac(count) },
+      hint: `Sur chaque flèche, $f$ est strictement monotone : regarde si $${k}$ est entre les deux valeurs aux extrémités de la flèche.`,
+      correction: [`On compte les flèches qui « traversent » la valeur $${k}$.`, `Il y a $${count}$ solution${count > 1 ? 's' : ''}.`],
+    };
+  }),
+  variante('ou-atteint', (rng, level) => {
+    const { xs, ys } = tableauDistinct(rng, level === 1 ? 3 : 4);
+    const wantMax = rng.next() < 0.5;
+    const value = wantMax ? Math.max(...ys) : Math.min(...ys);
+    return {
+      prompt: `Voici le tableau de variations d'une fonction $f$ : $${table(xs, ys)}$ En quelle valeur de $x$ le ${wantMax ? 'maximum' : 'minimum'} de $f$ est-il atteint ?`,
+      answer: { kind: 'number', value: frac(xs[ys.indexOf(value)]) },
+      hint: 'Repère la valeur extrême dans la ligne de $f(x)$, puis lis l’abscisse au-dessus.',
+      correction: [`Le ${wantMax ? 'maximum' : 'minimum'} vaut $${value}$, atteint en $x = ${xs[ys.indexOf(value)]}$.`],
+    };
+  }),
+];
+
+const comparerTableauVariantes = [
+  variante('sans-conclusion', (rng) => {
+    const lo = rng.int(-8, -3);
+    const m = lo + rng.int(2, 4);
+    const hi = m + rng.int(2, 4);
+    const up = rng.next() < 0.5;
+    const a = lo + rng.int(1, m - lo - 1) + 0.5 * rng.int(0, 1);
+    const b = m + rng.int(1, hi - m - 1) + 0.5 * rng.int(0, 1);
+    const fa = `f(${dec(a)})`;
+    const fb = `f(${dec(b)})`;
+    return {
+      prompt: `La fonction $f$ est ${up ? 'croissante' : 'décroissante'} sur $[${lo}\\,;\\,${m}]$ puis ${up ? 'décroissante' : 'croissante'} sur $[${m}\\,;\\,${hi}]$. Que peut-on dire de $${fa}$ et $${fb}$ ?`,
+      answer: fixedChoice([`$${fa} < ${fb}$`, `$${fa} > ${fb}$`, 'On ne peut pas conclure'], 2),
+      hint: 'Les deux nombres sont-ils dans le même intervalle de monotonie ?',
+      correction: [`$${dec(a)}$ et $${dec(b)}$ sont de part et d'autre de $${m}$, où $f$ change de sens.`, 'Sans autre information, on ne peut pas comparer leurs images.'],
+    };
+  }),
+  variante('tableau', (rng) => {
+    const { xs, ys } = tableauDistinct(rng, 4);
+    const i = rng.int(0, 2);
+    const span = xs[i + 1] - xs[i];
+    const a = xs[i] + Math.round(rng.next() * span * 10) / 10;
+    let b = a;
+    while (b === a) b = xs[i] + Math.round(rng.next() * span * 10) / 10;
+    const increasing = ys[i + 1] > ys[i];
+    const fa = `f(${dec(a)})`;
+    const fb = `f(${dec(b)})`;
+    const smaller = (a < b) === increasing;
+    return {
+      prompt: `Voici le tableau de variations d'une fonction $f$ : $${table(xs, ys)}$ Compare $${fa}$ et $${fb}$.`,
+      answer: fixedChoice([`$${fa} < ${fb}$`, `$${fa} > ${fb}$`], smaller ? 0 : 1),
+      hint: 'Repère sur quelle flèche se trouvent les deux nombres.',
+      correction: [`$${dec(a)}$ et $${dec(b)}$ sont dans $[${xs[i]}\\,;\\,${xs[i + 1]}]$, où $f$ est ${increasing ? 'croissante' : 'décroissante'}.`, `Donc $${fa} ${smaller ? '<' : '>'} ${fb}$.`],
+    };
+  }),
+];
+
+const extremumAffineVariantes = [
+  variante('image-intervalle', (rng) => {
+    const a = rng.nonZero(-5, 5);
+    const b = rng.int(-9, 9);
+    const [lo, hi] = distinctInts(rng, 2, -6, 6).sort((p, q) => p - q);
+    const [ylo, yhi] = [a * lo + b, a * hi + b].sort((p, q) => p - q);
+    const correct = interval(ylo, true, yhi, true);
+    return {
+      prompt: `Soit $f(x) = ${affine(a, b)}$. Quand $x$ parcourt $[${lo}\\,;\\,${hi}]$, dans quel intervalle se trouve $f(x)$ ?`,
+      answer: latexChoice(rng, correct, [interval(lo, true, hi, true), interval(ylo - a, true, yhi - a, true), interval(Math.min(lo, ylo), true, Math.max(hi, yhi), true)], () => interval(ylo - 1, true, yhi + 1, true)),
+      hint: 'Une fonction affine est monotone : les valeurs extrêmes sont les images des bornes.',
+      correction: [`$f(${lo}) = ${a * lo + b}$ et $f(${hi}) = ${a * hi + b}$.`, `Donc $f(x) \\in ${correct}$.`],
+    };
+  }),
+  variante('concret', (rng) => {
+    const a = -rng.int(1, 4);
+    const b = rng.int(15, 40);
+    const h = rng.int(3, 8);
+    return {
+      prompt: `Pendant une randonnée, la température (en °C) à l'altitude $x$ (en km) est $T(x) = ${affine(a * 2, b)}$, pour $x$ entre $0$ et $${h}$. Quelle est la température minimale rencontrée ?`,
+      answer: { kind: 'number', value: frac(2 * a * h + b) },
+      hint: 'La fonction est décroissante : le minimum est atteint à la plus grande altitude.',
+      correction: [`$T$ est décroissante (coefficient $${2 * a} < 0$), donc le minimum est $T(${h}) = ${2 * a * h + b}$ °C.`],
+    };
+  }),
+];
+
+const variationsCarreVariantes = [
+  variante('sur-un-intervalle', (rng, level) => {
+    const s = level === 1 ? 1 : rng.sign();
+    const alpha = rng.int(-6, 6);
+    const beta = rng.int(-9, 9);
+    const right = rng.next() < 0.5;
+    const p = right ? alpha + rng.int(0, 3) : alpha - rng.int(4, 7);
+    const q = p + rng.int(1, 3);
+    const up = (s > 0) === right;
+    return {
+      prompt: `Sur l'intervalle $[${p}\\,;\\,${q}]$, la fonction $f(x) = ${shifted(s, alpha, beta)}$ est-elle croissante ou décroissante ?`,
+      answer: fixedChoice(['Croissante', 'Décroissante'], up ? 0 : 1),
+      hint: `Situe l'intervalle par rapport à $${alpha}$, là où $f$ change de sens.`,
+      correction: [`$[${p}\\,;\\,${q}]$ est ${right ? 'à droite' : 'à gauche'} de $${alpha}$.`, `$f$ y est ${up ? 'croissante' : 'décroissante'}.`],
+    };
+  }),
+  variante('forme-developpee', (rng) => {
+    const alpha = rng.int(-6, 6);
+    const c = rng.int(-9, 9);
+    // x² - 2αx + c = (x - α)² + c - α²
+    const f = `x^2 ${alpha === 0 ? '' : `${alpha > 0 ? '-' : '+'} ${2 * Math.abs(alpha)}x `}${c === 0 ? '' : `${c < 0 ? '-' : '+'} ${Math.abs(c)}`}`.trim();
+    return {
+      prompt: `On admet que $f(x) = ${f}$ s'écrit $(x - \\alpha)^2 + \\beta$. En quelle valeur de $x$ la fonction $f$ change-t-elle de sens de variation ?`,
+      answer: { kind: 'number', value: frac(alpha) },
+      hint: 'Développe $(x - \\alpha)^2 = x^2 - 2\\alpha x + \\alpha^2$ et identifie le coefficient de $x$.',
+      correction: [`$-2\\alpha = ${-2 * alpha}$, donc $\\alpha = ${alpha}$.`, `$f(x) = ${shifted(1, alpha, c - alpha * alpha)}$ change de sens en $x = ${alpha}$.`],
+    };
+  }),
+];
+
+const extremumCarreVariantes = [
+  variante('balle', (rng) => {
+    const t0 = rng.int(1, 4);
+    const hmax = rng.int(6, 25);
+    const k = rng.pick([1, 2, 5]);
+    const f = `-${k === 1 ? '' : k}(t - ${t0})^2 + ${hmax}`;
+    return {
+      prompt: `La hauteur (en m) d'une balle lancée en l'air est $h(t) = ${f}$, où $t$ est le temps en secondes. Quelle hauteur maximale atteint-elle ?`,
+      answer: { kind: 'number', value: frac(hmax) },
+      hint: 'Le terme $-' + (k === 1 ? '' : k) + '(t - ' + t0 + ')^2$ est toujours négatif ou nul.',
+      correction: [`$h(t) \\leq ${hmax}$, avec égalité pour $t = ${t0}$.`, `La hauteur maximale est $${hmax}$ m, atteinte au bout de $${t0}$ s.`],
+    };
+  }),
+  variante('vrai-faux', (rng, level) => {
+    const s = level === 1 ? 1 : rng.sign();
+    const alpha = rng.int(-6, 6);
+    const beta = rng.int(-9, 9);
+    const k = beta + rng.int(-3, 3);
+    const juste = s > 0 ? k <= beta : k >= beta;
+    return {
+      prompt: `Vrai ou faux : pour tout réel $x$, $${shifted(s, alpha, beta)} ${s > 0 ? '\\geq' : '\\leq'} ${k}$.`,
+      answer: fixedChoice(['Vrai', 'Faux'], juste ? 0 : 1),
+      hint: `Cherche l'extremum de la fonction.`,
+      correction: [`La fonction a pour ${s > 0 ? 'minimum' : 'maximum'} $${beta}$, atteint en $x = ${alpha}$.`, juste ? 'L’inégalité est vraie pour tout $x$.' : `Elle est fausse : en $x = ${alpha}$, on obtient $${beta}$.`],
+    };
+  }),
+];
+
+export const VARIATIONS_SKILLS: Skill[] = [
+  varier(sensAffine, sensAffineVariantes),
+  varier(extremumTableau, extremumTableauVariantes),
+  varier(comparerTableau, comparerTableauVariantes),
+  varier(extremumAffine, extremumAffineVariantes),
+  varier(variationsCarre, variationsCarreVariantes),
+  varier(extremumCarre, extremumCarreVariantes),
+];
