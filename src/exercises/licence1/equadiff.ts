@@ -1,5 +1,7 @@
 import type { Skill } from '../types';
 import { F, div, linComb, numF, pairOf, setOf, skill, sub, tex, texChoice } from './util';
+import { enrichir } from '../licenceVariantes';
+import { EQUADIFF_VARIANTES } from './variantes/equadiff';
 
 /** Chapitre « Équations différentielles linéaires » (Licence 1). */
 
@@ -119,4 +121,4 @@ const particuliere = skill('l1-ed-solution-particuliere', 'Trouver une solution 
   };
 });
 
-export const EQUADIFF_SKILLS: Skill[] = [ordre1, caracteristique, particuliere, formeSolutions, ordre2];
+export const EQUADIFF_SKILLS: Skill[] = enrichir([ordre1, caracteristique, particuliere, formeSolutions, ordre2], EQUADIFF_VARIANTES);

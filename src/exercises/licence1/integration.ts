@@ -1,5 +1,7 @@
 import type { Skill } from '../types';
 import { F, add, affine, mul, numF, pairOf, poly, skill, tex, texChoice } from './util';
+import { enrichir } from '../licenceVariantes';
+import { INTEGRATION_VARIANTES } from './variantes/integration';
 
 /** Chapitre « Intégration » (Licence 1). */
 
@@ -126,4 +128,4 @@ const primitivesUsuelles = skill('l1-primitives-usuelles', 'Reconnaître une pri
   };
 });
 
-export const INTEGRATION_SKILLS: Skill[] = [primitivesUsuelles, changementVariable, elementsSimples, ipp, riemann];
+export const INTEGRATION_SKILLS: Skill[] = enrichir([primitivesUsuelles, changementVariable, elementsSimples, ipp, riemann], INTEGRATION_VARIANTES);

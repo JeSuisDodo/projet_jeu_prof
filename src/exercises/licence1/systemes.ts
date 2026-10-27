@@ -1,5 +1,7 @@
 import type { Skill } from '../types';
 import { F, det, fixedChoice, num, pairOf, setOf, skill, tex } from './util';
+import { enrichir } from '../licenceVariantes';
+import { SYSTEMES_VARIANTES } from './variantes/systemes';
 
 /** Chapitre « Systèmes linéaires » (Licence 1). */
 
@@ -128,4 +130,4 @@ const parametre = skill('l1-systeme-parametre', 'Trouver les paramètres qui ren
   };
 });
 
-export const SYSTEMES_SKILLS: Skill[] = [systeme2, nombreSolutions, systeme3, parametre];
+export const SYSTEMES_SKILLS: Skill[] = enrichir([systeme2, nombreSolutions, systeme3, parametre], SYSTEMES_VARIANTES);

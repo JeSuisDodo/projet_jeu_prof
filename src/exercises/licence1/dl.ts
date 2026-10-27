@@ -2,6 +2,8 @@ import type { Frac } from '../fraction';
 import type { Rng } from '../rng';
 import type { Skill } from '../types';
 import { F, add, fact, mul, numF, skill, tex, texChoice } from './util';
+import { enrichir } from '../licenceVariantes';
+import { DL_VARIANTES } from './variantes/dl';
 
 /** Chapitre « Développements limités » (Licence 1). Séries tronquées : coefficients de x⁰ à x⁵. */
 
@@ -152,4 +154,4 @@ const equivalentDl = skill('l1-dl-equivalent', 'Trouver un équivalent grâce au
   };
 });
 
-export const DL_SKILLS: Skill[] = [dlUsuel, dlLimite, equivalentDl, dlProduit, dlComposition];
+export const DL_SKILLS: Skill[] = enrichir([dlUsuel, dlLimite, equivalentDl, dlProduit, dlComposition], DL_VARIANTES);
