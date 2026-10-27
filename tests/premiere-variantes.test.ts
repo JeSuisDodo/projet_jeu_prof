@@ -571,3 +571,102 @@ describe('variantes de 1re : produit scalaire', () => {
     }
   });
 });
+
+describe('variantes de 1re : suites arithmétiques et géométriques', () => {
+  const entiers = (s: string) => [...s.matchAll(/\$(-?\d+)\$/g)].map((m) => Number(m[1]));
+  /** Indices et valeurs « u_{n} = v » (ou u_n, u_0). */
+  const termes = (s: string) => [...s.matchAll(/u_\{?(\d+)\}? = (-?\d+)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  const raison = (s: string) => Number(/raison \$(-?\d+)\$/.exec(s)![1]);
+
+  it('calcule des termes', () => {
+    for (const ex of t('1re-arith-terme', 'salaire')) {
+      const [s0, r] = entiers(ex.prompt);
+      const n = Number(/la (\d+)e année/.exec(ex.prompt)![1]);
+      let s = s0;
+      for (let k = 2; k <= n; k++) s += r;
+      expect(valeur(ex)).toBe(s);
+    }
+    for (const ex of t('1re-arith-terme', 'rang')) {
+      const [[, u0]] = termes(ex.prompt);
+      const cible = Number(/u_n = (-?\d+)/.exec(ex.prompt)![1]);
+      expect(u0 + valeur(ex) * raison(ex.prompt)).toBe(cible);
+    }
+    for (const ex of t('1re-arith-terme', 'premier-terme')) {
+      const [[n, un]] = termes(ex.prompt);
+      expect(valeur(ex) + n * raison(ex.prompt)).toBe(un);
+    }
+    for (const ex of t('1re-geo-terme', 'interets')) {
+      const [c] = entiers(ex.prompt);
+      const taux = Number(/taux annuel de \$(\d+)/.exec(ex.prompt)![1]);
+      const n = Number(/au bout de (\d) ans/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeCloseTo(c * (1 + taux / 100) ** n, 6);
+    }
+    for (const ex of t('1re-geo-terme', 'premier-terme')) {
+      const [[n, un]] = termes(ex.prompt);
+      expect(valeur(ex) * raison(ex.prompt) ** n).toBe(un);
+    }
+  });
+
+  it('trouve des raisons', () => {
+    for (const ex of t('1re-arith-raison', 'theatre')) {
+      const [a, m] = entiers(ex.prompt);
+      const k = Number(/Le (\d+)e rang/.exec(ex.prompt)![1]);
+      expect(a + (k - 1) * valeur(ex)).toBe(m);
+    }
+    for (const ex of t('1re-arith-raison', 'trois-termes')) {
+      const [a, b] = entiers(ex.prompt);
+      expect(valeur(ex) - a).toBe(b - valeur(ex));
+    }
+    for (const ex of t('1re-geo-raison', 'pourcentage')) {
+      const taux = Number(/de \$(\d+)\\,\\%/.exec(ex.prompt)![1]);
+      // 1000 habitants la première année : l'année suivante, 1000 × q.
+      const suivant = ex.prompt.includes('augmente') ? 1000 + 10 * taux : 1000 - 10 * taux;
+      expect(1000 * valeur(ex)).toBeCloseTo(suivant, 9);
+    }
+    for (const ex of t('1re-geo-raison', 'trois-termes')) {
+      const [a, b] = entiers(ex.prompt);
+      expect(valeur(ex) / a).toBeCloseTo(b / valeur(ex), 12);
+      expect(valeur(ex)).toBeGreaterThan(0);
+    }
+  });
+
+  it('calcule des sommes', () => {
+    const somme = (n: number, terme: (k: number) => number) => Array.from({ length: n }, (_, k) => terme(k)).reduce((s, v) => s + v, 0);
+    for (const ex of t('1re-arith-somme', 'impairs')) {
+      const last = Number(/\\dots \+ (\d+)\$/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBe(somme((last + 1) / 2, (k) => 2 * k + 1));
+    }
+    for (const ex of t('1re-arith-somme', 'theatre')) {
+      const [a, r, k] = entiers(ex.prompt);
+      expect(valeur(ex)).toBe(somme(k, (i) => a + i * r));
+    }
+    for (const ex of t('1re-geo-somme', 'grains')) {
+      const [a] = entiers(ex.prompt);
+      const q = ex.prompt.includes('deux fois') ? 2 : 3;
+      const n = Number(/au bout de (\d+) jours/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBe(somme(n, (k) => a * q ** k));
+    }
+    for (const ex of t('1re-geo-somme', 'moities')) {
+      const last = Number(/\\frac\{1\}\{(\d+)\}\$ \(/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeCloseTo(somme(Math.log2(last) + 1, (k) => 1 / 2 ** k), 12);
+    }
+  });
+
+  it('reconnaît la nature d’une suite', () => {
+    for (const ex of t('1re-suite-nature', 'premiers-termes')) {
+      const u = entiers(ex.prompt);
+      const d = u.slice(1).map((v, i) => v - u[i]);
+      const arith = d.every((v) => v === d[0]);
+      const geo = u.every((v) => v !== 0) && u.slice(1).every((v, i) => v * u[0] === u[1] * u[i]);
+      expect(optionJuste(ex)).toBe(arith ? 'Arithmétique' : geo ? 'Géométrique' : 'Ni l’une ni l’autre');
+    }
+    for (const ex of t('1re-suite-nature', 'suite-auxiliaire')) {
+      const [[, u0]] = termes(ex.prompt);
+      const rec = /u_\{n\+1\} = (.+?)\$/.exec(ex.prompt)![1];
+      const next = (u: number) => texEval(rec.replace('u_n', `(${u})`), 0);
+      const c = valeur(ex);
+      const v = [u0, next(u0), next(next(u0))].map((x) => x - c);
+      expect(v[1] * v[1]).toBeCloseTo(v[0] * v[2], 9);
+    }
+  });
+});
