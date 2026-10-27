@@ -1,6 +1,7 @@
 import { frac } from '../fraction';
 import type { Rng } from '../rng';
 import type { Level, Skill } from '../types';
+import { variante, varier } from '../varier';
 import { fixedChoice, gcd, latexChoice } from './outils';
 
 /** Chapitre 2 de 2nde : multiples, diviseurs, nombres premiers. */
@@ -214,4 +215,228 @@ const pgcd: Skill = {
   },
 };
 
-export const ARITHMETIQUE_SKILLS: Skill[] = [premier, decomposition, nbDiviseurs, irreductible, reste, pgcd];
+/* ---------- Variantes : d'autres façons de poser les mêmes notions ---------- */
+
+const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+
+const premierVariantes = [
+  variante('plus-petit-diviseur', (rng, level) => {
+    let n: number;
+    do n = rng.int(level === 1 ? 20 : 100, level === 1 ? 99 : level === 2 ? 400 : 1500);
+    while (isPrime(n));
+    const d = smallestDivisor(n);
+    return {
+      prompt: `Quel est le plus petit diviseur premier de $${n}$ ?`,
+      answer: { kind: 'number', value: frac(d) },
+      hint: 'Teste les nombres premiers dans l’ordre : 2, 3, 5, 7, 11, 13…',
+      correction: [`$${n} = ${d} \\times ${n / d}$ et aucun nombre premier plus petit que $${d}$ ne divise $${n}$.`, `Le plus petit diviseur premier est $${d}$.`],
+    };
+  }),
+  variante('compter-premiers', (rng, level) => {
+    const a = rng.int(level === 1 ? 1 : 20, level === 1 ? 30 : 80);
+    const b = a + (level === 1 ? 10 : level === 2 ? 15 : 25);
+    const primes: number[] = [];
+    for (let k = a; k <= b; k++) if (isPrime(k)) primes.push(k);
+    return {
+      prompt: `Combien y a-t-il de nombres premiers compris entre $${a}$ et $${b}$ (au sens large) ?`,
+      answer: { kind: 'number', value: frac(primes.length) },
+      hint: 'Élimine les pairs, les multiples de 3, de 5, de 7… puis compte ce qui reste.',
+      correction: [primes.length ? `Les nombres premiers de cet intervalle sont $${primes.join(' ; ')}$.` : 'Aucun nombre de cet intervalle n’est premier.', `Il y en a $${primes.length}$.`],
+    };
+  }),
+  variante('raisonnement-faux', (rng, level) => {
+    // « Ni pair, ni multiple de 3 ou de 5 » ne suffit pas : 49, 77, 91, 119…
+    const pieges = level === 1 ? [49, 77, 91, 119] : [49, 77, 91, 119, 121, 133, 143, 161, 169, 187, 203, 209, 221];
+    const prime = rng.next() < 0.4;
+    let n = rng.pick(pieges);
+    if (prime) do n = rng.int(31, level === 1 ? 120 : 230);
+    while (!isPrime(n));
+    const d = smallestDivisor(n);
+    return {
+      prompt: `Lina affirme : « $${n}$ n'est divisible ni par 2, ni par 3, ni par 5, donc il est premier. » Le nombre $${n}$ est-il premier ?`,
+      answer: fixedChoice(['Oui', 'Non'], prime ? 0 : 1),
+      hint: 'Il faut tester tous les nombres premiers $p$ tels que $p^2 \\leq n$, pas seulement 2, 3 et 5.',
+      correction: prime
+        ? [`On teste aussi 7, 11, 13… jusqu'à $\\sqrt{${n}}$ : aucun ne divise $${n}$.`, `$${n}$ est bien premier, même si le raisonnement de Lina était incomplet.`]
+        : [`$${n} = ${d} \\times ${n / d}$ : il fallait tester $${d}$ aussi.`, `$${n}$ n'est pas premier.`],
+    };
+  }),
+];
+
+const decompositionVariantes = [
+  variante('recomposer', (rng, level) => {
+    const primes = level === 1 ? [2, 3, 5] : [2, 3, 5, 7, 11];
+    const f: [number, number][] = rng
+      .shuffle(primes)
+      .slice(0, level === 1 ? 2 : 3)
+      .sort((x, y) => x - y)
+      .map((p) => [p, rng.int(1, p > 5 ? 1 : level === 3 ? 3 : 2)]);
+    const n = f.reduce((acc, [p, e]) => acc * p ** e, 1);
+    return {
+      prompt: `Quel nombre a pour décomposition en facteurs premiers $${factorLatex(f)}$ ?`,
+      answer: { kind: 'number', value: frac(n) },
+      hint: 'Calcule chaque puissance, puis multiplie.',
+      correction: [`$${f.map(([p, e]) => `${p ** e}`).join(' \\times ')} = ${n}$`],
+    };
+  }),
+  variante('exposant', (rng, level) => {
+    const n = composite(rng, level === 1 ? 2 : 3);
+    const f = factorize(n);
+    const [p, e] = rng.pick(f);
+    return {
+      prompt: `Dans la décomposition en facteurs premiers de $${n}$, quel est l'exposant de $${p}$ ?`,
+      answer: { kind: 'number', value: frac(e) },
+      hint: `Divise $${n}$ par $${p}$ autant de fois que possible.`,
+      correction: [`$${n} = ${factorLatex(f)}$`, `L'exposant de $${p}$ est $${e}$.`],
+    };
+  }),
+  variante('carre-parfait', (rng, level) => {
+    // n = m² × k : par quel plus petit entier multiplier n pour obtenir un carré ?
+    const k = rng.pick(level === 1 ? [2, 3, 5] : [2, 3, 5, 6, 7, 10, 15]);
+    const m = rng.int(2, level === 1 ? 6 : 12);
+    const n = m * m * k;
+    return {
+      prompt: `Par quel plus petit entier positif faut-il multiplier $${n}$ pour obtenir le carré d'un entier ?`,
+      answer: { kind: 'number', value: frac(k) },
+      hint: 'Dans un carré, chaque facteur premier apparaît avec un exposant pair.',
+      correction: [`$${n} = ${factorLatex(factorize(n))}$`, `Il manque $${k}$ pour que tous les exposants soient pairs : $${n} \\times ${k} = ${n * k} = ${m * k}^2$.`],
+    };
+  }),
+];
+
+const diviseursVariantes = [
+  variante('rectangles', (rng, level) => {
+    const n = level === 1 ? rng.pick([12, 18, 20, 24, 30, 36]) : composite(rng, 2);
+    let count = 0;
+    for (let d = 1; d * d <= n; d++) if (n % d === 0) count++;
+    return {
+      prompt: `On veut dessiner un rectangle d'aire $${n}$ carreaux, avec des côtés entiers (un rectangle $2 \\times 3$ et un rectangle $3 \\times 2$ comptent pour un seul). Combien de rectangles différents peut-on dessiner ?`,
+      answer: { kind: 'number', value: frac(count) },
+      hint: 'Les côtés forment une paire de diviseurs dont le produit vaut l’aire.',
+      correction: [`Il faut $l \\times L = ${n}$ avec $l \\leq L$ : on cherche les diviseurs $l$ tels que $l^2 \\leq ${n}$.`, `On trouve $${count}$ rectangles.`],
+    };
+  }),
+  variante('plus-grand-diviseur', (rng, level) => {
+    const n = composite(rng, level);
+    const d = n / smallestDivisor(n);
+    return {
+      prompt: `Quel est le plus grand diviseur de $${n}$ strictement plus petit que $${n}$ ?`,
+      answer: { kind: 'number', value: frac(d) },
+      hint: 'Le plus grand diviseur propre s’obtient en divisant par le plus petit diviseur premier.',
+      correction: [`Le plus petit diviseur premier de $${n}$ est $${smallestDivisor(n)}$.`, `$${n} \\div ${smallestDivisor(n)} = ${d}$`],
+    };
+  }),
+];
+
+const irreductibleVariantes = [
+  variante('est-irreductible', (rng, level) => {
+    const bound = level === 1 ? 30 : level === 2 ? 90 : 300;
+    const n = rng.int(2, bound);
+    let d = rng.int(2, bound);
+    if (d === n) d++;
+    const g = gcd(n, d);
+    return {
+      prompt: `La fraction $\\frac{${n}}{${d}}$ est-elle irréductible ?`,
+      answer: fixedChoice(['Oui', 'Non'], g === 1 ? 0 : 1),
+      hint: 'Elle est irréductible si le numérateur et le dénominateur n’ont aucun diviseur commun autre que 1.',
+      correction: g === 1 ? [`$${n}$ et $${d}$ n'ont pas de diviseur commun autre que 1.`, 'La fraction est irréductible.'] : [`$${n}$ et $${d}$ sont tous deux divisibles par $${g}$.`, `$\\frac{${n}}{${d}} = \\frac{${n / g}}{${d / g}}$ : elle n'est pas irréductible.`],
+    };
+  }),
+  variante('completer', (rng, level) => {
+    let p: number;
+    let q: number;
+    do {
+      p = rng.int(1, level === 1 ? 7 : 12);
+      q = rng.int(2, level === 1 ? 9 : 15);
+    } while (gcd(p, q) !== 1);
+    const k = rng.int(2, level === 3 ? 15 : 8);
+    return {
+      prompt: `Complète l'égalité $\\frac{${p}}{${q}} = \\frac{\\ldots}{${q * k}}$.`,
+      answer: { kind: 'number', value: frac(p * k) },
+      hint: 'On passe d’un dénominateur à l’autre en multipliant par le même nombre en haut et en bas.',
+      correction: [`$${q * k} = ${q} \\times ${k}$, donc on multiplie aussi le numérateur par $${k}$.`, `$\\frac{${p}}{${q}} = \\frac{${p * k}}{${q * k}}$`],
+    };
+  }),
+];
+
+const resteVariantes = [
+  variante('jour-semaine', (rng, level) => {
+    const start = rng.int(0, 6);
+    const n = rng.int(level === 1 ? 8 : 30, level === 1 ? 40 : level === 2 ? 200 : 1000);
+    const end = (start + n) % 7;
+    return {
+      prompt: `Aujourd'hui, nous sommes ${JOURS[start]}. Quel jour serons-nous dans $${n}$ jours ?`,
+      answer: fixedChoice(
+        JOURS.map((j) => j[0].toUpperCase() + j.slice(1)),
+        end,
+      ),
+      hint: 'Les jours reviennent tous les 7 jours : cherche le reste de la division par 7.',
+      correction: [`$${n} = 7 \\times ${Math.floor(n / 7)} + ${n % 7}$`, `On avance de $${n % 7}$ jour${n % 7 > 1 ? 's' : ''} à partir du ${JOURS[start]} : ce sera ${JOURS[end]}.`],
+    };
+  }),
+  variante('dividende', (rng, level) => {
+    const b = rng.int(level === 1 ? 3 : 7, level === 1 ? 9 : 25);
+    const q = rng.int(3, level === 1 ? 12 : 60);
+    const r = rng.int(1, b - 1);
+    return {
+      prompt: `Dans une division euclidienne, le diviseur est $${b}$, le quotient $${q}$ et le reste $${r}$. Quel est le nombre divisé ?`,
+      answer: { kind: 'number', value: frac(b * q + r) },
+      hint: 'Écris l’égalité de la division euclidienne : $a = b \\times q + r$.',
+      correction: [`$a = ${b} \\times ${q} + ${r} = ${b * q + r}$`],
+    };
+  }),
+  variante('boites', (rng, level) => {
+    const b = rng.pick(level === 1 ? [6, 10, 12] : [6, 8, 12, 15, 24]);
+    const n = rng.int(3 * b, level === 1 ? 12 * b : 60 * b);
+    const full = Math.floor(n / b);
+    const pleines = rng.next() < 0.5;
+    return {
+      prompt: `On range $${n}$ œufs dans des boîtes de $${b}$. ${pleines ? 'Combien de boîtes pleines obtient-on ?' : 'Combien d’œufs reste-t-il une fois toutes les boîtes pleines remplies ?'}`,
+      answer: { kind: 'number', value: frac(pleines ? full : n % b) },
+      hint: `Écris la division euclidienne de $${n}$ par $${b}$.`,
+      correction: [`$${n} = ${b} \\times ${full} + ${n % b}$`, pleines ? `On remplit $${full}$ boîtes.` : `Il reste $${n % b}$ œuf${n % b > 1 ? 's' : ''}.`],
+    };
+  }),
+];
+
+const pgcdVariantes = [
+  variante('carrelage', (rng, level) => {
+    const g = rng.pick(level === 1 ? [5, 10, 20] : [6, 12, 15, 18, 24, 30, 40]);
+    let p: number;
+    let q: number;
+    do {
+      p = rng.int(2, level === 3 ? 17 : 11);
+      q = rng.int(2, level === 3 ? 17 : 11);
+    } while (gcd(p, q) !== 1 || p === q);
+    return {
+      prompt: `Une terrasse rectangulaire mesure $${g * p}$ cm sur $${g * q}$ cm. On veut la couvrir de dalles carrées identiques, sans les couper, les plus grandes possibles. Quel est le côté d'une dalle, en cm ?`,
+      answer: { kind: 'number', value: frac(g) },
+      hint: 'Le côté doit diviser la longueur et la largeur : c’est leur plus grand diviseur commun.',
+      correction: [`On cherche le plus grand diviseur commun de $${g * p}$ et $${g * q}$.`, `C'est $${g}$ : il faut $${p} \\times ${q} = ${p * q}$ dalles.`],
+    };
+  }),
+  variante('direct', (rng, level) => {
+    const g = rng.int(2, level === 1 ? 9 : 30);
+    let p: number;
+    let q: number;
+    do {
+      p = rng.int(2, level === 1 ? 9 : 20);
+      q = rng.int(2, level === 1 ? 9 : 20);
+    } while (gcd(p, q) !== 1 || p === q);
+    return {
+      prompt: `Quel est le plus grand diviseur commun de $${g * p}$ et $${g * q}$ ?`,
+      answer: { kind: 'number', value: frac(g) },
+      hint: 'Décompose les deux nombres en facteurs premiers et garde les facteurs communs.',
+      correction: [`$${g * p} = ${factorLatex(factorize(g * p))}$ et $${g * q} = ${factorLatex(factorize(g * q))}$.`, `Leur plus grand diviseur commun est $${g}$.`],
+    };
+  }),
+];
+
+export const ARITHMETIQUE_SKILLS: Skill[] = [
+  varier(premier, premierVariantes),
+  varier(decomposition, decompositionVariantes),
+  varier(nbDiviseurs, diviseursVariantes),
+  varier(irreductible, irreductibleVariantes),
+  varier(reste, resteVariantes),
+  varier(pgcd, pgcdVariantes),
+];
