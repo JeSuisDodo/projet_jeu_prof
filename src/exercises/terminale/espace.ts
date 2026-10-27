@@ -1,5 +1,6 @@
 import type { Rng } from '../rng';
 import type { Level, Skill } from '../types';
+import { enrich, variant } from '../variantes';
 import { F, choiceTex, coords, cross, dot, fixedChoice, num, numF, par, plus, skill, tex } from './util';
 
 /** Géométrie dans l'espace : trois chapitres de Terminale spécialité. */
@@ -130,7 +131,6 @@ const pointDroite = skill('tle-espace-point-droite', 'Trouver le paramètre d’
   };
 });
 
-export const VECTEURS_ESPACE_SKILLS: Skill[] = [vecteur, milieu, colineaire, combinaison, pointDroite];
 
 /* ---------- Orthogonalité et distances dans l'espace ---------- */
 
@@ -237,7 +237,6 @@ const distancePlan = skill('tle-distance-point-plan', 'Calculer la distance d’
   };
 });
 
-export const ORTHOGONALITE_SKILLS: Skill[] = [produitScalaire, norme, orthogonal, normal, equationPlan, distancePlan];
 
 /* ---------- Représentations paramétriques et équations cartésiennes ---------- */
 
@@ -345,4 +344,558 @@ const cote = skill('tle-point-plan', 'Trouver un point d’un plan', (rng, level
   };
 });
 
-export const PARAMETRIQUES_SKILLS: Skill[] = [representation, intersection, position, positionDroites, cote];
+
+/* ---------- Variantes ---------- */
+
+const VF = ['Vrai', 'Faux'];
+const sub3 = (u: V, v: V): V => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+const det3 = (u: V, v: V, w: V) => dot(cross(u, v) as V, w);
+const vecName = (name: string, u: readonly number[]) => `\\vec ${name}${vt(u)}`;
+
+const vecteurVariantes = [
+  variant('retrouver-point', (rng, level) => {
+    const A = randVec(rng, coordBound(level));
+    const AB = randVec(rng, 5, true);
+    const B = addV(A, AB);
+    return {
+      prompt: `$A${vt(A)}$ et $\\overrightarrow{AB}${vt(AB)}$. Quelles sont les coordonnées de $B$ ?`,
+      answer: choiceTex(rng, vt(B), [vt(sub3(A, AB)), vt(sub3(AB, A)), vt(AB)], () => vt([B[0], B[1] + 1, B[2]])),
+      hint: '$x_B = x_A + x_{\\overrightarrow{AB}}$, et de même pour $y$ et $z$.',
+      correction: [`$B(${A[0]}${plus(AB[0])}\\,;\\,${A[1]}${plus(AB[1])}\\,;\\,${A[2]}${plus(AB[2])}) = ${vt(B)}$`],
+    };
+  }),
+  variant('combinaison-lineaire', (rng) => {
+    const u = randVec(rng, 4, true);
+    const v = randVec(rng, 4, true);
+    const a = rng.nonZero(-3, 3);
+    const b = rng.nonZero(-3, 3);
+    const w = addV(scale(a, u), scale(b, v));
+    const nom = `${a === 1 ? '' : a === -1 ? '-' : a}\\vec u ${b < 0 ? '-' : '+'} ${Math.abs(b) === 1 ? '' : Math.abs(b)}\\vec v`;
+    return {
+      prompt: `$${vecName('u', u)}$ et $${vecName('v', v)}$. Quelles sont les coordonnées de $${nom}$ ?`,
+      answer: choiceTex(rng, vt(w), [vt(addV(scale(a, u), scale(-b, v))), vt(addV(scale(b, u), scale(a, v))), vt(addV(u, v))], () => vt([w[0] + 1, w[1], w[2]])),
+      hint: 'Calcule coordonnée par coordonnée.',
+      correction: [`$${nom}${vt(w)}$`],
+    };
+  }),
+];
+
+const milieuVariantes = [
+  variant('symetrique', (rng, level) => {
+    const A = randVec(rng, coordBound(level));
+    const I = randVec(rng, coordBound(level));
+    const B = sub3(scale(2, I), A);
+    return {
+      prompt: `$A${vt(A)}$ et $I${vt(I)}$. Quelles sont les coordonnées du symétrique $B$ de $A$ par rapport à $I$ ?`,
+      answer: choiceTex(rng, vt(B), [vt(addV(A, I)), vt(sub3(I, A)), vt(sub3(A, scale(2, I)))], () => vt([B[0] + 1, B[1], B[2]])),
+      hint: '$I$ est le milieu de $[AB]$ : $x_B = 2x_I - x_A$.',
+      correction: [`$B(2\\times ${par(I[0])} - ${par(A[0])}\\,;\\,2\\times ${par(I[1])} - ${par(A[1])}\\,;\\,2\\times ${par(I[2])} - ${par(A[2])}) = ${vt(B)}$`],
+    };
+  }),
+  variant('centre-gravite', (rng) => {
+    const G = randVec(rng, 4);
+    const A = randVec(rng, 5);
+    const B = randVec(rng, 5);
+    const C = sub3(scale(3, G), addV(A, B));
+    return {
+      prompt: `$A${vt(A)}$, $B${vt(B)}$ et $C${vt(C)}$. Quelles sont les coordonnées du centre de gravité $G$ du triangle $ABC$ ?`,
+      answer: choiceTex(rng, vt(G), [vt(addV(addV(A, B), C)), vt(scale(-1, G)), vt([G[0], G[2], G[1]])], () => vt([G[0] + 1, G[1], G[2]])),
+      hint: 'Les coordonnées de $G$ sont les moyennes de celles des trois sommets.',
+      correction: [`$x_G = \\frac{${A[0]}${plus(B[0])}${plus(C[0])}}{3} = ${G[0]}$, et de même $y_G = ${G[1]}$, $z_G = ${G[2]}$.`],
+    };
+  }),
+];
+
+const colineaireVariantes = [
+  variant('vrai-faux', (rng) => {
+    const u = randVec(rng, 4, true);
+    const k = rng.nonZero(-3, 3);
+    const ok = rng.next() < 0.5;
+    let v = scale(k, u);
+    if (!ok) {
+      const i = rng.int(0, 2);
+      v = [...v] as V;
+      v[i] += rng.nonZero(-2, 2);
+    }
+    const col = isZero(cross(u, v));
+    return {
+      prompt: `Vrai ou faux : $${vecName('u', u)}$ et $${vecName('v', v)}$ sont colinéaires.`,
+      answer: fixedChoice(VF, col ? 0 : 1),
+      hint: 'Cherche un réel $k$ tel que $\\vec v = k\\vec u$ et vérifie les trois coordonnées.',
+      correction: [col ? `$\\vec v = ${k}\\vec u$ : c’est vrai.` : 'Aucun réel $k$ ne convient pour les trois coordonnées à la fois : c’est faux.'],
+    };
+  }),
+  variant('alignes', (rng, level) => {
+    const A = randVec(rng, coordBound(level));
+    let u: V;
+    do u = randVec(rng, 3, true);
+    while (u[2] === 0 || (u[0] === 0 && u[1] === 0));
+    const k = rng.nonZero(-3, 3);
+    const B = addV(A, u);
+    const C = addV(A, scale(k, u));
+    return {
+      prompt: `$A${vt(A)}$, $B${vt(B)}$ et $C(${C[0]}\\,;\\,${C[1]}\\,;\\,m)$. Pour quelle valeur de $m$ les points $A$, $B$, $C$ sont-ils alignés ?`,
+      answer: num(C[2]),
+      hint: '$A$, $B$, $C$ sont alignés si $\\overrightarrow{AC}$ est colinéaire à $\\overrightarrow{AB}$.',
+      correction: [`$\\overrightarrow{AB}${vt(u)}$ ; les deux premières coordonnées de $\\overrightarrow{AC}$ donnent $k = ${k}$.`, `$m - ${par(A[2])} = ${k}\\times ${par(u[2])}$, donc $m = ${C[2]}$.`],
+    };
+  }),
+];
+
+const combinaisonVariantes = [
+  variant('coplanaires-vrai-faux', (rng) => {
+    let u: V;
+    let v: V;
+    do {
+      u = randVec(rng, 3);
+      v = randVec(rng, 3);
+    } while (isZero(cross(u, v)));
+    const ok = rng.next() < 0.5;
+    let w = addV(scale(rng.nonZero(-2, 2), u), scale(rng.nonZero(-2, 2), v));
+    if (!ok) w = addV(w, cross(u, v).map((x) => Math.sign(x)) as V);
+    const cop = det3(u, v, w) === 0;
+    return {
+      prompt: `Vrai ou faux : les vecteurs $${vecName('u', u)}$, $${vecName('v', v)}$ et $${vecName('w', w)}$ sont coplanaires.`,
+      answer: fixedChoice(VF, cop ? 0 : 1),
+      hint: 'Cherche $\\alpha$ et $\\beta$ tels que $\\vec w = \\alpha\\vec u + \\beta\\vec v$ avec deux coordonnées, puis vérifie la troisième.',
+      correction: [cop ? '$\\vec w$ s’écrit comme combinaison de $\\vec u$ et $\\vec v$ : c’est vrai.' : 'Le système n’a pas de solution : $\\vec w$ n’est pas combinaison de $\\vec u$ et $\\vec v$. C’est faux.'],
+    };
+  }),
+  variant('parametre', (rng) => {
+    for (;;) {
+      const u = randVec(rng, 3);
+      const v = randVec(rng, 3);
+      const c = cross(u, v);
+      if (c[2] === 0) continue;
+      const w0 = rng.int(-5, 5);
+      const w1 = rng.int(-5, 5);
+      const m = F(-(c[0] * w0 + c[1] * w1), c[2]);
+      return {
+        prompt: `$${vecName('u', u)}$, $${vecName('v', v)}$ et $\\vec w(${w0}\\,;\\,${w1}\\,;\\,m)$. Pour quelle valeur de $m$ ces trois vecteurs sont-ils coplanaires ?`,
+        answer: numF(m),
+        hint: 'Écris $\\vec w = \\alpha\\vec u + \\beta\\vec v$ : trouve $\\alpha$ et $\\beta$ avec les deux premières coordonnées, puis déduis $m$.',
+        correction: [`Les deux premières coordonnées déterminent $\\alpha$ et $\\beta$ ; la troisième donne $m = ${tex(m)}$.`],
+      };
+    }
+  }),
+];
+
+const pointDroiteVariantes = [
+  variant('vrai-faux', (rng, level) => {
+    const A = randVec(rng, coordBound(level));
+    const u = randVec(rng, 3, true);
+    const t = rng.nonZero(-3, 3);
+    const ok = rng.next() < 0.5;
+    const M = addV(A, scale(t, u));
+    if (!ok) M[rng.int(0, 2)] += rng.nonZero(-2, 2);
+    const sur = isZero(cross(u, sub3(M, A)));
+    return {
+      prompt: `La droite $d$ a pour représentation $${paramTex(A, u)}$, $t \\in \\mathbb{R}$. Vrai ou faux : le point $M${vt(M)}$ appartient à $d$.`,
+      answer: fixedChoice(VF, sur ? 0 : 1),
+      hint: 'Cherche $t$ avec une équation, puis vérifie les deux autres.',
+      correction: [sur ? `$t = ${t}$ convient pour les trois équations : c’est vrai.` : 'Les trois équations ne donnent pas la même valeur de $t$ : c’est faux.'],
+    };
+  }),
+  variant('point-de-parametre', (rng, level) => {
+    const A = randVec(rng, coordBound(level));
+    const u = randVec(rng, 3, true);
+    const t = rng.nonZero(-3, 3);
+    const M = addV(A, scale(t, u));
+    return {
+      prompt: `La droite $d$ a pour représentation $${paramTex(A, u)}$, $t \\in \\mathbb{R}$. Quel est le point de $d$ de paramètre $t = ${t}$ ?`,
+      answer: choiceTex(rng, vt(M), [vt(sub3(A, scale(t, u))), vt(addV(u, scale(t, A))), vt(A)], () => vt([M[0], M[1], M[2] + 1])),
+      hint: 'Remplace $t$ par sa valeur dans les trois lignes.',
+      correction: [`$x = ${A[0]}${plus(t * u[0])} = ${M[0]}$, $y = ${M[1]}$, $z = ${M[2]}$.`],
+    };
+  }),
+];
+
+const ANGLES: [string, number, number][] = [
+  ['0', 1, 1],
+  ['\\frac{\\pi}{3}', 1, 2],
+  ['\\frac{\\pi}{2}', 0, 1],
+  ['\\frac{2\\pi}{3}', -1, 2],
+  ['\\pi', -1, 1],
+];
+
+const produitScalaireVariantes = [
+  variant('normes-angle', (rng) => {
+    const a = rng.int(1, 8);
+    const b = rng.int(1, 8);
+    const [angle, cn, cd] = rng.pick(ANGLES);
+    const value = F(a * b * cn, cd);
+    return {
+      prompt: `$\\|\\vec u\\| = ${a}$, $\\|\\vec v\\| = ${b}$ et l’angle entre $\\vec u$ et $\\vec v$ vaut $${angle}$. Calcule $\\vec u \\cdot \\vec v$.`,
+      answer: numF(value),
+      hint: '$\\vec u \\cdot \\vec v = \\|\\vec u\\|\\,\\|\\vec v\\|\\cos\\theta$.',
+      correction: [`$\\vec u \\cdot \\vec v = ${a}\\times ${b}\\times\\cos\\left(${angle}\\right) = ${tex(value)}$`],
+    };
+  }),
+  variant('points', (rng) => {
+    const A = randVec(rng, 5);
+    const B = randVec(rng, 5);
+    const C = randVec(rng, 5);
+    const value = dot(sub3(B, A), sub3(C, A));
+    return {
+      prompt: `$A${vt(A)}$, $B${vt(B)}$ et $C${vt(C)}$. Calcule $\\overrightarrow{AB} \\cdot \\overrightarrow{AC}$.`,
+      answer: num(value),
+      hint: 'Calcule d’abord les coordonnées des deux vecteurs.',
+      correction: [`$\\overrightarrow{AB}${vt(sub3(B, A))}$ et $\\overrightarrow{AC}${vt(sub3(C, A))}$.`, `Produit scalaire : $${value}$.`],
+    };
+  }),
+];
+
+const normeVariantes = [
+  variant('norme-vecteur', (rng) => {
+    const [u, n] = pythagorean(rng);
+    const k = rng.int(1, 3);
+    const v = scale(k, u);
+    return {
+      prompt: `Calcule la norme du vecteur $${vecName('u', v)}$.`,
+      answer: num(k * n),
+      hint: '$\\|\\vec u\\| = \\sqrt{x^2 + y^2 + z^2}$',
+      correction: [`$\\|\\vec u\\| = \\sqrt{${v.map((x) => `${par(x)}^2`).join(' + ')}} = \\sqrt{${(k * n) ** 2}} = ${k * n}$`],
+    };
+  }),
+  variant('isocele', (rng) => {
+    const A = randVec(rng, 4);
+    const [h1] = pythagorean(rng);
+    const ok = rng.next() < 0.5;
+    const B = addV(A, h1);
+    // C : même distance à A (permutation et signes de h1) ou distance différente.
+    const h2 = (ok ? rng.shuffle([...h1]).map((x) => x * rng.sign()) : addV(h1, [rng.nonZero(-2, 2), 0, 0]).reverse()) as V;
+    const C = addV(A, h2);
+    const iso = dot(h1, h1) === dot(h2, h2);
+    return {
+      prompt: `$A${vt(A)}$, $B${vt(B)}$ et $C${vt(C)}$. Vrai ou faux : le triangle $ABC$ est isocèle en $A$.`,
+      answer: fixedChoice(VF, iso ? 0 : 1),
+      hint: 'Compare $AB^2$ et $AC^2$.',
+      correction: [`$AB^2 = ${dot(h1, h1)}$ et $AC^2 = ${dot(h2, h2)}$ : c’est ${iso ? 'vrai' : 'faux'}.`],
+    };
+  }),
+];
+
+const orthogonalVariantes = [
+  variant('vrai-faux', (rng) => {
+    const u = randVec(rng, 4, true);
+    const v = randVec(rng, 4, true);
+    if (rng.next() < 0.5) {
+      // Force l'orthogonalité en ajustant une coordonnée quand c'est possible.
+      const i = u.findIndex((x) => Math.abs(x) === 1);
+      const vi = -u[i] * (dot(u, v) - u[i] * v[i]);
+      if (i >= 0 && v.some((x, j) => j !== i && x !== 0)) v[i] = vi;
+    }
+    const ok = dot(u, v) === 0;
+    return {
+      prompt: `Vrai ou faux : $${vecName('u', u)}$ et $${vecName('v', v)}$ sont orthogonaux.`,
+      answer: fixedChoice(VF, ok ? 0 : 1),
+      hint: 'Calcule le produit scalaire.',
+      correction: [`$\\vec u \\cdot \\vec v = ${dot(u, v)}$ : c’est ${ok ? 'vrai' : 'faux'}.`],
+    };
+  }),
+  variant('triangle-rectangle', (rng) => {
+    const A = randVec(rng, 4);
+    const u = randVec(rng, 3, true);
+    let v = randVec(rng, 3, true);
+    if (rng.next() < 0.5) {
+      // v orthogonal à u : v = u × w pour un w quelconque.
+      const w = randVec(rng, 2, true);
+      const c = cross(u, w) as V;
+      if (!isZero(c)) v = c;
+    }
+    const B = addV(A, u);
+    const C = addV(A, v);
+    const ok = dot(u, v) === 0;
+    return {
+      prompt: `$A${vt(A)}$, $B${vt(B)}$ et $C${vt(C)}$. Vrai ou faux : le triangle $ABC$ est rectangle en $A$.`,
+      answer: fixedChoice(VF, ok ? 0 : 1),
+      hint: 'Rectangle en $A$ $\\iff \\overrightarrow{AB} \\cdot \\overrightarrow{AC} = 0$.',
+      correction: [`$\\overrightarrow{AB}${vt(u)}$, $\\overrightarrow{AC}${vt(v)}$ et $\\overrightarrow{AB} \\cdot \\overrightarrow{AC} = ${dot(u, v)}$ : c’est ${ok ? 'vrai' : 'faux'}.`],
+    };
+  }),
+];
+
+const normalVariantes = [
+  variant('plan-parallele', (rng, level) => {
+    const n = randVec(rng, 4, true);
+    const d = rng.int(-9, 9);
+    const A = randVec(rng, coordBound(level));
+    const d2 = -dot(n, A);
+    return {
+      prompt: `Quelle est une équation du plan parallèle à $\\mathcal{P} : ${planeTex(n, d)}$ passant par $A${vt(A)}$ ?`,
+      answer: choiceTex(rng, planeTex(n, d2), [planeTex(n, -d2), planeTex(n, d), planeTex(n, d2 + 2)], () => planeTex(n, d2 + 1)),
+      hint: 'Un plan parallèle a le même vecteur normal ; trouve $d$ avec le point $A$.',
+      correction: [`Équation $${planeTex(n, 0).replace(' = 0', '')} + d = 0$ et $A$ dedans : $d = ${d2}$.`],
+    };
+  }),
+  variant('orthogonal-a-deux', (rng) => {
+    let u: V;
+    let v: V;
+    do {
+      u = randVec(rng, 3);
+      v = randVec(rng, 3);
+    } while (isZero(cross(u, v)));
+    const n = cross(u, v) as V;
+    return {
+      prompt: `Un plan est dirigé par $${vecName('u', u)}$ et $${vecName('v', v)}$. Quel vecteur lui est normal ?`,
+      answer: choiceTex(rng, vecName('n', n), [vecName('n', addV(u, v)), vecName('n', [n[0], n[1], -n[2]]), vecName('n', [n[1], n[0], n[2]])], () => vecName('n', [n[0] + 1, n[1], n[2]])),
+      hint: 'Un vecteur normal est orthogonal à $\\vec u$ et à $\\vec v$ : vérifie les deux produits scalaires.',
+      correction: [`$\\vec n \\cdot \\vec u = 0$ et $\\vec n \\cdot \\vec v = 0$ pour $\\vec n${vt(n)}$.`],
+    };
+  }),
+];
+
+const equationPlanVariantes = [
+  variant('point-vrai-faux', (rng, level) => {
+    const n = randVec(rng, 4, true);
+    const A = randVec(rng, coordBound(level));
+    const ok = rng.next() < 0.5;
+    const d = -dot(n, A) + (ok ? 0 : rng.nonZero(-4, 4));
+    const vaut = dot(n, A) + d;
+    return {
+      prompt: `Vrai ou faux : le point $A${vt(A)}$ appartient au plan $\\mathcal{P} : ${planeTex(n, d)}$.`,
+      answer: fixedChoice(VF, vaut === 0 ? 0 : 1),
+      hint: 'Remplace $x$, $y$, $z$ par les coordonnées de $A$.',
+      correction: [`On trouve $${vaut}$ : c’est ${vaut === 0 ? 'vrai' : 'faux'}.`],
+    };
+  }),
+  variant('plan-mediateur', (rng, level) => {
+    const A = randVec(rng, coordBound(level));
+    const h = randVec(rng, 3, true);
+    const B = addV(A, scale(2, h));
+    const I = addV(A, h);
+    const n = scale(2, h);
+    const d = -dot(n, I);
+    return {
+      prompt: `$A${vt(A)}$ et $B${vt(B)}$. Le plan médiateur de $[AB]$ a pour équation $${planeTex(n, 0).replace(' = 0', '')} + d = 0$. Calcule $d$.`,
+      answer: num(d),
+      hint: 'Le plan médiateur est orthogonal à $(AB)$ et passe par le milieu de $[AB]$.',
+      correction: [`Milieu $I${vt(I)}$ ; $\\overrightarrow{AB}${vt(n)}$ est normal au plan.`, `$${dot(n, I)} + d = 0$, donc $d = ${d}$.`],
+    };
+  }),
+];
+
+const distancePlanVariantes = [
+  variant('depuis-origine', (rng) => {
+    const [n, norm] = pythagorean(rng);
+    const d = rng.nonZero(-20, 20);
+    const value = F(Math.abs(d), norm);
+    return {
+      prompt: `Calcule la distance de l’origine $O$ au plan $\\mathcal{P} : ${planeTex(n, d)}$ (fraction).`,
+      answer: numF(value),
+      hint: '$d(O, \\mathcal{P}) = \\frac{|d|}{\\sqrt{a^2 + b^2 + c^2}}$',
+      correction: [`$\\|\\vec n\\| = ${norm}$, donc la distance vaut $\\frac{${Math.abs(d)}}{${norm}} = ${tex(value)}$.`],
+    };
+  }),
+  variant('projete', (rng) => {
+    const n = randVec(rng, 2, true);
+    const H = randVec(rng, 4);
+    const k = rng.nonZero(-2, 2);
+    const M = addV(H, scale(k, n));
+    const d = -dot(n, H);
+    return {
+      prompt: `Quelles sont les coordonnées du projeté orthogonal $H$ de $M${vt(M)}$ sur le plan $\\mathcal{P} : ${planeTex(n, d)}$ ?`,
+      answer: choiceTex(rng, vt(H), [vt(addV(M, scale(k, n))), vt(sub3(H, n)), vt(M)], () => vt([H[0] + 1, H[1], H[2]])),
+      hint: '$H$ est sur la droite passant par $M$ dirigée par $\\vec n$ : $H = M + t\\vec n$, et $H \\in \\mathcal{P}$.',
+      correction: [`$H = M + t\\vec n$ avec $\\vec n${vt(n)}$ ; en remplaçant dans l’équation, $t = ${-k}$.`, `$H${vt(H)}$`],
+    };
+  }),
+];
+
+const representationVariantes = [
+  variant('vecteur-directeur', (rng, level) => {
+    const A = randVec(rng, coordBound(level));
+    const u = randVec(rng, 3, true);
+    const k = rng.pick([-2, -1, 2, 3]);
+    return {
+      prompt: `La droite $d$ a pour représentation $${paramTex(A, u)}$, $t \\in \\mathbb{R}$. Quel vecteur dirige $d$ ?`,
+      answer: choiceTex(rng, vecName('w', scale(k, u)), [vecName('w', A), vecName('w', addV(A, u)), vecName('w', [u[0], u[1], u[2] + 1])], () => vecName('w', [u[0] + 1, u[1], u[2]])),
+      hint: 'Les coefficients de $t$ donnent un vecteur directeur ; tout vecteur colinéaire non nul convient aussi.',
+      correction: [`$\\vec u${vt(u)}$ dirige $d$, et $\\vec w = ${k}\\vec u$ aussi.`],
+    };
+  }),
+  variant('parallele', (rng, level) => {
+    const A = randVec(rng, coordBound(level));
+    const B = addV(A, randVec(rng, 3, true));
+    const C = randVec(rng, coordBound(level));
+    const u = sub3(B, A);
+    return {
+      prompt: `$A${vt(A)}$, $B${vt(B)}$ et $C${vt(C)}$. Quelle est une représentation paramétrique de la droite passant par $C$ et parallèle à $(AB)$ ?`,
+      answer: choiceTex(rng, paramTex(C, u), [paramTex(A, u), paramTex(C, sub3(C, A)), paramTex(u, C)], () => paramTex(C, addV(u, [1, 0, 0]))),
+      hint: 'Elle passe par $C$ et a le même vecteur directeur $\\overrightarrow{AB}$.',
+      correction: [`$\\overrightarrow{AB}${vt(u)}$ : $${paramTex(C, u)}$`],
+    };
+  }),
+];
+
+const intersectionVariantes = [
+  variant('point', (rng, level) => {
+    for (;;) {
+      const A = randVec(rng, coordBound(level));
+      const u = randVec(rng, 3, true);
+      const n = randVec(rng, 3, true);
+      if (dot(n, u) === 0) continue;
+      const t = rng.nonZero(-3, 3);
+      const I = addV(A, scale(t, u));
+      const d = -dot(n, I);
+      return {
+        prompt: `Quelles sont les coordonnées du point d’intersection de $d : ${paramTex(A, u)}$ ($t \\in \\mathbb{R}$) et du plan $\\mathcal{P} : ${planeTex(n, d)}$ ?`,
+        answer: choiceTex(rng, vt(I), [vt(A), vt(sub3(A, scale(t, u))), vt(scale(t, u))], () => vt([I[0], I[1] + 1, I[2]])),
+        hint: 'Remplace $x$, $y$, $z$ dans l’équation du plan, trouve $t$, puis calcule le point.',
+        correction: [`On trouve $t = ${t}$, d’où $I${vt(I)}$.`],
+      };
+    }
+  }),
+  variant('axe', (rng) => {
+    const n = randVec(rng, 4, true);
+    const i = rng.int(0, 2);
+    if (n[i] === 0) n[i] = rng.nonZero(-4, 4);
+    const d = rng.nonZero(-12, 12);
+    const value = F(-d, n[i]);
+    const axe = ['(Ox)', '(Oy)', '(Oz)'][i];
+    const coord = ['x', 'y', 'z'][i];
+    return {
+      prompt: `Le plan $\\mathcal{P} : ${planeTex(n, d)}$ coupe l’axe $${axe}$ en un point. Quelle est sa coordonnée $${coord}$ (fraction) ?`,
+      answer: numF(value),
+      hint: `Sur l’axe $${axe}$, les deux autres coordonnées sont nulles.`,
+      correction: [`$${n[i]}${coord}${plus(d)} = 0$, donc $${coord} = ${tex(value)}$.`],
+    };
+  }),
+];
+
+const PLANS = ['Parallèles distincts', 'Confondus', 'Sécants'];
+
+const positionVariantes = [
+  variant('vrai-faux-parallele', (rng, level) => {
+    const n = randVec(rng, 3, true);
+    const A = randVec(rng, coordBound(level));
+    const par0 = rng.next() < 0.5;
+    let u: V;
+    do u = randVec(rng, 3, true);
+    while ((dot(n, u) === 0) !== par0);
+    const d = -dot(n, A) + rng.int(-4, 4);
+    return {
+      prompt: `Vrai ou faux : la droite $d : ${paramTex(A, u)}$ est parallèle au plan $\\mathcal{P} : ${planeTex(n, d)}$ (éventuellement incluse dedans).`,
+      answer: fixedChoice(VF, par0 ? 0 : 1),
+      hint: '$d$ est parallèle à $\\mathcal{P}$ si son vecteur directeur est orthogonal au vecteur normal.',
+      correction: [`$\\vec u \\cdot \\vec n = ${dot(n, u)}$ : c’est ${par0 ? 'vrai' : 'faux'}.`],
+    };
+  }),
+  variant('deux-plans', (rng) => {
+    const n = randVec(rng, 3, true);
+    const d = rng.int(-6, 6);
+    const kind = rng.int(0, 2);
+    const k = rng.pick([-2, -1, 2, 3]);
+    let n2 = scale(k, n);
+    let d2 = k * d + (kind === 0 ? rng.nonZero(-3, 3) : 0);
+    if (kind === 2) {
+      do n2 = randVec(rng, 3, true);
+      while (isZero(cross(n, n2)));
+      d2 = rng.int(-6, 6);
+    }
+    return {
+      prompt: `Quelle est la position relative des plans $\\mathcal{P} : ${planeTex(n, d)}$ et $\\mathcal{Q} : ${planeTex(n2, d2)}$ ?`,
+      answer: fixedChoice(PLANS, kind),
+      hint: 'Compare les vecteurs normaux ; s’ils sont colinéaires, compare aussi les équations.',
+      correction: [kind === 2 ? 'Les vecteurs normaux ne sont pas colinéaires : les plans sont sécants (selon une droite).' : `$\\vec n_{\\mathcal{Q}} = ${k}\\vec n_{\\mathcal{P}}$ : plans parallèles, ${kind === 1 ? 'et les équations sont proportionnelles : confondus' : 'mais les équations ne sont pas proportionnelles : distincts'}.`],
+    };
+  }),
+];
+
+const positionDroitesVariantes = [
+  variant('orthogonales', (rng, level) => {
+    const A = randVec(rng, coordBound(level));
+    const B = randVec(rng, coordBound(level));
+    const u = randVec(rng, 3, true);
+    let v = randVec(rng, 3, true);
+    if (rng.next() < 0.5) {
+      const c = cross(u, randVec(rng, 2, true)) as V;
+      if (!isZero(c)) v = c;
+    }
+    const ok = dot(u, v) === 0;
+    return {
+      prompt: `Vrai ou faux : les droites $d_1 : ${paramTex(A, u)}$ et $d_2 : ${paramTex(B, v, 's')}$ sont orthogonales.`,
+      answer: fixedChoice(VF, ok ? 0 : 1),
+      hint: 'Deux droites de l’espace sont orthogonales si leurs vecteurs directeurs le sont (elles ne se coupent pas forcément).',
+      correction: [`$\\vec u \\cdot \\vec v = ${dot(u, v)}$ : c’est ${ok ? 'vrai' : 'faux'}.`],
+    };
+  }),
+  variant('point-commun', (rng, level) => {
+    for (;;) {
+      const A = randVec(rng, coordBound(level));
+      const u = randVec(rng, 3, true);
+      const v = randVec(rng, 3, true);
+      if (isZero(cross(u, v))) continue;
+      const t = rng.nonZero(-3, 3);
+      const P = addV(A, scale(t, u));
+      const B = addV(P, scale(rng.nonZero(-2, 2), v));
+      return {
+        prompt: `Les droites $d_1 : ${paramTex(A, u)}$ et $d_2 : ${paramTex(B, v, 's')}$ ($t, s \\in \\mathbb{R}$) sont sécantes en $P$. Quelle valeur de $t$ correspond à $P$ sur $d_1$ ?`,
+        answer: num(t),
+        hint: 'Égale les coordonnées des deux représentations et résous le système en $t$ et $s$.',
+        correction: [`Le système donne $t = ${t}$, d’où $P${vt(P)}$.`],
+      };
+    }
+  }),
+];
+
+const coteVariantes = [
+  variant('autre-coordonnee', (rng, level) => {
+    const i = rng.int(0, 1);
+    const n: V = [rng.int(-4, 4), rng.int(-4, 4), rng.nonZero(-4, 4)];
+    n[i] = rng.pick([1, -1]);
+    const M = randVec(rng, coordBound(level));
+    const d = -dot(n, M);
+    const nom = ['x', 'y'][i];
+    const c = M.map((v, j) => (j === i ? nom : String(v)));
+    return {
+      prompt: `Le point $M(${c.join('\\,;\\,')})$ appartient au plan $\\mathcal{P} : ${planeTex(n, d)}$. Calcule $${nom}$.`,
+      answer: num(M[i]),
+      hint: 'Remplace les deux coordonnées connues dans l’équation, puis résous.',
+      correction: [`On obtient une équation du premier degré en $${nom}$, de solution $${nom} = ${M[i]}$.`],
+    };
+  }),
+  variant('point-sur-droite-et-plan', (rng, level) => {
+    // Le point de d de paramètre t appartient au plan ; on demande sa cote.
+    for (;;) {
+      const A = randVec(rng, coordBound(level));
+      const u = randVec(rng, 3, true);
+      const n = randVec(rng, 3, true);
+      if (dot(n, u) === 0) continue;
+      const t = rng.nonZero(-3, 3);
+      const I = addV(A, scale(t, u));
+      const d = -dot(n, I);
+      return {
+        prompt: `La droite $d : ${paramTex(A, u)}$ ($t \\in \\mathbb{R}$) coupe le plan $\\mathcal{P} : ${planeTex(n, d)}$ en $I$. Calcule la cote $z_I$.`,
+        answer: num(I[2]),
+        hint: 'Trouve d’abord $t$ en remplaçant dans l’équation du plan.',
+        correction: [`$t = ${t}$, donc $z_I = ${A[2]}${plus(t * u[2])} = ${I[2]}$.`],
+      };
+    }
+  }),
+];
+
+export const VECTEURS_ESPACE_SKILLS: Skill[] = [
+  enrich(vecteur, vecteurVariantes),
+  enrich(milieu, milieuVariantes),
+  enrich(colineaire, colineaireVariantes),
+  enrich(combinaison, combinaisonVariantes),
+  enrich(pointDroite, pointDroiteVariantes),
+];
+
+export const ORTHOGONALITE_SKILLS: Skill[] = [
+  enrich(produitScalaire, produitScalaireVariantes),
+  enrich(norme, normeVariantes),
+  enrich(orthogonal, orthogonalVariantes),
+  enrich(normal, normalVariantes),
+  enrich(equationPlan, equationPlanVariantes),
+  enrich(distancePlan, distancePlanVariantes),
+];
+
+export const PARAMETRIQUES_SKILLS: Skill[] = [
+  enrich(representation, representationVariantes),
+  enrich(intersection, intersectionVariantes),
+  enrich(position, positionVariantes),
+  enrich(positionDroites, positionDroitesVariantes),
+  enrich(cote, coteVariantes),
+];
