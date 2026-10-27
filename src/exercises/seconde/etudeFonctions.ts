@@ -1,6 +1,7 @@
 import { frac, fracLatex } from '../fraction';
 import type { Skill } from '../types';
-import { affine, fracInterval, interval, latexChoice, par, poly2 } from './outils';
+import { variante, varier } from '../varier';
+import { affine, dec, fixedChoice, fracInterval, interval, latexChoice, par, poly2 } from './outils';
 
 /** Chapitre 9 de 2nde : étude graphique et algébrique de fonctions (images, antécédents, signes). */
 
@@ -214,4 +215,210 @@ const domaine: Skill = {
   },
 };
 
-export const ETUDE_FONCTIONS_SKILLS: Skill[] = [image, antecedentAffine, antecedentsCarre, signeAffine, signeProduit, domaine];
+/* ---------- Variantes : d'autres façons de poser les mêmes notions ---------- */
+
+const SIGNES = ['Strictement positif', 'Nul', 'Strictement négatif'];
+const signeIndex = (v: number) => (v > 0 ? 0 : v === 0 ? 1 : 2);
+
+const imageVariantes = [
+  variante('programme', (rng, level) => {
+    const a = rng.nonZero(-6, 6);
+    const b = rng.int(1, 12);
+    const k = rng.int(-6, 6);
+    const square = level > 1;
+    const value = square ? (k + a) ** 2 - b : 2 * (k + a) - b;
+    return {
+      prompt: `Programme de calcul : on choisit un nombre, on ${a > 0 ? `ajoute $${a}$` : `soustrait $${-a}$`}, on ${square ? 'met le résultat au carré' : 'multiplie le résultat par $2$'}, puis on soustrait $${b}$. Quel résultat obtient-on en choisissant $${k}$ ?`,
+      answer: { kind: 'number', value: frac(value) },
+      hint: 'Applique les étapes dans l’ordre, sans en sauter.',
+      correction: [`$${k} ${a > 0 ? '+' : '-'} ${Math.abs(a)} = ${k + a}$`, square ? `$${par(k + a)}^2 = ${(k + a) ** 2}$` : `$2 \\times ${par(k + a)} = ${2 * (k + a)}$`, `$${square ? (k + a) ** 2 : 2 * (k + a)} - ${b} = ${value}$`],
+    };
+  }),
+  variante('sur-la-courbe', (rng, level) => {
+    const a = rng.nonZero(-3, 3);
+    const b = rng.int(-5, 5);
+    const c = rng.int(-6, 6);
+    const k = rng.int(-4, 4);
+    const fk = level === 1 ? a * k + c : a * k * k + b * k + c;
+    const on = rng.next() < 0.5;
+    const y = on ? fk : fk + rng.nonZero(-4, 4);
+    const f = level === 1 ? affine(a, c) : poly2(a, b, c);
+    return {
+      prompt: `Soit $f(x) = ${f}$. Le point $A(${k}\\,;\\,${y})$ appartient-il à la courbe de $f$ ?`,
+      answer: fixedChoice(['Oui', 'Non'], on ? 0 : 1),
+      hint: '$A$ est sur la courbe si et seulement si $f(x_A) = y_A$.',
+      correction: [`$f(${k}) = ${fk}$`, on ? `C'est bien $y_A$ : $A$ est sur la courbe.` : `$${fk} \\neq ${y}$ : $A$ n'est pas sur la courbe.`],
+    };
+  }),
+  variante('cout', (rng, level) => {
+    const fixe = rng.int(5, 40) * 10;
+    const u = rng.int(2, level === 1 ? 9 : 25);
+    const q = rng.int(10, 120);
+    const quad = level === 3;
+    const value = quad ? q * q / 10 + u * q + fixe : u * q + fixe;
+    const C = quad ? `0{,}1x^2 + ${u}x + ${fixe}` : `${u}x + ${fixe}`;
+    return {
+      prompt: `Le coût de fabrication de $x$ objets est $C(x) = ${C}$ euros. Combien coûte la fabrication de $${q}$ objets, en euros ?`,
+      answer: { kind: 'number', value: frac(Math.round(value * 10), 10) },
+      hint: `Calcule $C(${q})$.`,
+      correction: [`$C(${q}) = ${quad ? `0{,}1 \\times ${q}^2 + ` : ''}${u} \\times ${q} + ${fixe} = ${dec(value)}$`],
+    };
+  }),
+];
+
+const antecedentAffineVariantes = [
+  variante('location', (rng, level) => {
+    const a = rng.int(2, level === 1 ? 6 : 12);
+    const b = rng.int(3, 20);
+    const h = rng.int(1, 12);
+    const prix = a * h + b;
+    return {
+      prompt: `La location d'un vélo coûte $f(x) = ${a}x + ${b}$ euros pour $x$ heures. Pendant combien d'heures peut-on le louer avec $${prix}$ € ?`,
+      answer: { kind: 'number', value: frac(h) },
+      hint: `Cherche l'antécédent de $${prix}$ : résous $f(x) = ${prix}$.`,
+      correction: [`$${a}x + ${b} = ${prix}$`, `$${a}x = ${prix - b}$`, `$x = ${h}$`],
+    };
+  }),
+  variante('tableau', (rng) => {
+    const a = rng.nonZero(-4, 4);
+    const b = rng.int(-6, 6);
+    const xs = [-2, -1, 0, 1, 2, 3];
+    const k = rng.pick(xs);
+    const row = xs.map((x) => a * x + b);
+    return {
+      prompt: `Voici un tableau de valeurs de $f$ : $${xs.map((x, i) => `f(${x}) = ${row[i]}`).join(' ; ')}$. Quel est l'antécédent de $${a * k + b}$ par $f$ ?`,
+      answer: { kind: 'number', value: frac(k) },
+      hint: 'Cherche, dans la ligne des images, la valeur demandée, puis lis le $x$ correspondant.',
+      correction: [`$f(${k}) = ${a * k + b}$, donc l'antécédent est $${k}$.`],
+    };
+  }),
+];
+
+const antecedentsCarreVariantes = [
+  variante('combien', (rng) => {
+    const a = rng.int(-5, 5);
+    const b = rng.int(-6, 6);
+    const kind = rng.pick([0, 1, 2, 2]);
+    const k = kind === 0 ? b - rng.int(1, 6) : kind === 1 ? b : b + rng.int(1, 20);
+    const square = a === 0 ? 'x^2' : `(${affine(1, -a)})^2`;
+    return {
+      prompt: `Soit $f(x) = ${square}${b === 0 ? '' : ` ${b < 0 ? '-' : '+'} ${Math.abs(b)}`}$. Combien le nombre $${k}$ a-t-il d'antécédents par $f$ ?`,
+      answer: { kind: 'number', value: frac(kind) },
+      hint: `Le minimum de $f$ est $${b}$ : compare $${k}$ à ce minimum.`,
+      correction: [`$f(x) = ${k}$ équivaut à $${square} = ${k - b}$.`, kind === 0 ? 'Un carré n’est jamais négatif : aucun antécédent.' : kind === 1 ? 'Un carré est nul en un seul point : un antécédent.' : 'Un nombre strictement positif est le carré de deux nombres opposés : deux antécédents.'],
+    };
+  }),
+  variante('forme-factorisee', (rng, level) => {
+    const p = rng.int(-6, 6);
+    let q = rng.int(-6, 6);
+    if (level === 1 && q === p) q = p + 2;
+    const f = `(${affine(1, -p)})(${affine(1, -q)})`;
+    return {
+      prompt: `Soit $f(x) = ${f}$. Quels sont les antécédents de $0$ par $f$ ?`,
+      answer: { kind: 'set', values: p === q ? [frac(p)] : [frac(p), frac(q)] },
+      hint: 'Un produit est nul si et seulement si l’un de ses facteurs est nul.',
+      correction: [`$${f} = 0$ équivaut à $x = ${p}$ ou $x = ${q}$.`],
+    };
+  }),
+];
+
+const signeAffineVariantes = [
+  variante('signe-en-un-point', (rng) => {
+    const a = rng.nonZero(-6, 6);
+    const b = rng.int(-9, 9);
+    const k = rng.next() < 0.2 && b % a === 0 ? -b / a : rng.int(-6, 6);
+    const v = a * k + b;
+    return {
+      prompt: `Soit $f(x) = ${affine(a, b)}$. Quel est le signe de $f(${k})$ ?`,
+      answer: fixedChoice(SIGNES, signeIndex(v)),
+      hint: 'Calcule $f(' + k + ')$, ou compare $' + k + '$ à la valeur qui annule $f$.',
+      correction: [`$f(${k}) = ${v}$`, `C'est ${['strictement positif', 'nul', 'strictement négatif'][signeIndex(v)]}.`],
+    };
+  }),
+  variante('benefice', (rng, level) => {
+    const p = rng.int(3, level === 1 ? 10 : 25);
+    const fixe = rng.int(20, 400);
+    // B(x) = p x - fixe > 0 ⇔ x > fixe / p ; on cherche le plus petit entier.
+    const n = Math.floor(fixe / p) + 1;
+    return {
+      prompt: `Un artisan vend des objets : son bénéfice est $B(x) = ${p}x - ${fixe}$ euros pour $x$ objets vendus. Combien d'objets doit-il vendre au minimum pour que son bénéfice soit strictement positif ?`,
+      answer: { kind: 'number', value: frac(n) },
+      hint: 'Résous $B(x) > 0$, puis prends le plus petit entier qui convient.',
+      correction: [`$${p}x - ${fixe} > 0 \\iff x > \\frac{${fixe}}{${p}}$`, `$\\frac{${fixe}}{${p}} \\approx ${dec(Math.round((fixe / p) * 100) / 100)}$ : il faut au moins $${n}$ objets.`],
+    };
+  }),
+];
+
+const signeProduitVariantes = [
+  variante('quotient', (rng, level) => {
+    let p = rng.int(-6, 6);
+    let q = p;
+    while (q === p) q = rng.int(-6, 6);
+    const positive = level === 1 ? true : rng.next() < 0.5;
+    const op = positive ? '\\geq' : '\\leq';
+    // (x - p)/(x - q) : q est interdite, p est incluse.
+    const lo = Math.min(p, q);
+    const hi = Math.max(p, q);
+    const between = interval(lo, lo === p, hi, hi === p);
+    const outside = `${interval(null, false, lo, lo === p)} \\cup ${interval(hi, hi === p, null, false)}`;
+    const correct = positive ? outside : between;
+      const betweenFerme = interval(lo, true, hi, true);
+      const outsideFerme = `${interval(null, false, lo, true)} \\cup ${interval(hi, true, null, false)}`;
+      return {
+        prompt: `Résous l'inéquation $\\frac{${affine(1, -p)}}{${affine(1, -q)}} ${op} 0$.`,
+        answer: latexChoice(rng, correct, [positive ? between : outside, positive ? outsideFerme : betweenFerme, positive ? betweenFerme : outsideFerme, interval(-hi, true, -lo, true)], () => interval(lo - 1, true, hi, false)),
+      hint: `Tableau de signes, et attention : $${q}$ est une valeur interdite.`,
+      correction: [`Le quotient s'annule en $${p}$ et n'existe pas en $${q}$.`, `Il est positif à l'extérieur de ces deux valeurs, négatif entre.`, `$S = ${correct}$`],
+    };
+  }),
+  variante('signe-en-un-point', (rng) => {
+    const p = rng.int(-6, 6);
+    const q = rng.int(-6, 6);
+    const k = rng.int(-7, 7);
+    const v = (k - p) * (k - q);
+    return {
+      prompt: `Quel est le signe de $(${affine(1, -p)})(${affine(1, -q)})$ pour $x = ${k}$ ?`,
+      answer: fixedChoice(SIGNES, signeIndex(v)),
+      hint: 'Cherche le signe de chaque facteur, puis applique la règle des signes.',
+      correction: [`$${k} - ${par(p)} = ${k - p}$ et $${k} - ${par(q)} = ${k - q}$.`, `Le produit vaut $${v}$.`],
+    };
+  }),
+];
+
+const domaineVariantes = [
+  variante('valeur-interdite', (rng, level) => {
+    const a = rng.nonZero(-5, 5);
+    const b = rng.int(-9, 9);
+    const c = level === 1 ? 1 : rng.nonZero(-4, 4);
+    const d = rng.int(-9, 9);
+    const x = frac(-d, c);
+    return {
+      prompt: `Quelle est la valeur interdite de la fonction $f(x) = \\frac{${affine(a, b)}}{${affine(c, d)}}$ ?`,
+      answer: { kind: 'number', value: x },
+      hint: 'C’est la valeur qui annule le dénominateur.',
+      correction: [`$${affine(c, d)} = 0 \\iff x = ${fracLatex(x)}$`],
+    };
+  }),
+  variante('appartient', (rng) => {
+    const a = rng.int(-7, 7);
+    const k = a + rng.int(-4, 4);
+    const kind = rng.pick(['racine', 'inverse'] as const);
+    const ok = kind === 'racine' ? k >= a : k !== a;
+    const f = kind === 'racine' ? `\\sqrt{${affine(1, -a)}}` : `\\frac{1}{${affine(1, -a)}}`;
+    return {
+      prompt: `Peut-on calculer $f(${k})$ pour $f(x) = ${f}$ ?`,
+      answer: fixedChoice(['Oui', 'Non'], ok ? 0 : 1),
+      hint: 'Calcule ce qu’il y a sous la racine ou au dénominateur.',
+      correction: [`Pour $x = ${k}$ : $${affine(1, -a).replace(/x/g, `${par(k)}`)} = ${k - a}$.`, ok ? 'Le calcul est possible.' : kind === 'racine' ? 'On ne peut pas prendre la racine d’un nombre négatif.' : 'On ne peut pas diviser par 0.'],
+    };
+  }),
+];
+
+export const ETUDE_FONCTIONS_SKILLS: Skill[] = [
+  varier(image, imageVariantes),
+  varier(antecedentAffine, antecedentAffineVariantes),
+  varier(antecedentsCarre, antecedentsCarreVariantes),
+  varier(signeAffine, signeAffineVariantes),
+  varier(signeProduit, signeProduitVariantes),
+  varier(domaine, domaineVariantes),
+];

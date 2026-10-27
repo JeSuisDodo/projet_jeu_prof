@@ -1,6 +1,7 @@
 import { frac } from '../fraction';
 import type { Rng } from '../rng';
-import type { Level, Skill } from '../types';
+import { type Level, type Skill, makeChoice } from '../types';
+import { variante, varier } from '../varier';
 import { dec, fixedChoice, interval, latexChoice } from './outils';
 
 /** Chapitre 1 de 2nde : ensembles de nombres, intervalles, valeur absolue. */
@@ -217,4 +218,187 @@ const interUnion: Skill = {
   },
 };
 
-export const ENSEMBLES_SKILLS: Skill[] = [ensemble, intervalle, distance, absEquation, interUnion];
+/* ---------- Variantes : d'autres façons de poser les mêmes notions ---------- */
+
+const ensembleVariantes = [
+  variante('vrai-faux', (rng, level) => {
+    const s = sample(rng, level);
+    const k = rng.int(0, 4);
+    const juste = s.set <= k;
+    return {
+      prompt: `Vrai ou faux : $${s.latex} \\in ${SETS[k].replace(/\$/g, '')}$.`,
+      answer: fixedChoice(['Vrai', 'Faux'], juste ? 0 : 1),
+      hint: '$\\mathbb{N} \\subset \\mathbb{Z} \\subset \\mathbb{D} \\subset \\mathbb{Q} \\subset \\mathbb{R}$ : trouve d’abord le plus petit ensemble qui contient ce nombre.',
+      correction: [s.why, `Le plus petit ensemble qui le contient est ${SETS[s.set]}, donc l'affirmation est ${juste ? 'vraie' : 'fausse'}.`],
+    };
+  }),
+  variante('intrus', (rng, level) => {
+    // Trois nombres d'un ensemble, un intrus qui n'y est pas.
+    const k = rng.pick(level === 1 ? ([1, 2] as const) : ([1, 2, 3] as const));
+    const inside: Sample[] = [];
+    let outside: Sample | null = null;
+    let guard = 0;
+    while ((inside.length < 3 || !outside) && guard++ < 200) {
+      const s = sample(rng, rng.pick([1, 2, 3] as Level[]));
+      if (s.set <= k && inside.length < 3 && !inside.some((t) => t.latex === s.latex)) inside.push(s);
+      else if (s.set > k && !outside) outside = s;
+    }
+    if (!outside) outside = { latex: '\\pi', set: 4, why: "$\\pi$ n'est pas rationnel." };
+    while (inside.length < 3) inside.push({ latex: String(inside.length + 2), set: 0, why: '' });
+    const correct = `$${outside.latex}$`;
+    return {
+      prompt: `Lequel de ces nombres n'appartient pas à ${SETS[k]} ?`,
+      answer: makeChoice(
+        rng,
+        correct,
+        inside.map((s) => `$${s.latex}$`),
+        () => `$${rng.int(0, 50)}$`,
+      ),
+      hint: 'Simplifie chaque nombre avant de décider.',
+      correction: [outside.why, `C'est donc $${outside.latex}$ qui n'est pas dans ${SETS[k]}.`],
+    };
+  }),
+];
+
+const intervalleVariantes = [
+  variante('appartient', (rng, level) => {
+    const a = rng.int(-9, 4);
+    const b = a + rng.int(2, 8);
+    const lc = rng.next() < 0.5;
+    const hc = rng.next() < 0.5;
+    // On teste souvent une borne : c'est là que se cachent les erreurs.
+    const x = rng.pick(level === 1 ? [a + 1, b + 1, a - 1] : [a, b, a + 1, b + 1, a - 1]);
+    const inside = (x > a || (x === a && lc)) && (x < b || (x === b && hc));
+    const I = interval(a, lc, b, hc);
+    return {
+      prompt: `Le nombre $${x}$ appartient-il à l'intervalle $${I}$ ?`,
+      answer: fixedChoice(['Oui', 'Non'], inside ? 0 : 1),
+      hint: 'Regarde la place du nombre par rapport aux bornes, et le sens des crochets.',
+      correction: [x === a || x === b ? `$${x}$ est une borne : ${(x === a ? lc : hc) ? 'le crochet est fermé, elle est incluse' : 'le crochet est ouvert, elle est exclue'}.` : `$${x}$ est ${inside ? 'entre' : 'en dehors de'} $${a}$ et $${b}$.`, inside ? `Donc $${x} \\in ${I}$.` : `Donc $${x} \\notin ${I}$.`],
+    };
+  }),
+  variante('vers-inegalite', (rng) => {
+    const a = rng.int(-9, 4);
+    const b = a + rng.int(1, 8);
+    const lc = rng.next() < 0.5;
+    const hc = rng.next() < 0.5;
+    const op = (c: boolean) => (c ? '\\leq' : '<');
+    const ineq = (l: boolean, h: boolean) => `${a} ${op(l)} x ${op(h)} ${b}`;
+    return {
+      prompt: `Quel encadrement traduit $x \\in ${interval(a, lc, b, hc)}$ ?`,
+      answer: latexChoice(rng, ineq(lc, hc), [ineq(!lc, hc), ineq(lc, !hc), ineq(!lc, !hc), `${b} ${op(lc)} x ${op(hc)} ${a}`], () => `${a - 1} \\leq x \\leq ${b}`),
+      hint: 'Crochet fermé : la borne est incluse ($\\leq$). Crochet ouvert : elle est exclue ($<$).',
+      correction: [`$x \\in ${interval(a, lc, b, hc)}$ signifie $${ineq(lc, hc)}$.`],
+    };
+  }),
+  variante('compter-entiers', (rng, level) => {
+    const a = rng.int(-12, 5);
+    const b = a + rng.int(1, level === 1 ? 6 : 15);
+    const lc = level === 1 ? true : rng.next() < 0.5;
+    const hc = level === 1 ? true : rng.next() < 0.5;
+    const n = b - a + 1 - (lc ? 0 : 1) - (hc ? 0 : 1);
+    return {
+      prompt: `Combien d'entiers relatifs appartiennent à l'intervalle $${interval(a, lc, b, hc)}$ ?`,
+      answer: { kind: 'number', value: frac(n) },
+      hint: 'Compte les entiers de la plus petite borne à la plus grande, puis retire les bornes exclues.',
+      correction: [`De $${a}$ à $${b}$, il y a $${b - a + 1}$ entiers.`, `${lc && hc ? 'Les deux bornes sont incluses' : 'On retire les bornes exclues'} : $${n}$ entiers.`],
+    };
+  }),
+];
+
+const distanceVariantes = [
+  variante('temperatures', (rng, level) => {
+    const t1 = -rng.int(1, level === 1 ? 10 : 25);
+    const t2 = rng.int(level === 1 ? 1 : -5, 20);
+    return {
+      prompt: `Un matin, il fait $${t1}$ °C ; l'après-midi, il fait $${t2}$ °C. De combien de degrés la température a-t-elle varié (écart, sans signe) ?`,
+      answer: { kind: 'number', value: frac(Math.abs(t2 - t1)) },
+      hint: 'L’écart entre deux nombres est la valeur absolue de leur différence.',
+      correction: [`$|${t2} - (${t1})| = |${t2 - t1}| = ${Math.abs(t2 - t1)}$`],
+    };
+  }),
+  variante('expression', (rng, level) => {
+    const a = rng.nonZero(-12, 12);
+    const b = rng.nonZero(-12, 12);
+    const kind = level === 1 ? 'somme' : rng.pick(['somme', 'difference', 'produit'] as const);
+    const value = kind === 'somme' ? Math.abs(a) + Math.abs(b) : kind === 'difference' ? Math.abs(a) - Math.abs(b) : Math.abs(a) * Math.abs(b);
+    const op = kind === 'somme' ? '+' : kind === 'difference' ? '-' : '\\times';
+    return {
+      prompt: `Calcule $|${a}| ${op} |${b}|$.`,
+      answer: { kind: 'number', value: frac(value) },
+      hint: 'Calcule d’abord chaque valeur absolue (toujours positive), puis l’opération.',
+      correction: [`$|${a}| = ${Math.abs(a)}$ et $|${b}| = ${Math.abs(b)}$.`, `$${Math.abs(a)} ${op} ${Math.abs(b)} = ${value}$`],
+    };
+  }),
+];
+
+const absEquationVariantes = [
+  variante('en-mots', (rng, level) => {
+    const a = rng.int(-8, 8);
+    const r = rng.int(1, level === 1 ? 6 : 10);
+    return {
+      prompt: `Quels sont les réels situés à une distance de $${r}$ du nombre $${a}$ ?`,
+      answer: { kind: 'set', values: [frac(a - r), frac(a + r)] },
+      hint: 'Pars de $' + a + '$ et avance de $' + r + '$ dans chaque sens sur la droite des réels.',
+      correction: [`$${a} - ${r} = ${a - r}$ et $${a} + ${r} = ${a + r}$.`],
+    };
+  }),
+  variante('inequation', (rng, level) => {
+    const a = rng.int(-8, 8);
+    const r = rng.int(1, level === 1 ? 5 : 9);
+    const inside = a === 0 ? 'x' : `x ${a > 0 ? '-' : '+'} ${Math.abs(a)}`;
+    const below = level === 1 || rng.next() < 0.6;
+    const strict = rng.next() < 0.5;
+    const op = below ? (strict ? '<' : '\\leq') : strict ? '>' : '\\geq';
+    const between = interval(a - r, !strict, a + r, !strict);
+    const out = `${interval(null, false, a - r, !strict)} \\cup ${interval(a + r, !strict, null, false)}`;
+    const correct = below ? between : out;
+    return {
+      prompt: `Résous dans $\\mathbb{R}$ l'inéquation $|${inside}| ${op} ${r}$.`,
+      answer: latexChoice(rng, correct, [below ? out : between, interval(-r, !strict, r, !strict), interval(a - r, strict, a + r, strict), interval(-a - r, !strict, -a + r, !strict)], () => interval(a, true, a + r, true)),
+      hint: `$|x - a| ${below ? '\\leq' : '\\geq'} r$ : $x$ est à une distance de $a$ ${below ? 'au plus' : 'au moins'} égale à $r$.`,
+      correction: [`On cherche les réels dont la distance à $${a}$ est ${below ? 'inférieure' : 'supérieure'} ${strict ? 'strictement ' : 'ou égale '}à $${r}$.`, `$S = ${correct}$`],
+    };
+  }),
+];
+
+const interUnionVariantes = [
+  variante('disjoints', (rng) => {
+    const a = rng.int(-9, -2);
+    const b = a + rng.int(1, 4);
+    const c = b + rng.int(1, 3);
+    const d = c + rng.int(1, 4);
+    const I = interval(a, true, b, true);
+    const J = interval(c, rng.next() < 0.5, d, true);
+    return {
+      prompt: `On pose $I = ${I}$ et $J = ${J}$. Que vaut $I \\cap J$ ?`,
+      answer: latexChoice(rng, '\\varnothing', [interval(b, true, c, true), interval(a, true, d, true), `\\{${b}\\,;\\,${c}\\}`], () => interval(a, true, c, true)),
+      hint: 'Place les deux intervalles sur une même droite graduée : ont-ils des réels en commun ?',
+      correction: [`$I$ s'arrête en $${b}$ et $J$ commence en $${c} > ${b}$ : aucun réel n'est dans les deux.`, '$I \\cap J = \\varnothing$'],
+    };
+  }),
+  variante('inclus', (rng) => {
+    const a = rng.int(-9, -1);
+    const c = a + rng.int(1, 3);
+    const d = c + rng.int(1, 4);
+    const b = d + rng.int(1, 4);
+    const I = interval(a, true, b, rng.next() < 0.5);
+    const J = interval(c, rng.next() < 0.5, d, rng.next() < 0.5);
+    const inter = rng.next() < 0.5;
+    const correct = inter ? J : I;
+    return {
+      prompt: `On pose $I = ${I}$ et $J = ${J}$. Que vaut $I ${inter ? '\\cap' : '\\cup'} J$ ?`,
+      answer: latexChoice(rng, correct, [inter ? I : J, interval(a, true, d, true), interval(c, true, b, true), '\\varnothing'], () => interval(a - 1, true, b, true)),
+      hint: 'Remarque que l’un des intervalles est entièrement contenu dans l’autre.',
+      correction: [`$J \\subset I$ : tous les réels de $J$ sont aussi dans $I$.`, inter ? `L'intersection est le plus petit : $I \\cap J = ${J}$.` : `La réunion est le plus grand : $I \\cup J = ${I}$.`],
+    };
+  }),
+];
+
+export const ENSEMBLES_SKILLS: Skill[] = [
+  varier(ensemble, ensembleVariantes),
+  varier(intervalle, intervalleVariantes),
+  varier(distance, distanceVariantes),
+  varier(absEquation, absEquationVariantes),
+  varier(interUnion, interUnionVariantes),
+];
