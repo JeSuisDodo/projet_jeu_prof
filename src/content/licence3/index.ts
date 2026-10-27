@@ -1,4 +1,6 @@
 import type { GradeDef } from '../types';
+import { enrichChapters } from '../../exercises/variantes';
+import { VARIANTES_L3 } from '../../exercises/licence3/variantes';
 import { TOPOLOGIE } from './topologie';
 import { CALCUL_DIFFERENTIEL } from './calculDifferentiel';
 import { EQUATIONS_DIFFERENTIELLES } from './equationsDifferentielles';
@@ -17,5 +19,5 @@ export const LICENCE3: GradeDef = {
   name: 'Licence 3',
   stage: 'universite',
   island: 'Île des Théorèmes',
-  chapters: [TOPOLOGIE, CALCUL_DIFFERENTIEL, EQUATIONS_DIFFERENTIELLES, MESURE, ANALYSE_COMPLEXE, HILBERT_FOURIER, GROUPES, ANNEAUX, PROBABILITES, STATISTIQUE, ANALYSE_NUMERIQUE],
+  chapters: enrichChapters([TOPOLOGIE, CALCUL_DIFFERENTIEL, EQUATIONS_DIFFERENTIELLES, MESURE, ANALYSE_COMPLEXE, HILBERT_FOURIER, GROUPES, ANNEAUX, PROBABILITES, STATISTIQUE, ANALYSE_NUMERIQUE], VARIANTES_L3),
 };
