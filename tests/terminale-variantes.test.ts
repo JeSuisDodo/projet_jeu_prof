@@ -176,3 +176,60 @@ describe('variantes de Terminale : limites de suites', () => {
     }
   });
 });
+
+describe('variantes de Terminale : limites de fonctions', () => {
+  const ln = (tex: string) => tex.replace(/\\ln x/g, 'LN');
+  /** Évalue une expression en x, avec \ln x pris en charge. */
+  const ev = (tex: string, x: number) => texEval(ln(tex).replace(/LN/g, `(${Math.log(x)})`), x);
+  /** Valeur numérique d'une option de limite (« +\infty » devient ±1e300). */
+  const lu = (opt: string) => {
+    const s = opt.replace(/\$/g, '');
+    return s === '+\\infty' ? Infinity : s === '-\\infty' ? -Infinity : texEval(s, 0);
+  };
+  const proche = (calc: number, attendu: number) => (Math.abs(attendu) === Infinity ? Math.sign(calc) === Math.sign(attendu) && Math.abs(calc) > 1e3 : Math.abs(calc - attendu) < 1e-3);
+
+  it('calcule des limites en l’infini et en un point', () => {
+    for (const ex of t('tle-limite-infini', 'valeur')) expect(valeur(ex)).toBeCloseTo(ev(/f\(x\) = (.+?)\$/.exec(ex.prompt)![1], 1e6), 4);
+    for (const ex of t('tle-limite-infini', 'conjuguee')) expect(valeur(ex)).toBeCloseTo(ev(/f\(x\) = (.+?)\$/.exec(ex.prompt)![1], 1e6), 4);
+    for (const ex of t('tle-croissances-comparees', 'logarithme')) {
+      const [expr, at] = /de \$(.+)\$ quand \$x \\to (.+?)\$/.exec(ex.prompt)!.slice(1);
+      const x = at === '0^+' ? 1e-30 : 1e30;
+      const v = ev(expr, x);
+      expect(proche(v > 1e10 ? Infinity : v, lu(optionJuste(ex))), ex.prompt).toBe(true);
+    }
+    for (const ex of t('tle-croissances-comparees', 'vrai-faux')) {
+      const [at, expr, lim] = /\\lim_\{x \\to (.+?)\} (.+) = (.+)\$\.$/.exec(ex.prompt)!.slice(1);
+      const v = ev(expr, at === '+\\infty' ? 200 : -200);
+      const ok = lim === '0' ? Math.abs(v) < 1e-20 : v > 1e20;
+      expect(optionJuste(ex), ex.prompt).toBe(ok ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-limite-en-a', 'forme-0-sur-0')) {
+      const a = Number(/x \\to (-?\d+)\$/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeCloseTo(ev(/f\(x\) = (.+?)\$/.exec(ex.prompt)![1], a + 1e-7), 5);
+    }
+    for (const ex of t('tle-limite-en-a', 'vrai-faux-asymptote')) {
+      const g = /f\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+      const a = Number(/x = (-?\d+)\$ comme/.exec(ex.prompt)![1]);
+      expect(optionJuste(ex), ex.prompt).toBe(Math.abs(ev(g, a + 1e-9)) > 1e6 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-asymptotes', 'horizontale')) expect(valeur(ex)).toBeCloseTo(ev(/f\(x\) = (.+?)\$/.exec(ex.prompt)![1], 1e7), 4);
+    for (const ex of t('tle-asymptotes', 'nombre-verticales')) {
+      const den = /\\frac\{1\}\{(.+?)\}\$/.exec(ex.prompt)![1];
+      const zeros = Array.from({ length: 41 }, (_, i) => i - 20).filter((x) => texEval(den, x) === 0);
+      expect(valeur(ex)).toBe(zeros.length);
+    }
+  });
+
+  it('lève des indéterminations et compose', () => {
+    for (const ex of t('tle-forme-indeterminee', 'nombre-derive')) expect(valeur(ex)).toBeCloseTo(ev(/limite de \$(.+?)\$ quand/.exec(ex.prompt)![1], 1e-7), 5);
+    for (const ex of t('tle-forme-indeterminee', 'moins-infini')) {
+      const v = ev(/f\(x\) = (.+?)\$/.exec(ex.prompt)![1], -1e4);
+      expect(optionJuste(ex)).toBe(v > 0 ? '$+\\infty$' : '$-\\infty$');
+    }
+    for (const ex of t('tle-limite-composee', 'racine-rationnelle')) expect(valeur(ex)).toBeCloseTo(ev(/limite de \$(.+?)\$ quand/.exec(ex.prompt)![1], 1e7), 4);
+    for (const ex of t('tle-limite-composee', 'exponentielle-rationnelle')) {
+      const v = ev(/limite de \$(.+?)\$ quand/.exec(ex.prompt)![1], 1e8);
+      expect(lu(optionJuste(ex))).toBeCloseTo(v, 4);
+    }
+  });
+});
