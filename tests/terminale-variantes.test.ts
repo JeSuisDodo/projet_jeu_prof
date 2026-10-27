@@ -311,3 +311,72 @@ describe('variantes de Terminale : continuité', () => {
     }
   });
 });
+
+describe('variantes de Terminale : dérivation', () => {
+  const h = 1e-4;
+  const expr = (ex: { prompt: string }) => /f\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+  const d1 = (f: string, x: number) => (texEval(f, x + h) - texEval(f, x - h)) / (2 * h);
+  const d2 = (f: string, x: number) => (texEval(f, x + h) - 2 * texEval(f, x) + texEval(f, x - h)) / h ** 2;
+  const point = (ex: { prompt: string }) => Number(/f'\((-?\d+)\)/.exec(ex.prompt)![1]);
+
+  it('calcule des dérivées de fonctions composées', () => {
+    for (const [id, nom] of [
+      ['tle-derivee-composee', 'inverse'],
+      ['tle-derivee-racine', 'inverse'],
+      ['tle-derivee-racine', 'carre'],
+      ['tle-derivee-exp', 'carre'],
+    ]) {
+      for (const ex of t(id, nom)) expect(valeur(ex), ex.prompt).toBeCloseTo(d1(expr(ex), point(ex)), 3);
+    }
+    for (const ex of t('tle-derivee-exp', 'produit')) expect(valeur(ex), ex.prompt).toBeCloseTo(d1(expr(ex), 0), 3);
+    for (const ex of t('tle-derivee-composee', 'vrai-faux')) {
+      const claim = /f'\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+      const juste = [0.3, 1.7].every((x) => Math.abs(texEval(claim, x) - d1(expr(ex), x)) < 1e-3 * (1 + Math.abs(texEval(claim, x))));
+      expect(optionJuste(ex), ex.prompt).toBe(juste ? 'Vrai' : 'Faux');
+    }
+  });
+
+  it('utilise la dérivée seconde et la convexité', () => {
+    for (const ex of t('tle-derivee-seconde', 'exponentielle')) expect(valeur(ex), ex.prompt).toBeCloseTo(d2(expr(ex), 0), 3);
+    for (const ex of t('tle-derivee-seconde', 'retrouver-coefficient')) {
+      const f = expr(ex).replace(/^m/, `${valeur(ex)}\\times `);
+      const [x0, v] = /f''\((-?\d+)\) = (-?\d+)\$/.exec(ex.prompt)!.slice(1).map(Number);
+      expect(d2(f, x0), ex.prompt).toBeCloseTo(v, 3);
+    }
+    for (const ex of t('tle-point-inflexion', 'ordonnee')) {
+      const f = expr(ex);
+      const x0 = [-2, -1, 0, 1, 2].find((x) => d2(f, x - 0.5) * d2(f, x + 0.5) < 0)!;
+      expect(valeur(ex), ex.prompt).toBeCloseTo(texEval(f, x0), 9);
+    }
+    for (const ex of t('tle-point-inflexion', 'vrai-faux')) {
+      const fpp = /f''\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+      const p = Number(/abscisse \$(-?\d+)\$/.exec(ex.prompt)![1]);
+      expect(optionJuste(ex), ex.prompt).toBe(texEval(fpp, p - 0.1) * texEval(fpp, p + 0.1) < 0 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-convexite', 'polynome')) {
+      const f = expr(ex);
+      const k = Number(/\[(-?\d+)\\,;\\,\+\\infty/.exec(optionJuste(ex))![1]);
+      const convexeAvant = optionJuste(ex).startsWith('Convexe');
+      expect(d2(f, k - 1) > 0, ex.prompt).toBe(convexeAvant);
+      expect(d2(f, k + 1) > 0, ex.prompt).toBe(!convexeAvant);
+    }
+    for (const ex of t('tle-convexite', 'derivee-monotone')) {
+      expect(optionJuste(ex).startsWith('Convexe')).toBe(/f'\$ est croissante/.test(ex.prompt));
+    }
+  });
+
+  it('détermine des tangentes', () => {
+    for (const ex of t('tle-tangente', 'exponentielle')) {
+      const x0 = Number(/en \$(-?\d+)\$/.exec(ex.prompt)![1]);
+      const f = expr(ex);
+      if (ex.answer.kind !== 'pair') throw new Error('couple attendu');
+      const [m, p] = ex.answer.values.map((v) => v.n / v.d);
+      expect(m).toBeCloseTo(d1(f, x0), 3);
+      expect(m * x0 + p).toBeCloseTo(texEval(f, x0), 9);
+    }
+    for (const ex of t('tle-tangente', 'point-de-contact')) {
+      const m = Number(/directeur \$(-?\d+)\$/.exec(ex.prompt)![1]);
+      expect(d1(expr(ex), valeur(ex)), ex.prompt).toBeCloseTo(m, 3);
+    }
+  });
+});
