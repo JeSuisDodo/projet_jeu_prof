@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { GEOMETRIE_REPEREE } from '../src/content/premiere/geometrie-reperee';
 import { PRODUIT_SCALAIRE } from '../src/content/premiere/produit-scalaire';
+import { baseOf } from '../src/exercises/variantes';
 import { Rng } from '../src/exercises/rng';
 import type { Exercise, Level, Skill } from '../src/exercises/types';
 import { texEval } from './helpers/texEval';
 
 /** Recalcule chaque réponse à partir des nombres lus dans l'énoncé. */
 
-const skill = (chapter: { skills: Skill[] }, id: string) => chapter.skills.find((s) => s.id === id)!;
+const skill = (chapter: { skills: Skill[] }, id: string) => baseOf(chapter.skills.find((s) => s.id === id)!);
 
 function* exercises(s: Skill, n = 200): Generator<Exercise> {
   for (const level of [1, 2, 3] as Level[]) for (let seed = 1; seed <= n; seed++) yield s.generate(new Rng(seed * 104729 + level), level);

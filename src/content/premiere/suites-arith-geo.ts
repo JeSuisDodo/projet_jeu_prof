@@ -1,6 +1,7 @@
 import { frac, fracLatex } from '../../exercises/fraction';
 import { paren, sumLatex } from '../../exercises/latex';
 import { type Skill, makeChoice } from '../../exercises/types';
+import { enrich, variant } from '../../exercises/variantes';
 import type { ChapterDef } from '../types';
 
 /** 1re spécialité, chapitre « Suites arithmétiques et géométriques ». */
@@ -203,13 +204,213 @@ const nature: Skill = {
   },
 };
 
+/** n / 100 en écriture décimale française. */
+const dec = (n: number, scale = 100) => String(Math.round((n / scale) * 1e8) / 1e8).replace('.', '{,}');
+
+const arithTermeVariantes = [
+  variant('salaire', (rng) => {
+    const s0 = 50 * rng.int(30, 60);
+    const r = 10 * rng.int(3, 15);
+    const n = rng.int(3, 15);
+    return {
+      prompt: `Un salarié gagne $${s0}$ € par mois la première année, puis son salaire mensuel augmente de $${r}$ € chaque année. Quel est son salaire mensuel la ${n}e année ?`,
+      answer: { kind: 'number', value: frac(s0 + (n - 1) * r) },
+      hint: 'Les salaires forment une suite arithmétique : entre la 1re et la ' + n + 'e année, il y a ' + (n - 1) + ' augmentations.',
+      correction: [`$s_{${n}} = ${s0} + ${n - 1}\\times ${r} = ${s0 + (n - 1) * r}$ €`],
+    };
+  }),
+  variant('rang', (rng, level) => {
+    const u0 = rng.int(-20, 30);
+    const r = level === 1 ? rng.int(2, 9) : rng.nonZero(-9, 9);
+    const n = rng.int(5, 60);
+    return {
+      prompt: `$(u_n)$ est la suite arithmétique de premier terme $u_0 = ${u0}$ et de raison $${r}$. Pour quelle valeur de $n$ a-t-on $u_n = ${u0 + n * r}$ ?`,
+      answer: { kind: 'number', value: frac(n) },
+      hint: 'Écris $u_n = u_0 + nr$ puis résous l’équation d’inconnue $n$.',
+      correction: [`$${u0} + ${paren(r)}n = ${u0 + n * r} \\iff n = \\frac{${u0 + n * r} - ${paren(u0)}}{${r}} = ${n}$`],
+    };
+  }),
+  variant('premier-terme', (rng) => {
+    const u0 = rng.int(-20, 30);
+    const r = rng.nonZero(-9, 9);
+    const n = rng.int(4, 30);
+    return {
+      prompt: `$(u_n)$ est une suite arithmétique de raison $${r}$ telle que $u_{${n}} = ${u0 + n * r}$. Calcule $u_0$.`,
+      answer: { kind: 'number', value: frac(u0) },
+      hint: `$u_{${n}} = u_0 + ${n}r$ : isole $u_0$.`,
+      correction: [`$u_0 = u_{${n}} - ${n}\\times ${paren(r)} = ${u0 + n * r} - ${paren(n * r)} = ${u0}$`],
+    };
+  }),
+];
+
+const arithRaisonVariantes = [
+  variant('theatre', (rng) => {
+    const a = rng.int(10, 25);
+    const r = rng.int(1, 4);
+    const k = rng.int(5, 25);
+    return {
+      prompt: `Dans un théâtre, le premier rang compte $${a}$ places et chaque rang compte le même nombre de places de plus que le précédent. Le ${k}e rang compte $${a + (k - 1) * r}$ places. Combien de places ajoute-t-on d'un rang au suivant ?`,
+      answer: { kind: 'number', value: frac(r) },
+      hint: `Du 1er au ${k}e rang, on ajoute ${k - 1} fois la même quantité.`,
+      correction: [`$r = \\frac{${a + (k - 1) * r} - ${a}}{${k - 1}} = ${r}$`],
+    };
+  }),
+  variant('trois-termes', (rng) => {
+    const x = rng.int(-15, 20);
+    const r = rng.nonZero(-9, 9);
+    return {
+      prompt: `Les nombres $${x - r}$, $x$ et $${x + r}$ sont, dans cet ordre, trois termes consécutifs d'une suite arithmétique. Que vaut $x$ ?`,
+      answer: { kind: 'number', value: frac(x) },
+      hint: 'Le terme du milieu est la moyenne de ses deux voisins.',
+      correction: [`$x - ${paren(x - r)} = ${x + r} - x$, donc $x = \\frac{${x - r} + ${paren(x + r)}}{2} = ${x}$.`],
+    };
+  }),
+];
+
+const geoTermeVariantes = [
+  variant('interets', (rng) => {
+    const t = rng.pick([10, 20, 50]);
+    const n = rng.int(2, 3);
+    const c = 1000 * rng.int(1, 5);
+    const value = frac(c * (100 + t) ** n, 100 ** n);
+    return {
+      prompt: `On place $${c}$ € à intérêts composés au taux annuel de $${t}\\,\\%$. De quel capital dispose-t-on au bout de ${n} ans ?`,
+      answer: { kind: 'number', value },
+      hint: `Chaque année, le capital est multiplié par $1 + \\frac{${t}}{100}$.`,
+      correction: [`$C_${n} = ${c}\\times ${dec(100 + t)}^${n} = ${fracLatex(value).replace('.', '{,}')}$ €`],
+    };
+  }),
+  variant('premier-terme', (rng) => {
+    const q = rng.pick([2, 3, -2, -3]);
+    const n = rng.int(2, 5);
+    const u0 = rng.nonZero(-6, 6);
+    return {
+      prompt: `$(u_n)$ est une suite géométrique de raison $${q}$ telle que $u_{${n}} = ${u0 * q ** n}$. Calcule $u_0$.`,
+      answer: { kind: 'number', value: frac(u0) },
+      hint: `$u_{${n}} = u_0 \\times q^{${n}}$ : divise.`,
+      correction: [`$u_0 = \\frac{${u0 * q ** n}}{${paren(q)}^{${n}}} = \\frac{${u0 * q ** n}}{${q ** n}} = ${u0}$`],
+    };
+  }),
+];
+
+const geoRaisonVariantes = [
+  variant('pourcentage', (rng) => {
+    const t = rng.pick([2, 3, 4, 5, 8, 10, 12, 15, 20, 25]);
+    const hausse = rng.next() < 0.5;
+    const q = hausse ? 100 + t : 100 - t;
+    return {
+      prompt: `Une population ${hausse ? 'augmente' : 'diminue'} de $${t}\\,\\%$ chaque année. Les effectifs successifs forment une suite géométrique : quelle est sa raison ? (Réponse décimale.)`,
+      answer: { kind: 'number', value: frac(q, 100) },
+      hint: `${hausse ? 'Augmenter' : 'Diminuer'} de $${t}\\,\\%$, c'est multiplier par $1 ${hausse ? '+' : '-'} \\frac{${t}}{100}$.`,
+      correction: [`$q = 1 ${hausse ? '+' : '-'} ${dec(t)} = ${dec(q)}$`],
+    };
+  }),
+  variant('trois-termes', (rng) => {
+    const u = rng.int(1, 6);
+    const q = rng.int(2, 5);
+    return {
+      prompt: `Les nombres positifs $${u}$, $x$ et $${u * q * q}$ sont, dans cet ordre, trois termes consécutifs d'une suite géométrique. Que vaut $x$ ?`,
+      answer: { kind: 'number', value: frac(u * q) },
+      hint: 'Le carré du terme du milieu est le produit de ses deux voisins.',
+      correction: [`$x^2 = ${u}\\times ${u * q * q} = ${u * u * q * q}$ et $x > 0$, donc $x = ${u * q}$.`],
+    };
+  }),
+];
+
+const arithSommeVariantes = [
+  variant('impairs', (rng) => {
+    const n = rng.int(5, 60);
+    return {
+      prompt: `Calcule $S = 1 + 3 + 5 + \\dots + ${2 * n - 1}$.`,
+      answer: { kind: 'number', value: frac(n * n) },
+      hint: 'Compte les termes, puis utilise : nombre de termes × (premier + dernier) / 2.',
+      correction: [`Il y a $${n}$ termes : $S = ${n}\\times \\frac{1 + ${2 * n - 1}}{2} = ${n * n}$.`],
+    };
+  }),
+  variant('theatre', (rng) => {
+    const a = rng.int(10, 25);
+    const r = rng.int(1, 4);
+    const k = rng.int(5, 25);
+    const total = (k * (2 * a + (k - 1) * r)) / 2;
+    return {
+      prompt: `Dans un théâtre, le premier rang compte $${a}$ places et chaque rang compte $${r}$ place${r > 1 ? 's' : ''} de plus que le précédent. Combien de places y a-t-il en tout sur les $${k}$ rangs ?`,
+      answer: { kind: 'number', value: frac(total) },
+      hint: 'Calcule le nombre de places du dernier rang, puis la somme des termes.',
+      correction: [`Le dernier rang compte $${a} + ${k - 1}\\times ${r} = ${a + (k - 1) * r}$ places.`, `Total : $${k}\\times \\frac{${a} + ${a + (k - 1) * r}}{2} = ${total}$`],
+    };
+  }),
+];
+
+const geoSommeVariantes = [
+  variant('grains', (rng) => {
+    const q = rng.pick([2, 3]);
+    const a = rng.int(1, 5);
+    const n = rng.int(4, 10);
+    const total = (a * (q ** n - 1)) / (q - 1);
+    return {
+      prompt: `Le premier jour, on dépose $${a}$ grain${a > 1 ? 's' : ''} de riz, puis chaque jour ${q === 2 ? 'deux' : 'trois'} fois plus que la veille. Combien de grains a-t-on déposés en tout au bout de ${n} jours ?`,
+      answer: { kind: 'number', value: frac(total) },
+      hint: 'C’est la somme des $n$ premiers termes d’une suite géométrique.',
+      correction: [`$S = ${a}\\times \\frac{${q}^{${n}} - 1}{${q} - 1} = ${total}$`],
+    };
+  }),
+  variant('moities', (rng) => {
+    const n = rng.int(3, 8);
+    const value = frac(2 ** (n + 1) - 1, 2 ** n);
+    return {
+      prompt: `Calcule $S = 1 + \\frac{1}{2} + \\frac{1}{4} + \\dots + \\frac{1}{${2 ** n}}$ (fraction).`,
+      answer: { kind: 'number', value },
+      hint: 'Suite géométrique de raison $\\frac{1}{2}$ : $1 + q + \\dots + q^n = \\frac{1 - q^{n+1}}{1 - q}$.',
+      correction: [`$S = \\frac{1 - \\left(\\frac{1}{2}\\right)^{${n + 1}}}{1 - \\frac{1}{2}} = 2 - \\frac{1}{${2 ** n}} = ${fracLatex(value)}$`],
+    };
+  }),
+];
+
+const natureVariantes = [
+  variant('premiers-termes', (rng) => {
+    const kind = rng.int(0, 2);
+    const a = rng.nonZero(-6, 9);
+    const r = rng.nonZero(-7, 7);
+    const q = rng.pick([2, 3, -2]);
+    const terms = kind === 0 ? [0, 1, 2, 3].map((i) => a + i * r) : kind === 1 ? [0, 1, 2, 3].map((i) => a * q ** i) : [0, 1, 2, 3].map((i) => a + r * i * i);
+    const options = ['Arithmétique', 'Géométrique', 'Ni l’une ni l’autre'];
+    return {
+      prompt: `Les quatre premiers termes d'une suite sont $${terms.join('$, $')}$. Si elle continue de la même façon, elle peut être :`,
+      answer: { kind: 'choice', options, correct: kind },
+      hint: 'Calcule les différences, puis les quotients, entre termes consécutifs.',
+      correction: [
+        kind === 0 ? `On ajoute $${r}$ à chaque fois : arithmétique.` : kind === 1 ? `On multiplie par $${q}$ à chaque fois : géométrique.` : `Les différences valent $${r}$, $${3 * r}$, $${5 * r}$ : pas constantes, et les quotients non plus.`,
+      ],
+    };
+  }),
+  variant('suite-auxiliaire', (rng) => {
+    const q = rng.pick([2, 3, -1, -2, 4]);
+    const c = rng.nonZero(-6, 6);
+    const r = c * (1 - q);
+    return {
+      prompt: `On pose $u_0 = ${c + rng.nonZero(-5, 5)}$ et $u_{n+1} = ${sumLatex([[q, 'u_n'], [r, '']])}$. Pour quelle valeur de $c$ la suite $v_n = u_n - c$ est-elle géométrique ?`,
+      answer: { kind: 'number', value: frac(c) },
+      hint: 'Cherche $c$ tel que $c = qc + r$ : on a alors $v_{n+1} = q\\,v_n$.',
+      correction: [`$v_{n+1} = u_{n+1} - c = ${sumLatex([[q, 'u_n'], [r, '']])} - c$, qui vaut $${q}v_n$ quand $c = ${q}c ${r < 0 ? '-' : '+'} ${Math.abs(r)}$, soit $c = ${c}$.`],
+    };
+  }),
+];
+
 export const SUITES_ARITH_GEO: ChapterDef = {
   id: '1re-suites-arith-geo',
   title: 'Suites arithmétiques et géométriques',
   region: 'Côte des Progressions',
   theme: 'plage',
   terrain: 'cote',
-  skills: [arithTerme, arithRaison, geoTerme, geoRaison, arithSomme, geoSomme, nature],
+  skills: [
+    enrich(arithTerme, arithTermeVariantes),
+    enrich(arithRaison, arithRaisonVariantes),
+    enrich(geoTerme, geoTermeVariantes),
+    enrich(geoRaison, geoRaisonVariantes),
+    enrich(arithSomme, arithSommeVariantes),
+    enrich(geoSomme, geoSommeVariantes),
+    enrich(nature, natureVariantes),
+  ],
   creatures: [
     {
       id: '1re-arithmo',

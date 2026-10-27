@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { SUITES_ARITH_GEO } from '../src/content/premiere/suites-arith-geo';
 import { SUITES_NUMERIQUES } from '../src/content/premiere/suites-numeriques';
+import { baseOf } from '../src/exercises/variantes';
 import { Rng } from '../src/exercises/rng';
 import type { Exercise, Level, Skill } from '../src/exercises/types';
 
 /** Recalcule indépendamment la réponse attendue à partir de l'énoncé. */
 
-const skill = (chapter: { skills: Skill[] }, id: string) => chapter.skills.find((s) => s.id === id)!;
+const skill = (chapter: { skills: Skill[] }, id: string) => baseOf(chapter.skills.find((s) => s.id === id)!);
 
 function* exercises(s: Skill, n = 200): Generator<Exercise> {
   for (const level of [1, 2, 3] as Level[]) for (let seed = 1; seed <= n; seed++) yield s.generate(new Rng(seed * 104729 + level), level);

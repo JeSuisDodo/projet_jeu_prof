@@ -1,4 +1,5 @@
-import { SECOND_DEGRE_SKILLS } from '../../exercises/secondDegre';
+import { SECOND_DEGRE_SKILLS, SECOND_DEGRE_VARIANTES } from '../../exercises/secondDegre';
+import { enrichAll } from '../../exercises/variantes';
 import { CREATURES } from '../../game/creatures';
 import type { ChapterDef, CreatureDef, CreatureLook } from '../types';
 
@@ -13,7 +14,7 @@ export const SECOND_DEGRE: ChapterDef = {
   region: 'Volcan du Second degré',
   theme: 'volcan',
   terrain: 'riviere',
-  skills: SECOND_DEGRE_SKILLS,
+  skills: enrichAll(SECOND_DEGRE_SKILLS, SECOND_DEGRE_VARIANTES),
   creatures: [
     creature('parabolux', { shape: 'bete', hue: 25 }),
     creature('deltaire', { shape: 'oiseau', hue: 45, symbol: 'Δ' }),
