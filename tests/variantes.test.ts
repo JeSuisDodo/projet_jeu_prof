@@ -50,7 +50,7 @@ describe('variantes d’exercices', () => {
 
   for (const { grade, skill } of enriched)
     for (const v of skill.variants!.slice(1))
-      it(`${grade} · ${skill.id} / ${v.name}`, () => {
+      it(`${grade} · ${skill.id} / ${v.name}`, async () => {
         expect(skill.variants!.filter((x) => x.name === v.name).length, 'nom de variante en double').toBe(1);
         for (const level of [1, 2, 3] as Level[]) {
           if (level < v.from) continue;
@@ -75,6 +75,8 @@ describe('variantes d’exercices', () => {
           }
         }
         expect(v.generate(new Rng(42), 3)).toEqual(v.generate(new Rng(42), 3));
+        // Laisse respirer le fil de vitest entre deux variantes.
+        await new Promise((resolve) => setTimeout(resolve, 0));
       });
 
   it('la forme tirée change d’une graine à l’autre', () => {
