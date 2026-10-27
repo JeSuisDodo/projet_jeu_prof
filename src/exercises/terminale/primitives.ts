@@ -1,5 +1,6 @@
 import type { Skill } from '../types';
-import { F, add, choiceTex, mul, numF, plus, poly, skill, tex } from './util';
+import { enrich, variant } from '../variantes';
+import { F, add, choiceTex, fixedChoice, mul, num, numF, plus, poly, skill, sub, tex } from './util';
 import type { Frac } from '../fraction';
 
 /** Chapitre « Primitives et équations différentielles » (Terminale spécialité). */
@@ -130,4 +131,183 @@ const condition = skill('tle-equadiff-condition', 'Trouver la constante avec une
   };
 });
 
-export const PRIMITIVES_SKILLS: Skill[] = [primitivePoly, formes, exponentielle, constante, generale, condition];
+const VF = ['Vrai', 'Faux'];
+const front = (c: number) => (c === 1 ? '' : c === -1 ? '-' : String(c));
+/** « - 3y », « + y » : terme ajouté. */
+const terme = (c: number, e: string) => (c === 0 ? '' : ` ${c < 0 ? '-' : '+'} ${Math.abs(c) === 1 ? '' : Math.abs(c)}${e}`);
+
+const primitivePolyVariantes = [
+  variant('inverse-carre', (rng) => {
+    const a = rng.nonZero(-6, 6);
+    const y0 = rng.int(-5, 5);
+    const x1 = rng.int(2, 5);
+    // F(x) = -a/x + k avec F(1) = y0 : k = y0 + a.
+    const value = add(F(-a, x1), F(y0 + a));
+    return {
+      prompt: `$F$ est la primitive de $f(x) = \\frac{${a}}{x^2}$ sur $]0\\,;\\,+\\infty[$ telle que $F(1) = ${y0}$. Calcule $F(${x1})$ (fraction).`,
+      answer: numF(value),
+      hint: 'Une primitive de $\\frac{1}{x^2}$ est $-\\frac{1}{x}$.',
+      correction: [`$F(x) = -\\frac{${a}}{x} + k$ et $F(1) = ${-a} + k = ${y0}$, donc $k = ${y0 + a}$.`, `$F(${x1}) = ${tex(F(-a, x1))}${plus(y0 + a)} = ${tex(value)}$`],
+    };
+  }),
+  variant('condition-ailleurs', (rng) => {
+    const c = [rng.nonZero(-3, 3) * 3, rng.nonZero(-3, 3) * 2, rng.int(-5, 5)];
+    const P = primitiveCoefs(c);
+    const x1 = rng.pick([-1, 1, 2]);
+    const y1 = rng.int(-6, 6);
+    const value = sub(F(y1), evalFrac(P, x1));
+    return {
+      prompt: `$F$ est la primitive de $f(x) = ${poly(c)}$ sur $\\mathbb{R}$ telle que $F(${x1}) = ${y1}$. Calcule $F(0)$.`,
+      answer: numF(value),
+      hint: 'Écris $F(x) = (\\text{primitive sans constante}) + k$, puis trouve $k$ avec la condition.',
+      correction: [`$F(x) = ${polyFrac(P)} + k$.`, `$F(${x1}) = ${tex(evalFrac(P, x1))} + k = ${y1}$, donc $k = ${tex(value)}$.`, `$F(0) = k = ${tex(value)}$`],
+    };
+  }),
+];
+
+/** Formes usuelles supplémentaires : f, sa primitive F et des leurres. */
+function autresFormes(a: number, b: number) {
+  return [
+    { f: `\\sin(${a}x)`, F: `-\\frac{1}{${a}}\\cos(${a}x)`, d: [`\\frac{1}{${a}}\\cos(${a}x)`, `-${a}\\cos(${a}x)`, `\\cos(${a}x)`] },
+    { f: `\\frac{${a}}{x^2}`, F: `-\\frac{${a}}{x}`, d: [`\\frac{${a}}{x}`, `${a}\\ln(x^2)`, `-\\frac{${2 * a}}{x^3}`] },
+    { f: `\\frac{${a}}{\\sqrt{${a}x + ${b}}}`, F: `2\\sqrt{${a}x + ${b}}`, d: [`\\sqrt{${a}x + ${b}}`, `${2 * a}\\sqrt{${a}x + ${b}}`, `\\frac{1}{2}\\sqrt{${a}x + ${b}}`] },
+    { f: `xe^{x^2}`, F: `\\frac{1}{2}e^{x^2}`, d: [`e^{x^2}`, `2e^{x^2}`, `\\frac{x^2}{2}e^{x^2}`] },
+    { f: `\\frac{1}{x}${plus(a)}`, F: `\\ln(x)${terme(a, 'x')}`, d: [`-\\frac{1}{x^2}${terme(a, 'x')}`, `\\ln(x)${plus(a)}`, `\\frac{1}{x}${terme(a, 'x')}`] },
+  ];
+}
+
+const formesVariantes = [
+  variant('autres-formes', (rng) => {
+    const c = rng.pick(autresFormes(rng.int(2, 6), rng.int(1, 5)));
+    return {
+      prompt: `Quelle fonction est une primitive de $f(x) = ${c.f}$ sur $]0\\,;\\,+\\infty[$ ?`,
+      answer: choiceTex(rng, `F(x) = ${c.F}`, c.d.map((d) => `F(x) = ${d}`), () => `F(x) = ${c.f}`),
+      hint: 'Vérifie chaque proposition en la dérivant.',
+      correction: [`On vérifie en dérivant : $\\left(${c.F}\\right)' = ${c.f}$.`],
+    };
+  }),
+  variant('verifier', (rng) => {
+    const c = rng.pick(autresFormes(rng.int(2, 6), rng.int(1, 5)));
+    const ok = rng.next() < 0.5;
+    const G = ok ? c.F : rng.pick(c.d);
+    return {
+      prompt: `Vrai ou faux : $F(x) = ${G}$ est une primitive de $f(x) = ${c.f}$ sur $]0\\,;\\,+\\infty[$.`,
+      answer: fixedChoice(VF, ok ? 0 : 1),
+      hint: 'Dérive $F$ et compare avec $f$.',
+      correction: [ok ? `$F'(x) = ${c.f}$ : c’est vrai.` : `Une primitive de $f$ est $${c.F}$ ; la dérivée de $${G}$ n’est pas $f$. C’est faux.`],
+    };
+  }),
+];
+
+const exponentielleVariantes = [
+  variant('derivee-en-zero', (rng) => {
+    const a = rng.nonZero(-5, 5);
+    const k = rng.nonZero(-6, 6);
+    return {
+      prompt: `$f$ est la solution de $y' = ${front(a)}y$ telle que $f(0) = ${k}$. Calcule $f'(0)$.`,
+      answer: num(a * k),
+      hint: 'Pas besoin de résoudre : l’équation donne directement $f\'(0)$ en fonction de $f(0)$.',
+      correction: [`$f'(0) = ${a}\\times f(0) = ${a}\\times ${k < 0 ? `(${k})` : k} = ${a * k}$`],
+    };
+  }),
+  variant('vrai-faux', (rng) => {
+    const a = rng.nonZero(-4, 4);
+    const c = rng.nonZero(-5, 5);
+    const ok = rng.next() < 0.5;
+    const b = ok ? a : rng.pick([-a, c === a ? a + 1 : c, a + 1].filter((v) => v !== a && v !== 0));
+    return {
+      prompt: `Vrai ou faux : la fonction $y(x) = ${front(c)}e^{${front(b)}x}$ est solution de $y' = ${front(a)}y$.`,
+      answer: fixedChoice(VF, ok ? 0 : 1),
+      hint: 'Les solutions de $y\' = ay$ sont les $Ce^{ax}$, quel que soit $C$.',
+      correction: [ok ? `$y'(x) = ${a * c}e^{${front(b)}x} = ${a}y(x)$ : c’est vrai.` : `$y'(x) = ${b * c}e^{${front(b)}x} = ${b}y(x)$, pas $${a}y(x)$ : c’est faux.`],
+    };
+  }),
+];
+
+const constanteVariantes = [
+  variant('verifier', (rng) => {
+    const a = rng.nonZero(-5, 5);
+    const v = rng.nonZero(-5, 5);
+    const ok = rng.next() < 0.5;
+    const b = ok ? -a * v : rng.pick([a * v, -a * v + rng.nonZero(-3, 3)]);
+    return {
+      prompt: `Vrai ou faux : la fonction constante $y = ${v}$ est solution de $y' = ${front(a)}y${plus(b)}$.`,
+      answer: fixedChoice(VF, ok ? 0 : 1),
+      hint: 'Pour une constante, $y\' = 0$ : vérifie si $ay + b = 0$.',
+      correction: [`$${a}\\times ${v < 0 ? `(${v})` : v}${plus(b)} = ${a * v + b}$ : c’est ${ok ? 'vrai' : 'faux'}.`],
+    };
+  }),
+  variant('forme-developpee', (rng) => {
+    const p = rng.int(1, 4);
+    const q = rng.nonZero(-6, 6);
+    const r = rng.nonZero(-12, 12);
+    const value = F(r, q);
+    return {
+      prompt: `Quelle est la solution constante de l’équation différentielle $${front(p)}y'${terme(q, 'y')} = ${r}$ ?`,
+      answer: numF(value),
+      hint: 'Pour une fonction constante, $y\' = 0$.',
+      correction: [`$${q}y = ${r}$, donc $y = ${tex(value)}$.`],
+    };
+  }),
+];
+
+const generaleVariantes = [
+  variant('forme-developpee', (rng) => {
+    const a = rng.nonZero(-4, 4);
+    const p = rng.nonZero(-5, 5);
+    const b = -a * p;
+    const ax = `${front(a)}x`;
+    const correct = `y(x) = Ce^{${ax}}${plus(p)}`;
+    return {
+      prompt: `Quelles sont les solutions sur $\\mathbb{R}$ de $y'${terme(-a, 'y')} = ${b}$ ? ($C$ est une constante réelle.)`,
+      answer: choiceTex(rng, correct, [`y(x) = Ce^{${front(-a)}x}${plus(p)}`, `y(x) = Ce^{${ax}}${plus(-p)}`, `y(x) = Ce^{${ax}}${plus(b)}`], () => `y(x) = Ce^{${ax}}${plus(p + 1)}`),
+      hint: `Réécris l’équation sous la forme $y' = ay + b$.`,
+      correction: [`$y' = ${front(a)}y${plus(b)}$ : solution constante $${p}$.`, `$${correct}$`],
+    };
+  }),
+  variant('homogene-signe', (rng) => {
+    const a = rng.nonZero(-5, 5);
+    const correct = `y(x) = Ce^{${front(-a)}x}`;
+    return {
+      prompt: `Quelles sont les solutions sur $\\mathbb{R}$ de $y'${terme(a, 'y')} = 0$ ? ($C$ est une constante réelle.)`,
+      answer: choiceTex(rng, correct, [`y(x) = Ce^{${front(a)}x}`, `y(x) = e^{${front(-a)}x} + C`, `y(x) = Ce^{${front(-a)}x}${plus(a)}`], () => `y(x) = Ce^{x}`),
+      hint: `L’équation s’écrit $y' = ${front(-a)}y$.`,
+      correction: [`$y' = ${front(-a)}y$, donc $${correct}$.`],
+    };
+  }),
+];
+
+const conditionVariantes = [
+  variant('derivee-initiale', (rng) => {
+    const a = rng.nonZero(-4, 4);
+    const p = rng.int(-6, 6);
+    const v = rng.nonZero(-9, 9);
+    const value = F(v, a);
+    return {
+      prompt: `Les solutions de $y' = ${front(a)}y${plus(-a * p)}$ sont $y(x) = Ce^{${front(a)}x}${plus(p)}$. Quelle valeur de $C$ donne $y'(0) = ${v}$ (fraction) ?`,
+      answer: numF(value),
+      hint: 'Dérive : $y\'(x) = aCe^{ax}$, puis remplace $x$ par $0$.',
+      correction: [`$y'(0) = ${a}C = ${v}$`, `$C = ${tex(value)}$`],
+    };
+  }),
+  variant('limite', (rng) => {
+    const a = -rng.int(1, 4);
+    const p = rng.nonZero(-8, 8);
+    const C = rng.nonZero(-6, 6);
+    return {
+      prompt: `$y(x) = ${front(C)}e^{${front(a)}x}${plus(p)}$ est solution de $y' = ${front(a)}y${plus(-a * p)}$. Quelle est la limite de $y(x)$ quand $x \\to +\\infty$ ?`,
+      answer: num(p),
+      hint: `Comme $${a} < 0$, $e^{${front(a)}x} \\to 0$.`,
+      correction: [`$e^{${front(a)}x} \\to 0$, donc $y(x) \\to ${p}$ : la solution tend vers la solution constante.`],
+    };
+  }),
+];
+
+export const PRIMITIVES_SKILLS: Skill[] = [
+  enrich(primitivePoly, primitivePolyVariantes),
+  enrich(formes, formesVariantes),
+  enrich(exponentielle, exponentielleVariantes),
+  enrich(constante, constanteVariantes),
+  enrich(generale, generaleVariantes),
+  enrich(condition, conditionVariantes),
+];

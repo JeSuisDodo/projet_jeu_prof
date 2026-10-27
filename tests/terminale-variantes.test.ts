@@ -538,3 +538,95 @@ describe('variantes de Terminale : trigonométrie', () => {
     }
   });
 });
+
+describe('variantes de Terminale : primitives et équations différentielles', () => {
+  const ev = (s: string, x = 0) =>
+    texEval(
+      s.replace(/\$/g, '').replace(/\\ln\(([^()]*)\)/g, (_, u: string) => `(${Math.log(texEval(u, x))})`),
+      x,
+    );
+  const d1 = (f: string, x: number) => (ev(f, x + 1e-6) - ev(f, x - 1e-6)) / 2e-6;
+  /** Intégrale par la méthode de Simpson. */
+  const integrale = (f: string, a: number, b: number, n = 200) => {
+    const h = (b - a) / n;
+    let s = ev(f, a) + ev(f, b);
+    for (let i = 1; i < n; i++) s += (i % 2 ? 4 : 2) * ev(f, a + i * h);
+    return (s * h) / 3;
+  };
+  const expr = (ex: { prompt: string }) => /f\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+  /** La fonction G est-elle une primitive de f sur ]0 ; +∞[ ? */
+  const estPrimitive = (G: string, f: string) => [0.7, 1.3, 2.1].every((x) => Math.abs(d1(G, x) - ev(f, x)) < 1e-4 * (1 + Math.abs(ev(f, x))));
+
+  it('calcule des primitives', () => {
+    for (const ex of t('tle-primitive-polynome', 'inverse-carre')) {
+      const [y0, x1] = [/F\(1\) = (-?\d+)/, /Calcule \$F\((\d+)\)/].map((r) => Number(r.exec(ex.prompt)![1]));
+      expect(valeur(ex), ex.prompt).toBeCloseTo(y0 + integrale(expr(ex), 1, x1), 6);
+    }
+    for (const ex of t('tle-primitive-polynome', 'condition-ailleurs')) {
+      const [, x1, y1] = /F\((-?\d+)\) = (-?\d+)\$/.exec(ex.prompt)!.map(Number);
+      expect(valeur(ex), ex.prompt).toBeCloseTo(y1 - integrale(expr(ex), 0, x1), 6);
+    }
+    for (const ex of t('tle-primitive-forme', 'autres-formes')) {
+      if (ex.answer.kind !== 'choice') throw new Error('QCM attendu');
+      ex.answer.options.forEach((o, i) => expect(estPrimitive(o.replace(/\$F\(x\) = /, ''), expr(ex)), `${ex.prompt} ${o}`).toBe(i === (ex.answer as { correct: number }).correct));
+    }
+    for (const ex of t('tle-primitive-forme', 'verifier')) {
+      const G = /F\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+      expect(optionJuste(ex), ex.prompt).toBe(estPrimitive(G, expr(ex)) ? 'Vrai' : 'Faux');
+    }
+  });
+
+  it('résout des équations différentielles', () => {
+    /** Coefficients a et b de « y' = ay + b » lus dans l'énoncé (forme résolue). */
+    const ab = (s: string) => {
+      const m = /y' = (-?\d*)y(?: ([+-]) (\d+))?\$/.exec(s)!;
+      return [m[1] === '' ? 1 : m[1] === '-' ? -1 : Number(m[1]), m[3] ? Number(m[2] + m[3]) : 0];
+    };
+    for (const ex of t('tle-equadiff-homogene', 'derivee-en-zero')) {
+      const [a] = ab(ex.prompt);
+      expect(valeur(ex)).toBe(a * Number(/f\(0\) = (-?\d+)/.exec(ex.prompt)![1]));
+    }
+    for (const ex of t('tle-equadiff-homogene', 'vrai-faux')) {
+      const y = /y\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+      const [a] = ab(ex.prompt);
+      const ok = [0.2, 0.9].every((x) => Math.abs(d1(y, x) - a * ev(y, x)) < 1e-4 * (1 + Math.abs(ev(y, x))));
+      expect(optionJuste(ex), ex.prompt).toBe(ok ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-equadiff-constante', 'verifier')) {
+      const [a, b] = ab(ex.prompt);
+      const v = Number(/y = (-?\d+)\$/.exec(ex.prompt)![1]);
+      expect(optionJuste(ex), ex.prompt).toBe(a * v + b === 0 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-equadiff-constante', 'forme-developpee')) {
+      const m = /(\d*)y' ([+-]) (\d*)y = (-?\d+)\$/.exec(ex.prompt)!;
+      const q = Number(m[2] + (m[3] || '1'));
+      expect(q * valeur(ex), ex.prompt).toBeCloseTo(Number(m[4]), 9);
+    }
+    // Solutions générales : avec C = 1,7, la fonction proposée doit vérifier l'équation (et pas les leurres).
+    for (const [nom, lire] of [
+      ['forme-developpee', (s: string) => {
+        const m = /y' ([+-]) (\d*)y = (-?\d+)\$/.exec(s)!;
+        return [-Number(m[1] + (m[2] || '1')), Number(m[3])];
+      }],
+      ['homogene-signe', (s: string) => {
+        const m = /y' ([+-]) (\d*)y = 0\$/.exec(s)!;
+        return [-Number(m[1] + (m[2] || '1')), 0];
+      }],
+    ] as const) {
+      for (const ex of t('tle-equadiff-generale', nom)) {
+        const [a, b] = lire(ex.prompt);
+        if (ex.answer.kind !== 'choice') throw new Error('QCM attendu');
+        ex.answer.options.forEach((o, i) => {
+          const y = o.replace(/\$y\(x\) = /, '').replace(/C/g, '(1.7)');
+          const ok = [0.2, 0.9].every((x) => Math.abs(d1(y, x) - (a * ev(y, x) + b)) < 1e-4 * (1 + Math.abs(ev(y, x))));
+          expect(ok, `${ex.prompt} ${o}`).toBe(i === (ex.answer as { correct: number }).correct);
+        });
+      }
+    }
+    for (const ex of t('tle-equadiff-condition', 'derivee-initiale')) {
+      const [a] = ab(ex.prompt);
+      expect(a * valeur(ex)).toBeCloseTo(Number(/y'\(0\) = (-?\d+)/.exec(ex.prompt)![1]), 9);
+    }
+    for (const ex of t('tle-equadiff-condition', 'limite')) expect(valeur(ex)).toBeCloseTo(ev(/y\(x\) = (.+?)\$/.exec(ex.prompt)![1], 50), 9);
+  });
+});
