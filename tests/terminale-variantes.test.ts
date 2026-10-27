@@ -796,3 +796,196 @@ describe('variantes de Terminale : dénombrement', () => {
     }
   });
 });
+
+describe('variantes de Terminale : géométrie dans l’espace', () => {
+  type V3 = [number, number, number];
+  const TRIPLET = String.raw`\((-?\d+)\\,;\\,(-?\d+)\\,;\\,(-?\d+)\)`;
+  /** Coordonnées écrites juste après un nom (« A », « \vec u », « \overrightarrow{AB} »). */
+  const pt = (s: string, nom: string): V3 => {
+    const m = new RegExp(nom.replace(/[\\{}]/g, (c) => `\\${c}`) + TRIPLET).exec(s);
+    if (!m) throw new Error(`${nom} introuvable : ${s}`);
+    return [Number(m[1]), Number(m[2]), Number(m[3])];
+  };
+  const triplet = (s: string): V3 => pt(s, '');
+  const sub = (u: V3, v: V3): V3 => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+  const dot = (u: V3, v: V3) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const cross = (u: V3, v: V3): V3 => [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+  const nul = (u: number[]) => u.every((x) => Math.abs(x) < 1e-12);
+  /** Équations de plans « … = 0 » lues dans l'ordre, sous forme de fonctions. */
+  const plans = (s: string) =>
+    [...s.matchAll(/\$(?:\\mathcal\{[PQ]\} : )?([^$]*?[xyz][^$]*?) = 0\$/g)].map((m) => (p: V3) => texEval(m[1].replace(/z/g, `(${p[2]})`), p[0], p[1]));
+  const normale = (P: (p: V3) => number): V3 => {
+    const d = P([0, 0, 0]);
+    return [P([1, 0, 0]) - d, P([0, 1, 0]) - d, P([0, 0, 1]) - d];
+  };
+  /** Représentations paramétriques lues dans l'ordre : point de paramètre 0 et vecteur directeur. */
+  const droites = (s: string) =>
+    [...s.matchAll(/\\begin\{cases\} x = (.+?) \\\\ y = (.+?) \\\\ z = (.+?) \\end\{cases\}/g)].map((m) => {
+      const at = (k: number) => m.slice(1, 4).map((r) => texEval(r.replace(/[ts]/g, `(${k})`), 0)) as V3;
+      return { A: at(0), u: sub(at(1), at(0)), at };
+    });
+
+  it('vecteurs, milieux et colinéarité', () => {
+    for (const ex of t('tle-espace-vecteur', 'retrouver-point')) expect(triplet(optionJuste(ex))).toEqual(pt(ex.prompt, 'A').map((x, i) => x + pt(ex.prompt, '\\overrightarrow{AB}')[i]));
+    for (const ex of t('tle-espace-vecteur', 'combinaison-lineaire')) {
+      const m = /\$(-?\d*)\\vec u ([+-]) (\d*)\\vec v\$/.exec(ex.prompt)!;
+      const a = m[1] === '' ? 1 : m[1] === '-' ? -1 : Number(m[1]);
+      const b = Number(m[2] + (m[3] || '1'));
+      const [u, v] = [pt(ex.prompt, '\\vec u'), pt(ex.prompt, '\\vec v')];
+      expect(triplet(optionJuste(ex))).toEqual(u.map((x, i) => a * x + b * v[i] + 0));
+    }
+    for (const ex of t('tle-espace-milieu', 'symetrique')) {
+      const [A, I, B] = [pt(ex.prompt, 'A'), pt(ex.prompt, 'I'), triplet(optionJuste(ex))];
+      expect(A.map((x, i) => x + B[i])).toEqual(I.map((x) => 2 * x));
+    }
+    for (const ex of t('tle-espace-milieu', 'centre-gravite')) {
+      const [A, B, C] = ['A', 'B', 'C'].map((n) => pt(ex.prompt, n));
+      expect(triplet(optionJuste(ex)).map((x) => 3 * x)).toEqual(A.map((x, i) => x + B[i] + C[i]));
+    }
+    for (const ex of t('tle-espace-colineaires', 'vrai-faux')) expect(optionJuste(ex)).toBe(nul(cross(pt(ex.prompt, '\\vec u'), pt(ex.prompt, '\\vec v'))) ? 'Vrai' : 'Faux');
+    for (const ex of t('tle-espace-colineaires', 'alignes')) {
+      const [A, B] = [pt(ex.prompt, 'A'), pt(ex.prompt, 'B')];
+      const [x, y] = /C\((-?\d+)\\,;\\,(-?\d+)/.exec(ex.prompt)!.slice(1).map(Number);
+      expect(nul(cross(sub(B, A), sub([x, y, valeur(ex)], A))), ex.prompt).toBe(true);
+    }
+    for (const ex of t('tle-espace-combinaison', 'coplanaires-vrai-faux')) {
+      const [u, v, w] = ['u', 'v', 'w'].map((n) => pt(ex.prompt, `\\vec ${n}`));
+      expect(optionJuste(ex)).toBe(dot(cross(u, v), w) === 0 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-espace-combinaison', 'parametre')) {
+      const [u, v] = ['u', 'v'].map((n) => pt(ex.prompt, `\\vec ${n}`));
+      const [w0, w1] = /w\((-?\d+)\\,;\\,(-?\d+)/.exec(ex.prompt)!.slice(1).map(Number);
+      expect(dot(cross(u, v), [w0, w1, valeur(ex)])).toBeCloseTo(0, 9);
+    }
+    for (const ex of t('tle-espace-point-droite', 'vrai-faux')) {
+      const [d] = droites(ex.prompt);
+      expect(optionJuste(ex)).toBe(nul(cross(d.u, sub(pt(ex.prompt, 'M'), d.A))) ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-espace-point-droite', 'point-de-parametre')) {
+      const k = Number(/t = (-?\d+)\$ \?/.exec(ex.prompt)![1]);
+      expect(triplet(optionJuste(ex))).toEqual(droites(ex.prompt)[0].at(k));
+    }
+  });
+
+  it('produit scalaire, distances et plans', () => {
+    for (const ex of t('tle-produit-scalaire', 'normes-angle')) {
+      const [a, b] = [...ex.prompt.matchAll(/\\\| = (\d+)\$/g)].map((m) => Number(m[1]));
+      const angle = texEval(/vaut \$(.+?)\$/.exec(ex.prompt)![1], 0);
+      expect(valeur(ex)).toBeCloseTo(a * b * Math.cos(angle), 9);
+    }
+    for (const ex of t('tle-produit-scalaire', 'points')) {
+      const [A, B, C] = ['A', 'B', 'C'].map((n) => pt(ex.prompt, n));
+      expect(valeur(ex)).toBe(dot(sub(B, A), sub(C, A)));
+    }
+    for (const ex of t('tle-norme', 'norme-vecteur')) {
+      const u = pt(ex.prompt, '\\vec u');
+      expect(valeur(ex)).toBe(Math.sqrt(dot(u, u)));
+    }
+    for (const ex of t('tle-norme', 'isocele')) {
+      const [A, B, C] = ['A', 'B', 'C'].map((n) => pt(ex.prompt, n));
+      expect(optionJuste(ex)).toBe(dot(sub(B, A), sub(B, A)) === dot(sub(C, A), sub(C, A)) ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-orthogonalite', 'vrai-faux')) expect(optionJuste(ex)).toBe(dot(pt(ex.prompt, '\\vec u'), pt(ex.prompt, '\\vec v')) === 0 ? 'Vrai' : 'Faux');
+    for (const ex of t('tle-orthogonalite', 'triangle-rectangle')) {
+      const [A, B, C] = ['A', 'B', 'C'].map((n) => pt(ex.prompt, n));
+      expect(optionJuste(ex)).toBe(dot(sub(B, A), sub(C, A)) === 0 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-vecteur-normal', 'plan-parallele')) {
+      const [P] = plans(ex.prompt);
+      const [Q] = plans(optionJuste(ex));
+      expect(nul(cross(normale(P), normale(Q)))).toBe(true);
+      expect(Q(pt(ex.prompt, 'A'))).toBeCloseTo(0, 9);
+    }
+    for (const ex of t('tle-vecteur-normal', 'orthogonal-a-deux')) {
+      const n = pt(optionJuste(ex), '\\vec n');
+      expect([dot(n, pt(ex.prompt, '\\vec u')), dot(n, pt(ex.prompt, '\\vec v'))].map((x) => x + 0)).toEqual([0, 0]);
+    }
+    for (const ex of t('tle-equation-plan', 'point-vrai-faux')) expect(optionJuste(ex)).toBe(plans(ex.prompt)[0](pt(ex.prompt, 'A')) === 0 ? 'Vrai' : 'Faux');
+    for (const ex of t('tle-equation-plan', 'plan-mediateur')) {
+      const [A, B] = [pt(ex.prompt, 'A'), pt(ex.prompt, 'B')];
+      const expr = /a pour équation \$(.+?) \+ d = 0\$/.exec(ex.prompt)![1];
+      const P = (p: V3) => texEval(expr.replace(/z/g, `(${p[2]})`), p[0], p[1]) + valeur(ex);
+      // Équidistance : un point du plan est à égale distance de A et B.
+      expect(P(A.map((x, i) => (x + B[i]) / 2) as V3)).toBeCloseTo(0, 9);
+      expect(nul(cross(normale(P), sub(B, A)))).toBe(true);
+    }
+    for (const ex of t('tle-distance-point-plan', 'depuis-origine')) {
+      const [P] = plans(ex.prompt);
+      const n = normale(P);
+      expect(valeur(ex)).toBeCloseTo(Math.abs(P([0, 0, 0])) / Math.sqrt(dot(n, n)), 9);
+    }
+    for (const ex of t('tle-distance-point-plan', 'projete')) {
+      const [P] = plans(ex.prompt);
+      const H = triplet(optionJuste(ex));
+      expect(P(H)).toBeCloseTo(0, 9);
+      expect(nul(cross(normale(P), sub(pt(ex.prompt, 'M'), H)))).toBe(true);
+    }
+  });
+
+  it('représentations paramétriques et positions relatives', () => {
+    for (const ex of t('tle-representation-parametrique', 'vecteur-directeur')) {
+      const [d] = droites(ex.prompt);
+      const w = pt(optionJuste(ex), '\\vec w');
+      expect(nul(cross(d.u, w)) && !nul(w)).toBe(true);
+    }
+    for (const ex of t('tle-representation-parametrique', 'parallele')) {
+      const [A, B, C] = ['A', 'B', 'C'].map((n) => pt(ex.prompt, n));
+      const [d] = droites(optionJuste(ex));
+      expect(nul(cross(d.u, sub(B, A)))).toBe(true);
+      expect(nul(cross(d.u, sub(C, d.A)))).toBe(true);
+    }
+    for (const ex of t('tle-intersection-droite-plan', 'point')) {
+      const [d] = droites(ex.prompt);
+      const [P] = plans(ex.prompt);
+      const I = triplet(optionJuste(ex));
+      expect(P(I)).toBeCloseTo(0, 9);
+      expect(nul(cross(d.u, sub(I, d.A)))).toBe(true);
+    }
+    for (const ex of t('tle-intersection-droite-plan', 'axe')) {
+      const [P] = plans(ex.prompt);
+      const i = ['x', 'y', 'z'].indexOf(/coordonnée \$([xyz])\$/.exec(ex.prompt)![1]);
+      const p: V3 = [0, 0, 0];
+      p[i] = valeur(ex);
+      expect(P(p)).toBeCloseTo(0, 9);
+    }
+    for (const ex of t('tle-position-droite-plan', 'vrai-faux-parallele')) {
+      const [d] = droites(ex.prompt);
+      expect(optionJuste(ex)).toBe(dot(d.u, normale(plans(ex.prompt)[0])) === 0 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-position-droite-plan', 'deux-plans')) {
+      const [P, Q] = plans(ex.prompt);
+      const [n, m] = [normale(P), normale(Q)];
+      // Mêmes points : on teste trois points de P (non alignés) dans Q.
+      const pointsDeP = [0, 1, 2].map((k) => {
+        const i = n.findIndex((x) => x !== 0);
+        const p: V3 = [k, 2 * k + 1, k * k];
+        p[i] = 0;
+        p[i] = -P(p) / n[i];
+        return p;
+      });
+      const attendu = !nul(cross(n, m)) ? 'Sécants' : pointsDeP.every((p) => Math.abs(Q(p)) < 1e-9) ? 'Confondus' : 'Parallèles distincts';
+      expect(optionJuste(ex), ex.prompt).toBe(attendu);
+    }
+    for (const ex of t('tle-position-droites', 'orthogonales')) {
+      const [d1, d2] = droites(ex.prompt);
+      expect(optionJuste(ex)).toBe(dot(d1.u, d2.u) === 0 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-position-droites', 'point-commun')) {
+      const [d1, d2] = droites(ex.prompt);
+      const P = d1.at(valeur(ex));
+      expect(nul(cross(d2.u, sub(P, d2.A))), ex.prompt).toBe(true);
+    }
+    for (const ex of t('tle-point-plan', 'autre-coordonnee')) {
+      const [P] = plans(ex.prompt);
+      const c = /M\((.+?)\)\$/.exec(ex.prompt)![1].split('\\,;\\,').map((x) => (x === 'x' || x === 'y' ? valeur(ex) : Number(x)));
+      expect(P(c as V3)).toBeCloseTo(0, 9);
+    }
+    for (const ex of t('tle-point-plan', 'point-sur-droite-et-plan')) {
+      const [d] = droites(ex.prompt);
+      const [P] = plans(ex.prompt);
+      // t est l'unique solution de P(d(t)) = 0 (fonction affine de t).
+      const [p0, p1] = [P(d.at(0)), P(d.at(1))];
+      expect(valeur(ex)).toBeCloseTo(d.at(-p0 / (p1 - p0))[2], 9);
+    }
+  });
+});
