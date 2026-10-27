@@ -233,3 +233,81 @@ describe('variantes de Terminale : limites de fonctions', () => {
     }
   });
 });
+
+describe('variantes de Terminale : continuité', () => {
+  const entier = (s: string) => Number(s);
+  /** Solutions de f(x) = k pour f affine par morceaux passant par les points donnés (même monotonie que l'énoncé). */
+  const solutions = (pts: [number, number][], k: number) => {
+    const xs = new Set<number>();
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const [[x0, y0], [x1, y1]] = [pts[i], pts[i + 1]];
+      if ((k - y0) * (k - y1) <= 0) xs.add(Number((x0 + ((k - y0) * (x1 - x0)) / (y1 - y0)).toFixed(9)));
+    }
+    return xs.size;
+  };
+
+  it('applique le théorème des valeurs intermédiaires', () => {
+    for (const ex of t('tle-tvi-encadrement', 'exponentielle')) {
+      const f = /f\(x\) = (.+?)\$/.exec(ex.prompt)![1];
+      const k = valeur(ex);
+      expect(texEval(f, k)).toBeLessThan(0);
+      expect(texEval(f, k + 1)).toBeGreaterThan(0);
+    }
+    for (const ex of t('tle-tvi-encadrement', 'vrai-faux')) {
+      const m = /f\((-?\d+)\) = (-?\d+)\$ et \$f\((-?\d+)\) = (-?\d+)\$/.exec(ex.prompt)!;
+      expect(optionJuste(ex)).toBe(entier(m[2]) * entier(m[4]) < 0 ? 'Vrai' : 'Faux');
+    }
+    for (const nom of ['decroissante-croissante']) {
+      for (const ex of t('tle-tvi-tableau', nom)) {
+        const v = [...ex.prompt.matchAll(/f\((-?\d+)\) = (-?\d+)\$/g)].map((m) => [entier(m[1]), entier(m[2])] as [number, number]);
+        const k = entier(/f\(x\) = (-?\d+)\$/.exec(ex.prompt)![1]);
+        expect(entier(optionJuste(ex)), ex.prompt).toBe(solutions(v, k));
+      }
+    }
+    for (const ex of t('tle-tvi-tableau', 'monotone')) {
+      const v = [...ex.prompt.matchAll(/f\((-?\d+)\) = (-?\d+)\$/g)].map((m) => [entier(m[1]), entier(m[2])] as [number, number]);
+      const k = entier(/f\(x\) = (-?\d+)\$/.exec(ex.prompt)![1]);
+      expect(entier(optionJuste(ex)), ex.prompt).toBe(solutions(v, k));
+    }
+  });
+
+  it('mène une dichotomie', () => {
+    for (const ex of t('tle-dichotomie', 'nombre-etapes')) {
+      const L = entier(/longueur \$(\d+)\$/.exec(ex.prompt)![1]);
+      const p = entier(/10\^\{-(\d+)\}/.exec(ex.prompt)![1]);
+      const n = valeur(ex);
+      expect(L / 2 ** n).toBeLessThan(10 ** -p);
+      expect(L / 2 ** (n - 1)).toBeGreaterThanOrEqual(10 ** -p);
+    }
+    for (const ex of t('tle-dichotomie', 'deux-etapes')) {
+      let [lo, hi] = [...ex.prompt.matchAll(/f\((-?\d+)\) [<>] 0\$ et \$f\((-?\d+)\)/g)].flatMap((m) => [entier(m[1]), entier(m[2])]);
+      for (const m of ex.prompt.matchAll(/f\(([\d{},]+)\) ([<>]) 0\$/g)) {
+        const x = lireNombre(m[1]);
+        if (x === lo || x === hi) continue;
+        if (m[2] === '>') hi = x;
+        else lo = x;
+      }
+      const [g, d] = /^\$\[(.+)\\,;\\,(.+)\]\$$/.exec(optionJuste(ex))!.slice(1).map(lireNombre);
+      expect([g, d], ex.prompt).toEqual([lo, hi]);
+    }
+  });
+
+  it('rend continue et passe à la limite', () => {
+    for (const ex of t('tle-continuite-morceaux', 'exponentielle')) {
+      const droite = /et \$f\(x\) = (.+?)\$ si \$x \\geq 0/.exec(ex.prompt)![1];
+      expect(1 + valeur(ex)).toBe(texEval(droite, 0) + 0);
+    }
+    for (const ex of t('tle-continuite-morceaux', 'vrai-faux')) {
+      const [g, d] = [...ex.prompt.matchAll(/f\(x\) = (.+?)\$ si/g)].map((m) => m[1]);
+      const k = entier(/x < (-?\d+)\$/.exec(ex.prompt)![1]);
+      expect(optionJuste(ex)).toBe(texEval(g, k) === texEval(d, k) ? 'Vrai' : 'Faux');
+    }
+    for (const nom of ['homographique', 'moyenne']) {
+      for (const ex of t('tle-suite-point-fixe', nom)) {
+        const u0 = entier(/u_0 = (\d+)/.exec(ex.prompt)![1]);
+        const rec = /u_\{n\+1\} = (.+?)\$/.exec(ex.prompt)![1];
+        expect(valeur(ex), ex.prompt).toBeCloseTo(suite(u0, rec, 200)[200], 6);
+      }
+    }
+  });
+});
