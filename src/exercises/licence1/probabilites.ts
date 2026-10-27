@@ -1,7 +1,5 @@
 import type { Skill } from '../types';
 import { F, add, binom, div, fpow, mul, numF, skill, sub, tex } from './util';
-import { enrichir } from '../licenceVariantes';
-import { PROBABILITES_VARIANTES } from './variantes/probabilites';
 
 /** Chapitre « Probabilités sur un univers fini » (Licence 1). */
 
@@ -132,4 +130,4 @@ const binomiale = skill('l1-loi-binomiale', 'Utiliser la loi binomiale', (rng, l
   };
 });
 
-export const PROBABILITES_SKILLS: Skill[] = enrichir([tirages, independance, esperance, bayes, binomiale], PROBABILITES_VARIANTES);
+export const PROBABILITES_SKILLS: Skill[] = [tirages, independance, esperance, bayes, binomiale];

@@ -1,7 +1,7 @@
 import katex from 'katex';
 import { describe, expect, it } from 'vitest';
 import { LICENCE3 } from '../src/content/licence3';
-import { origine } from '../src/exercises/licenceVariantes';
+import { baseOf } from '../src/exercises/variantes';
 import { Rng } from '../src/exercises/rng';
 import { type Answer, type Level, type Response, checkAnswer } from '../src/exercises/types';
 import { divisors, gcd, lcm, modInverse, phi } from '../src/exercises/licence3/util';
@@ -82,7 +82,7 @@ describe('Licence 3 : outils de calcul', () => {
   });
 
   it('les réponses numériques correspondent à des calculs indépendants', () => {
-    const find = (id: string) => origine(skills.find((s) => s.id === id)!);
+    const find = (id: string) => baseOf(skills.find((s) => s.id === id)!);
     for (let seed = 1; seed <= 100; seed++) {
       // Newton sur x² - a : x₁ = (x₀ + a/x₀)/2.
       const nw = find('l3-methode-newton').generate(new Rng(seed), 1);

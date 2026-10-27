@@ -1,11 +1,12 @@
 import type { Rng } from './rng';
-import { type Level, type Skill, makeChoice } from './types';
-import { type Draft, fixedChoice, skill } from './terminale/util';
+import { type Level, makeChoice } from './types';
+import { type Draft, fixedChoice } from './terminale/util';
+import type { Variant } from './variantes';
 
 /**
- * Variantes des compétences de Licence : chaque compétence garde son identifiant (sauvegarde)
- * et tire au hasard, à chaque exercice, sa forme d'origine ou l'une de ses variantes
- * (problème concret, question inverse, vrai/faux, erreur classique…).
+ * Variantes des compétences de Licence, sur le mécanisme commun de `variantes.ts` : chaque chapitre
+ * fournit une table « identifiant de compétence → formes supplémentaires », réunies ici en un
+ * catalogue de variantes nommées (« forme-2 », « forme-3 »…, la forme d'origine étant la première).
  */
 
 export type Maker = (rng: Rng, level: Level) => Draft;
@@ -13,26 +14,16 @@ export type Maker = (rng: Rng, level: Level) => Draft;
 /** Table « identifiant de compétence → variantes supplémentaires ». */
 export type Variantes = Record<string, Maker[]>;
 
-/** Compétence enrichie : `variants[0]` est la forme d'origine, les suivantes sont les nouvelles. */
-export interface VariedSkill extends Skill {
-  variants: Skill[];
+/** Réunit les tables d'un niveau en un catalogue ; `retouche` nettoie les textes (par exemple pour la L2). */
+export function catalogue(tables: Variantes[], retouche: (d: Draft) => Draft = (d) => d): Record<string, Variant[]> {
+  const out: Record<string, Variant[]> = {};
+  for (const table of tables)
+    for (const [id, makers] of Object.entries(table)) {
+      const list = (out[id] ??= []);
+      for (const make of makers) list.push({ name: `forme-${list.length + 2}`, make: (rng, level) => retouche(make(rng, level)) });
+    }
+  return out;
 }
-
-type Wrap = (id: string, name: string, make: Maker) => Skill;
-
-export function varier(base: Skill, extras: Maker[], wrap: Wrap = skill): VariedSkill {
-  const variants = [base, ...extras.map((m) => wrap(base.id, base.name, m))];
-  return { id: base.id, name: base.name, variants, generate: (rng, level) => rng.pick(variants).generate(rng, level) };
-}
-
-/** Ajoute à chaque compétence de la liste les variantes de la table (identifiants vérifiés). */
-export function enrichir(skills: Skill[], table: Variantes, wrap: Wrap = skill): Skill[] {
-  for (const id of Object.keys(table)) if (!skills.some((s) => s.id === id)) throw new Error(`Variantes pour une compétence inconnue : ${id}`);
-  return skills.map((s) => (table[s.id]?.length ? varier(s, table[s.id], wrap) : s));
-}
-
-/** Forme d'origine d'une compétence, éventuellement enrichie. */
-export const origine = (s: Skill): Skill => (s as Partial<VariedSkill>).variants?.[0] ?? s;
 
 export const VRAI_FAUX = ['Vrai', 'Faux'];
 

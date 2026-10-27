@@ -21,6 +21,8 @@ const coprimePair = (rng: { int: (a: number, b: number) => number }, lo: number,
   while (gcd(p, q) !== 1 || p === q) [p, q] = [rng.int(lo, hi), rng.int(lo, hi)];
   return [p, q];
 };
+/** « 3n - 5 », « n + 2 », « n ». */
+const lin = (k: number, c: number) => `${k === 1 ? '' : k}n${c === 0 ? '' : ` ${c < 0 ? '-' : '+'} ${Math.abs(c)}`}`;
 const DAYS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
 
 const VALUATIONS: Fait[] = [
@@ -226,9 +228,9 @@ export const ARITHMETIQUE_VARIANTES: Variantes = {
       const r = b * a - c;
       const sols = divisorsOf(Math.abs(r)).flatMap((d) => [a + d, a - d]);
       return {
-        prompt: `Donne tous les entiers $n \\in \\mathbb{Z}$ tels que $n ${a < 0 ? '+' : '-'} ${Math.abs(a)}$ divise $${b}n ${c < 0 ? '+' : '-'} ${Math.abs(c)}$.`.replace('n - 0', 'n').replace('n + 0', 'n'),
+        prompt: `Donne tous les entiers $n \\in \\mathbb{Z}$ tels que $${lin(1, -a)}$ divise $${lin(b, -c)}$.`,
         answer: setOf(sols),
-        hint: `$${b}n ${c < 0 ? '+' : '-'} ${Math.abs(c)} = ${b}(n ${a < 0 ? '+' : '-'} ${Math.abs(a)}) ${r < 0 ? '-' : '+'} ${Math.abs(r)}$ : $n ${a < 0 ? '+' : '-'} ${Math.abs(a)}$ doit diviser $${r}$.`.replace(/n - 0/g, 'n').replace(/n \+ 0/g, 'n'),
+        hint: `$${lin(b, -c)} = ${b}(${lin(1, -a)}) ${r < 0 ? '-' : '+'} ${Math.abs(r)}$ : $${lin(1, -a)}$ doit diviser $${r}$.`,
         correction: [`Les diviseurs de $${r}$ sont $\\pm${divisorsOf(Math.abs(r)).join(', \\pm')}$.`, `Donc $n \\in ${setTex(sols)}$.`],
       };
     },

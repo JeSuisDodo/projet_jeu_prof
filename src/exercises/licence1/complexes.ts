@@ -1,8 +1,6 @@
 import { frac } from '../fraction';
 import type { Skill } from '../types';
 import { type Cx, cx, cxAnswer, cxDiv, cxMul, cxTex, num, numF, par, skill, tex, texChoice } from './util';
-import { enrichir } from '../licenceVariantes';
-import { COMPLEXES_VARIANTES } from './variantes/complexes';
 
 /** Chapitre « Nombres complexes » (Licence 1). */
 
@@ -149,4 +147,4 @@ const equation = skill('l1-equation-second-degre-complexe', 'Résoudre une équa
   };
 });
 
-export const COMPLEXES_SKILLS: Skill[] = enrichir([algebrique, moduleSkill, equation, argument, puissance, racineCarree], COMPLEXES_VARIANTES);
+export const COMPLEXES_SKILLS: Skill[] = [algebrique, moduleSkill, equation, argument, puissance, racineCarree];

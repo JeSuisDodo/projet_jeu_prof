@@ -1,8 +1,6 @@
 import type { Skill } from '../types';
 import { F, det, fixedChoice, num, numF, pairOf, randomMatrix, rank, skill, tex, vec } from './util';
 import { equation } from './systemes';
-import { enrichir } from '../licenceVariantes';
-import { ESPACES_VARIANTES } from './variantes/espaces';
 
 /** Chapitre « Espaces vectoriels » (Licence 1). */
 
@@ -117,4 +115,4 @@ const dimensionsUsuelles = skill('l1-dimensions-usuelles', 'Connaître les dimen
   };
 });
 
-export const ESPACES_SKILLS: Skill[] = enrichir([libre, dimensionsUsuelles, coordonnees, dimensionNoyau, parametreLiee], ESPACES_VARIANTES);
+export const ESPACES_SKILLS: Skill[] = [libre, dimensionsUsuelles, coordonnees, dimensionNoyau, parametreLiee];

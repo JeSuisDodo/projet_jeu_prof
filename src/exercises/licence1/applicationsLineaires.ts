@@ -1,7 +1,5 @@
 import type { Skill } from '../types';
 import { F, det, mat, matMul, num, numF, pairOf, par, randomMatrix, rank, skill, tex, vec } from './util';
-import { enrichir } from '../licenceVariantes';
-import { APPLICATIONS_LINEAIRES_VARIANTES } from './variantes/applicationsLineaires';
 
 /** Chapitre « Applications linéaires » (Licence 1). */
 
@@ -140,4 +138,4 @@ const noyauForme = skill('l1-noyau-forme-lineaire', 'Trouver un vecteur du noyau
   };
 });
 
-export const APPLICATIONS_LINEAIRES_SKILLS: Skill[] = enrichir([image, matrice, rangNoyau, noyauForme, changementBase], APPLICATIONS_LINEAIRES_VARIANTES);
+export const APPLICATIONS_LINEAIRES_SKILLS: Skill[] = [image, matrice, rangNoyau, noyauForme, changementBase];

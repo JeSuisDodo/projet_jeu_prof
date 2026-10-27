@@ -1,7 +1,5 @@
 import type { Rng } from '../rng';
 import type { Skill } from '../types';
-import { enrichir } from '../licenceVariantes';
-import { LOGIQUE_VARIANTES } from './variantes/logique';
 import { binom, fixedChoice, texChoice, num, setOf, setTex, skill } from './util';
 
 /** Chapitre « Logique et ensembles » (Licence 1). */
@@ -156,4 +154,4 @@ const operations = skill('l1-operations-ensembles', 'Calculer avec des ensembles
   };
 });
 
-export const LOGIQUE_SKILLS: Skill[] = enrichir([tableVerite, negation, operations, cardinalUnion, parties], LOGIQUE_VARIANTES);
+export const LOGIQUE_SKILLS: Skill[] = [tableVerite, negation, operations, cardinalUnion, parties];

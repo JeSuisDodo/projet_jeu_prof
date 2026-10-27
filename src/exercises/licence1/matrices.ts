@@ -1,8 +1,6 @@
 import type { Rng } from '../rng';
 import type { Skill } from '../types';
 import { F, type Matrix, det, mat, matMul, num, numF, par, randomMatrix, rank, skill, tex, transpose } from './util';
-import { enrichir } from '../licenceVariantes';
-import { MATRICES_VARIANTES } from './variantes/matrices';
 
 /** Chapitre « Matrices » (Licence 1). */
 
@@ -157,4 +155,4 @@ const rangMatrice = skill('l1-rang-matrice', 'Calculer le rang d’une matrice',
   };
 });
 
-export const MATRICES_SKILLS: Skill[] = enrichir([produit, trace, determinant, inverse, puissance, rangMatrice], MATRICES_VARIANTES);
+export const MATRICES_SKILLS: Skill[] = [produit, trace, determinant, inverse, puissance, rangMatrice];

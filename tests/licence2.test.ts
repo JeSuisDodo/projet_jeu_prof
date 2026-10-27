@@ -1,7 +1,7 @@
 import katex from 'katex';
 import { describe, expect, it } from 'vitest';
 import { LICENCE2 } from '../src/content/licence2';
-import { origine } from '../src/exercises/licenceVariantes';
+import { baseOf } from '../src/exercises/variantes';
 import { Rng } from '../src/exercises/rng';
 import { type Answer, type Level, type Response, checkAnswer } from '../src/exercises/types';
 import { conjugate, det2, det3, diag, matMul, sumF, trace, unimodular, F } from '../src/exercises/licence2/util';
@@ -86,7 +86,7 @@ describe('Licence 2 : outils de calcul', () => {
   });
 
   it('les bonnes réponses sont justes sur quelques cas connus', () => {
-    const byId = (id: string) => origine(skills.find((s) => s.id === id)!);
+    const byId = (id: string) => baseOf(skills.find((s) => s.id === id)!);
     // Vandermonde : la réponse est le produit (b − a)(c − a)(c − b) des valeurs lues dans l'énoncé.
     for (let seed = 1; seed <= 50; seed++) {
       const ex = byId('l2-det-vandermonde').generate(new Rng(seed), 2);

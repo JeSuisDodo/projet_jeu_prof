@@ -1,4 +1,6 @@
 import type { GradeDef } from '../types';
+import { enrichChapters } from '../../exercises/variantes';
+import { VARIANTES_L1 } from '../../exercises/licence1/variantes';
 import { LOGIQUE } from './logique';
 import { APPLICATIONS } from './applications';
 import { ARITHMETIQUE } from './arithmetique';
@@ -23,5 +25,5 @@ export const LICENCE1: GradeDef = {
   name: 'Licence 1',
   stage: 'universite',
   island: 'Île des Fondements',
-  chapters: [LOGIQUE, APPLICATIONS, ARITHMETIQUE, COMPLEXES, SOMMES, POLYNOMES, SUITES, CONTINUITE, DERIVABILITE, DL, INTEGRATION, EQUADIFF, SYSTEMES, MATRICES, ESPACES, APPLICATIONS_LINEAIRES, PROBABILITES],
+  chapters: enrichChapters([LOGIQUE, APPLICATIONS, ARITHMETIQUE, COMPLEXES, SOMMES, POLYNOMES, SUITES, CONTINUITE, DERIVABILITE, DL, INTEGRATION, EQUADIFF, SYSTEMES, MATRICES, ESPACES, APPLICATIONS_LINEAIRES, PROBABILITES], VARIANTES_L1),
 };
