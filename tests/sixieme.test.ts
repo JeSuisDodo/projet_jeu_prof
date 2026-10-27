@@ -4,6 +4,7 @@ import { GRADES } from '../src/content';
 import { SIXIEME } from '../src/content/sixieme';
 import { frac, parseFrac } from '../src/exercises/fraction';
 import { Rng } from '../src/exercises/rng';
+import { baseOf } from '../src/exercises/variantes';
 import { digitAt, enLettres, roundTo } from '../src/exercises/sixieme/nombres';
 import { oneDigit } from '../src/exercises/sixieme/operations';
 import { num } from '../src/exercises/sixieme/outils';
@@ -15,7 +16,7 @@ const skills = SIXIEME.chapters.flatMap((c) => c.skills);
 const skill = (id: string) => {
   const s = skills.find((x) => x.id === id);
   if (!s) throw new Error(`Compétence absente : ${id}`);
-  return s;
+  return baseOf(s);
 };
 
 function* draws(id: string, count = 120): Generator<Exercise> {

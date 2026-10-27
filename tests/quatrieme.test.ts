@@ -2,6 +2,7 @@ import katex from 'katex';
 import { describe, expect, it } from 'vitest';
 import { QUATRIEME } from '../src/content/quatrieme';
 import { Rng } from '../src/exercises/rng';
+import { baseOf } from '../src/exercises/variantes';
 import { type Answer, type Level, type Response, checkAnswer } from '../src/exercises/types';
 import { skillById } from '../src/content';
 
@@ -53,7 +54,7 @@ describe('4e', () => {
 const numbers = (s: string) => [...s.replace(/{,}/g, ',').matchAll(/-?\d+(?:[.,]\d+)?/g)].map((m) => Number(m[0].replace(',', '.')));
 
 describe('4e : justesse des calculs', () => {
-  const gen = (id: string, level: Level, seed: number) => skillById(id).generate(new Rng(seed), level);
+  const gen = (id: string, level: Level, seed: number) => baseOf(skillById(id)).generate(new Rng(seed), level);
 
   it('Pythagore : hypoténuse² = somme des carrés', () => {
     for (let seed = 1; seed <= 300; seed++) {

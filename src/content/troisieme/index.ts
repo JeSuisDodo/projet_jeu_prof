@@ -1,3 +1,5 @@
+import { VARIANTES_3E } from '../../exercises/troisieme/variantes';
+import { enrichChapters } from '../../exercises/variantes';
 import type { GradeDef } from '../types';
 import { ALGORITHMIQUE } from './algorithmique';
 import { ARITHMETIQUE } from './arithmetique';
@@ -22,7 +24,7 @@ export const TROISIEME: GradeDef = {
   name: '3e',
   stage: 'college',
   island: 'Île du Brevet',
-  chapters: [
+  chapters: enrichChapters([
     ARITHMETIQUE,
     PUISSANCES,
     CALCUL_LITTERAL,
@@ -39,5 +41,5 @@ export const TROISIEME: GradeDef = {
     STATISTIQUES,
     PROBABILITES,
     ALGORITHMIQUE,
-  ],
+  ], VARIANTES_3E),
 };

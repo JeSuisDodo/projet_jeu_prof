@@ -57,3 +57,19 @@ son LaTeX s'affiche.
 
 Les cours lus sont comptés dans la sauvegarde (`lessons`) et visibles par le professeur dans le
 détail de chaque élève.
+
+## Variantes d'exercices
+
+Une compétence peut poser sa question sous plusieurs formes : problème concret, question inverse,
+vrai ou faux, erreur classique à repérer… (beaucoup d'idées viennent des feuilles d'exercices de
+bibmath.net, transformées en modèles paramétrés). Les variantes d'une classe s'écrivent dans
+`src/exercises/<classe>/variantes/`, sous forme d'un catalogue `{ identifiant de compétence: Variant[] }`
+branché par `enrichChapters` dans le `GradeDef` de la classe (modèle : la 3e). Chaque `Variant` a un
+`name`, un niveau minimal `from` (facultatif) et une fonction `make` qui renvoie l'énoncé, la réponse,
+l'indice et la correction. Le jeu tire au sort la forme d'origine ou l'une des variantes ; les
+identifiants ne changent pas, la sauvegarde n'est donc pas touchée.
+
+`tests/variantes.test.ts` vérifie chaque variante seule (énoncé propre, LaTeX lisible, bonne réponse
+acceptée, mauvaise refusée). La justesse se teste à part en recalculant la réponse depuis l'énoncé,
+avec `variantOf(compétence, nom)` (modèle : `tests/troisieme-variantes.test.ts`). Les tests qui relisent
+l'énoncé de la forme d'origine passent par `baseOf(compétence)`.
