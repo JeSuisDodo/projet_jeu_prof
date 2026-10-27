@@ -644,3 +644,82 @@ describe('variantes de 2nde : géométrie repérée', () => {
     }
   });
 });
+
+/** Pourcentages signés lus dans « une hausse de $20\,\%$ » / « une baisse de $15\,\%$ ». */
+const evolutions = (s: string) => [...s.matchAll(/(hausse|baisse) de \$([\d{},]+)\\,\\%\$/g)].map((m) => (m[1] === 'hausse' ? 1 : -1) * lireNombre(m[2]));
+const pourcents = (s: string) => [...s.matchAll(/\$([\d{},]+)\\,\\%\$/g)].map((m) => lireNombre(m[1]));
+
+describe('variantes de 2nde : information chiffrée', () => {
+  it('calcule effectifs, totaux et proportions de proportions', () => {
+    for (const ex of t('2nde-proportion', 'effectif')) {
+      const [total] = nombres(ex.prompt);
+      const [p] = pourcents(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo((total * p) / 100);
+      expect(Number.isInteger(valeur(ex))).toBe(true);
+    }
+    for (const ex of t('2nde-proportion', 'total')) {
+      const [part] = nombres(ex.prompt);
+      const [p] = pourcents(ex.prompt);
+      expect((valeur(ex) * p) / 100).toBeCloseTo(part);
+    }
+    for (const ex of t('2nde-proportion-proportion', 'retrouver')) {
+      const [p1, g] = pourcents(ex.prompt);
+      expect((p1 * valeur(ex)) / 100).toBeCloseTo(g);
+    }
+    for (const ex of t('2nde-proportion-proportion', 'effectif')) {
+      const [total] = nombres(ex.prompt);
+      const [p1, p2] = pourcents(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo((total * p1 * p2) / 10000);
+      expect(Number.isInteger(valeur(ex))).toBe(true);
+    }
+  });
+
+  it('relie taux et coefficients multiplicateurs', () => {
+    for (const ex of t('2nde-taux-evolution', 'depuis-coef')) expect(1 + valeur(ex) / 100).toBeCloseTo(nombres(ex.prompt)[0]);
+    for (const ex of t('2nde-taux-evolution', 'multiple')) {
+      const k = /doublé/.test(ex.prompt) ? 2 : /triplé/.test(ex.prompt) ? 3 : /multiplié par 5/.test(ex.prompt) ? 5 : 1 / Number(/divisé par (\d)/.exec(ex.prompt)![1]);
+      expect(1 + valeur(ex) / 100).toBeCloseTo(k);
+    }
+    for (const ex of t('2nde-coef-multiplicateur', 'entre-deux-valeurs')) {
+      const [a, b] = nombres(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo(b / a);
+    }
+    for (const ex of t('2nde-coef-multiplicateur', 'erreur')) {
+      const [p] = pourcents(ex.prompt);
+      const [k] = nombres(ex.prompt.split('multiplie par')[1]);
+      expect(optionJuste(ex)).toBe(Math.abs(k - (1 - p / 100)) < 1e-9 ? 'Oui' : 'Non');
+    }
+  });
+
+  it('enchaîne et inverse des évolutions', () => {
+    for (const nom of ['hausse-puis-baisse', 'trois-evolutions'])
+      for (const ex of t('2nde-evolutions-successives', nom)) {
+        const cm = evolutions(ex.prompt).reduce((acc, e) => acc * (1 + e / 100), 1);
+        expect(valeur(ex)).toBeCloseTo((cm - 1) * 100);
+      }
+    for (const ex of t('2nde-evolutions-successives', 'vrai-faux')) {
+      const [t1, t2, g] = pourcents(ex.prompt);
+      expect(optionJuste(ex)).toBe(Math.abs((1 + t1 / 100) * (1 + t2 / 100) - (1 + g / 100)) < 1e-9 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('2nde-evolution-reciproque', 'soldes')) {
+      const [baisse] = pourcents(ex.prompt);
+      expect((1 - baisse / 100) * (1 + valeur(ex) / 100)).toBeCloseTo(1);
+    }
+    for (const ex of t('2nde-evolution-reciproque', 'vrai-faux')) {
+      const [e1, e2] = evolutions(ex.prompt);
+      expect(optionJuste(ex)).toBe(Math.abs((1 + e1 / 100) * (1 + e2 / 100) - 1) < 1e-9 ? 'Vrai' : 'Faux');
+    }
+  });
+
+  it('applique TVA et remises', () => {
+    for (const ex of t('2nde-valeur-finale', 'tva')) {
+      const [p] = nombres(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo(ex.prompt.includes('TTC, avec') ? p / 1.2 : p * 1.2);
+    }
+    for (const ex of t('2nde-valeur-finale', 'deux-remises')) {
+      const [p] = nombres(ex.prompt);
+      const [r1, r2] = pourcents(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo(p * (1 - r1 / 100) * (1 - r2 / 100));
+    }
+  });
+});
