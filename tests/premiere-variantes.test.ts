@@ -670,3 +670,88 @@ describe('variantes de 1re : suites arithmétiques et géométriques', () => {
     }
   });
 });
+
+describe('variantes de 1re : suites numériques', () => {
+  const formuleU = (s: string) => /u_n = (.+?)\$/.exec(s)![1];
+  const u = (s: string) => (n: number) => texEval(formuleU(s).replace(/n/g, `(${n})`), 0);
+  const suite = (s: string, nb = 40) => {
+    const u0 = Number(/u_0 = (-?\d+)/.exec(s)![1]);
+    const rec = /u_\{n\+1\} = (.+?)\$/.exec(s)![1];
+    const termes = [u0];
+    for (let n = 0; n < nb; n++) termes.push(texEval(rec.replace(/u_n/g, `(${termes[n]})`).replace(/n/g, `(${n})`), 0));
+    return termes;
+  };
+  const sens = (v: number[]) => {
+    const d = v.slice(1).map((x, i) => x - v[i]);
+    return d.every((x) => x > 0) ? 'Croissante' : d.every((x) => x < 0) ? 'Décroissante' : 'Ni croissante ni décroissante';
+  };
+
+  it('calcule des termes', () => {
+    for (const ex of t('1re-suite-explicite', 'fraction')) {
+      const k = Number(/u_\{(\d+)\}/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeCloseTo(u(ex.prompt)(k), 12);
+    }
+    for (const ex of t('1re-suite-explicite', 'retrouver-rang')) {
+      const v = Number(/u_n = (-?\d+)\$ \?/.exec(ex.prompt)![1]);
+      const g = u(ex.prompt);
+      const rangs = Array.from({ length: 100 }, (_, n) => n).filter((n) => g(n) === v);
+      expect(rangs).toEqual([valeur(ex)]);
+    }
+    for (const ex of t('1re-suite-explicite', 'somme-des-premiers')) {
+      const g = u(ex.prompt);
+      expect(valeur(ex)).toBe(g(0) + g(1) + g(2) + g(3));
+    }
+    for (const ex of t('1re-suite-recurrente', 'remonter')) {
+      const termes = suite(ex.prompt.replace('vérifie,', `vérifie $u_0 = ${valeur(ex)}$,`), 2);
+      expect(termes[2]).toBe(Number(/u_2 = (-?\d+)/.exec(ex.prompt)![1]));
+    }
+    for (const ex of t('1re-suite-recurrente', 'carre')) expect(valeur(ex)).toBe(suite(ex.prompt, 3)[3]);
+    for (const ex of t('1re-suite-recurrente', 'fibonacci')) {
+      const [u0, u1] = [/u_0 = (-?\d+)/, /u_1 = (-?\d+)/].map((r) => Number(r.exec(ex.prompt)![1]));
+      const v = [u0, u1];
+      for (let i = 2; i <= 6; i++) v.push(v[i - 1] + v[i - 2]);
+      expect(valeur(ex)).toBe(v[6]);
+    }
+  });
+
+  it('exprime des termes en fonction de n', () => {
+    for (const ex of t('1re-suite-suivant', 'u-2n')) {
+      const g = u(ex.prompt);
+      const h = optionJuste(ex).replace(/^\$u_\{2n\} = |\$$/g, '');
+      for (const n of [0, 1, 3, 7]) expect(texEval(h.replace(/n/g, `(${n})`), 0)).toBeCloseTo(g(2 * n), 9);
+    }
+    for (const ex of t('1re-suite-suivant', 'difference')) {
+      const g = u(ex.prompt);
+      const h = optionJuste(ex).replace(/\$/g, '');
+      for (const n of [0, 1, 3, 7]) expect(texEval(h.replace(/n/g, `(${n})`), 0)).toBeCloseTo(g(n + 1) - g(n), 9);
+    }
+  });
+
+  it('étudie le sens de variation', () => {
+    for (const ex of t('1re-suite-variation', 'geometrique')) {
+      const g = u(ex.prompt);
+      expect(optionJuste(ex), ex.prompt).toBe(sens(Array.from({ length: 12 }, (_, n) => g(n))));
+    }
+    for (const ex of t('1re-suite-variation', 'quotient')) {
+      const g = u(ex.prompt);
+      expect(optionJuste(ex), ex.prompt).toBe(sens(Array.from({ length: 30 }, (_, n) => g(n))));
+    }
+    for (const ex of t('1re-suite-variation', 'recurrence')) expect(optionJuste(ex), ex.prompt).toBe(sens(suite(ex.prompt, 20)));
+  });
+
+  it('détermine des seuils', () => {
+    for (const ex of t('1re-suite-seuil', 'algorithme')) {
+      const [u0, S] = [/u \\leftarrow (\d+)\$/, /u [<>] (\d+)\$/].map((r) => Number(r.exec(ex.prompt)![1]));
+      const q = lireNombre(/u \\leftarrow (\d+(?:\{,\}\d+)?)u\$/.exec(ex.prompt)![1]);
+      const baisse = ex.prompt.includes('u >');
+      const n = valeur(ex);
+      const terme = (k: number) => u0 * q ** k;
+      expect(baisse ? terme(n) <= S && terme(n - 1) > S : terme(n) >= S && terme(n - 1) < S, ex.prompt).toBe(true);
+    }
+    for (const ex of t('1re-suite-seuil', 'doublement')) {
+      const taux = Number(/taux annuel de \$(\d+)/.exec(ex.prompt)![1]) / 100;
+      const n = valeur(ex);
+      expect((1 + taux) ** n > 2 && (1 + taux) ** (n - 1) <= 2).toBe(true);
+    }
+  });
+});

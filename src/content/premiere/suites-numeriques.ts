@@ -1,6 +1,7 @@
-import { frac } from '../../exercises/fraction';
+import { frac, fracLatex } from '../../exercises/fraction';
 import { paren, sumLatex } from '../../exercises/latex';
 import { type Skill, makeChoice } from '../../exercises/types';
+import { enrich, variant } from '../../exercises/variantes';
 import type { ChapterDef } from '../types';
 
 /** 1re spécialité, chapitre « Suites numériques » : modes de génération et sens de variation. */
@@ -142,13 +143,205 @@ const seuil: Skill = {
   },
 };
 
+const dec = (x: number) => String(x).replace('.', '{,}');
+
+const expliciteVariantes = [
+  variant('fraction', (rng) => {
+    const a = rng.nonZero(-5, 5);
+    const b = rng.int(-6, 6);
+    const c = rng.int(1, 5);
+    const k = rng.int(0, 9);
+    const value = frac(a * k + b, k + c);
+    return {
+      prompt: `Pour tout entier $n \\geq 0$, $u_n = \\frac{${sumLatex([[a, 'n'], [b, '']]) || '0'}}{n + ${c}}$. Calcule $u_{${k}}$ (fraction).`,
+      answer: { kind: 'number', value },
+      hint: `Remplace $n$ par $${k}$ au numérateur et au dénominateur.`,
+      correction: [`$u_{${k}} = \\frac{${a * k + b}}{${k + c}} = ${fracLatex(value)}$`],
+    };
+  }),
+  variant('retrouver-rang', (rng) => {
+    const n = rng.int(2, 15);
+    const b = rng.int(-n + 1, 8);
+    const v = n * n + b * n;
+    return {
+      prompt: `Pour tout entier $n \\geq 0$, $u_n = ${poly(1, b, 0)}$. Pour quel entier $n$ a-t-on $u_n = ${v}$ ?`,
+      answer: { kind: 'number', value: frac(n) },
+      hint: 'Résous l’équation du second degré, et garde la solution entière positive.',
+      correction: [`$${poly(1, b, -v)} = 0$ a pour solutions $${n}$ et $${-b - n}$ ; la seule qui convient est $n = ${n}$.`],
+    };
+  }),
+  variant('somme-des-premiers', (rng) => {
+    const a = rng.int(-2, 2);
+    const b = rng.nonZero(-5, 5);
+    const c = rng.int(-6, 6);
+    const terms = [0, 1, 2, 3].map((k) => a * k * k + b * k + c);
+    const total = terms.reduce((x, y) => x + y, 0);
+    return {
+      prompt: `Pour tout entier $n \\geq 0$, $u_n = ${poly(a, b, c)}$. Calcule $u_0 + u_1 + u_2 + u_3$.`,
+      answer: { kind: 'number', value: frac(total) },
+      hint: 'Calcule chacun des quatre termes, puis additionne.',
+      correction: [`$u_0 = ${terms[0]}$, $u_1 = ${terms[1]}$, $u_2 = ${terms[2]}$, $u_3 = ${terms[3]}$ : la somme vaut $${total}$.`],
+    };
+  }),
+];
+
+const recurrenteVariantes = [
+  variant('remonter', (rng) => {
+    const a = rng.pick([1, 2, -1, 3]);
+    const b = rng.nonZero(-5, 5);
+    const u0 = rng.int(-5, 5);
+    const u1 = a * u0 + b;
+    const u2 = a * u1 + b;
+    return {
+      prompt: `La suite $(u_n)$ vérifie, pour tout $n \\geq 0$, $u_{n+1} = ${sumLatex([[a, 'u_n'], [b, '']])}$, et $u_2 = ${u2}$. Calcule $u_0$.`,
+      answer: { kind: 'number', value: frac(u0) },
+      hint: 'Remonte : trouve d’abord $u_1$ à partir de $u_2$, puis $u_0$.',
+      correction: [`$${sumLatex([[a, 'u_1'], [b, '']])} = ${u2}$ donne $u_1 = ${u1}$.`, `$${sumLatex([[a, 'u_0'], [b, '']])} = ${u1}$ donne $u_0 = ${u0}$.`],
+    };
+  }),
+  variant('carre', (rng) => {
+    const c = rng.int(-3, 3);
+    const u0 = rng.int(-2, 2);
+    const terms = [u0];
+    for (let i = 0; i < 3; i++) terms.push(terms[i] ** 2 + c);
+    return {
+      prompt: `La suite $(u_n)$ est définie par $u_0 = ${u0}$ et $u_{n+1} = ${sumLatex([[1, 'u_n^2'], [c, '']])}$. Calcule $u_3$.`,
+      answer: { kind: 'number', value: frac(terms[3]) },
+      hint: 'Calcule $u_1$, puis $u_2$, puis $u_3$.',
+      correction: terms.slice(1).map((v, i) => `$u_{${i + 1}} = ${paren(terms[i])}^2 ${c < 0 ? '-' : '+'} ${Math.abs(c)} = ${v}$`),
+    };
+  }),
+  variant('fibonacci', (rng) => {
+    const u0 = rng.int(-3, 5);
+    const u1 = rng.int(-3, 5);
+    const terms = [u0, u1];
+    for (let i = 2; i <= 6; i++) terms.push(terms[i - 1] + terms[i - 2]);
+    return {
+      prompt: `La suite $(u_n)$ est définie par $u_0 = ${u0}$, $u_1 = ${u1}$ et, pour tout $n \\geq 0$, $u_{n+2} = u_{n+1} + u_n$. Calcule $u_6$.`,
+      answer: { kind: 'number', value: frac(terms[6]) },
+      hint: 'Chaque terme est la somme des deux précédents.',
+      correction: [terms.map((v, i) => `$u_{${i}} = ${v}$`).join(', ')],
+    };
+  }),
+];
+
+const suivantVariantes = [
+  variant('u-2n', (rng) => {
+    const a = rng.nonZero(-3, 3);
+    const b = rng.int(-5, 5);
+    const c = rng.int(-6, 6);
+    const good = poly(4 * a, 2 * b, c);
+    const decoys = [poly(2 * a, 2 * b, c), poly(2 * a, 2 * b, 2 * c), poly(4 * a, 2 * b, 2 * c), poly(4 * a, b, c)];
+    return {
+      prompt: `Pour tout entier $n$, $u_n = ${poly(a, b, c)}$. Quelle est l'expression de $u_{2n}$ ?`,
+      answer: makeChoice(rng, `$u_{2n} = ${good}$`, decoys.map((d) => `$u_{2n} = ${d}$`), () => `$u_{2n} = ${poly(4 * a, rng.int(-9, 9), c)}$`),
+      hint: 'Remplace $n$ par $2n$ : attention, $(2n)^2 = 4n^2$.',
+      correction: [`$u_{2n} = ${sumLatex([[a, '(2n)^2'], [b, '(2n)'], [c, '']])} = ${good}$`],
+    };
+  }),
+  variant('difference', (rng) => {
+    const a = rng.nonZero(-3, 3);
+    const b = rng.int(-5, 5);
+    const c = rng.int(-6, 6);
+    const lin = (p: number, q: number) => sumLatex([[p, 'n'], [q, '']]) || '0';
+    const good = lin(2 * a, a + b);
+    return {
+      prompt: `Pour tout entier $n$, $u_n = ${poly(a, b, c)}$. Que vaut $u_{n+1} - u_n$ ?`,
+      answer: makeChoice(rng, `$${good}$`, [lin(2 * a, b), lin(a, a + b), lin(2 * a, a + b + c), lin(2 * a, a)].map((d) => `$${d}$`), () => `$${lin(2 * a, rng.int(-9, 9))}$`),
+      hint: 'Développe $u_{n+1}$, puis soustrais $u_n$ : les termes en $n^2$ s’éliminent.',
+      correction: [`$u_{n+1} = ${poly(a, 2 * a + b, a + b + c)}$`, `$u_{n+1} - u_n = ${good}$`],
+    };
+  }),
+];
+
+const variationVariantes = [
+  variant('geometrique', (rng) => {
+    const c = rng.nonZero(-5, 5);
+    const [qTex, q] = rng.pick([['2', 2], ['3', 3], ['\\frac{1}{2}', 0.5], ['\\frac{1}{3}', 1 / 3], ['(-2)', -2]] as [string, number][]);
+    const correct = q < 0 ? 2 : (c > 0) === (q > 1) ? 0 : 1;
+    return {
+      prompt: `Pour tout entier $n \\geq 0$, $u_n = ${c === 1 ? '' : c === -1 ? '-' : `${c}\\times `}${qTex}^n$. Quel est le sens de variation de la suite $(u_n)$ ?`,
+      answer: { kind: 'choice', options: OPTIONS, correct },
+      hint: '$u_{n+1} - u_n = u_n(q - 1)$ : étudie le signe de chaque facteur.',
+      correction: [
+        q < 0 ? 'La raison est négative : les termes changent de signe à chaque rang, la suite n’est pas monotone.' : `$u_{n+1} - u_n = ${c}\\times ${qTex}^n \\times (${qTex} - 1)$, qui est ${correct === 0 ? 'positif' : 'négatif'} : la suite est ${correct === 0 ? 'croissante' : 'décroissante'}.`,
+      ],
+    };
+  }),
+  variant('quotient', (rng) => {
+    const c = rng.int(-5, 5);
+    const k = rng.nonZero(-6, 6);
+    const d = rng.int(1, 4);
+    const correct = k < 0 ? 0 : 1;
+    return {
+      prompt: `Pour tout entier $n \\geq 0$, $u_n = ${c === 0 ? '' : `${c} ${k < 0 ? '-' : '+'} `}${c === 0 && k < 0 ? '-' : ''}\\frac{${Math.abs(k)}}{n + ${d}}$. Quel est le sens de variation de la suite $(u_n)$ ?`,
+      answer: { kind: 'choice', options: OPTIONS, correct },
+      hint: 'Quand $n$ augmente, $\\frac{1}{n + d}$ diminue.',
+      correction: [`$\\frac{${Math.abs(k)}}{n + ${d}}$ diminue quand $n$ augmente ; ${k > 0 ? 'on l’ajoute' : 'on le retranche'}, donc la suite est ${correct === 0 ? 'croissante' : 'décroissante'}.`],
+    };
+  }),
+  variant('recurrence', (rng) => {
+    const kind = rng.int(0, 2);
+    const k = rng.int(1, 5);
+    const u0 = rng.int(-5, 5);
+    const ajout = kind === 0 ? sumLatex([[1, 'n^2'], [k, '']]) : kind === 1 ? `(n + ${k})^2` : sumLatex([[1, 'n'], [-k, '']]);
+    const op = kind === 1 ? '-' : '+';
+    return {
+      prompt: `La suite $(u_n)$ est définie par $u_0 = ${u0}$ et $u_{n+1} = u_n ${op} ${kind === 2 ? `(${ajout})` : ajout}$. Quel est le sens de variation de la suite $(u_n)$ ?`,
+      answer: { kind: 'choice', options: OPTIONS, correct: kind },
+      hint: 'Exprime $u_{n+1} - u_n$ et étudie son signe.',
+      correction: [
+        kind === 0 ? `$u_{n+1} - u_n = ${ajout} > 0$ : la suite est croissante.` : kind === 1 ? `$u_{n+1} - u_n = -(n + ${k})^2 < 0$ : la suite est décroissante.` : `$u_{n+1} - u_n = ${ajout}$ est négatif pour $n < ${k}$ et positif pour $n > ${k}$ : la suite n'est pas monotone.`,
+      ],
+    };
+  }),
+];
+
+const seuilVariantes = [
+  variant('algorithme', (rng) => {
+    const baisse = rng.next() < 0.5;
+    const u0 = baisse ? 100 * rng.int(5, 50) : rng.int(1, 9);
+    const q = baisse ? 0.5 : rng.pick([2, 3]);
+    const S = baisse ? rng.int(2, 40) : rng.int(50, 2000);
+    let u = u0;
+    let n = 0;
+    while (baisse ? u > S : u < S) {
+      u *= q;
+      n++;
+    }
+    return {
+      prompt: `On exécute l'algorithme suivant : $u \\leftarrow ${u0}$ et $n \\leftarrow 0$ ; tant que $u ${baisse ? '>' : '<'} ${S}$, $u \\leftarrow ${dec(q)}u$ et $n \\leftarrow n + 1$. Quelle est la valeur de $n$ à la fin ?`,
+      answer: { kind: 'number', value: frac(n) },
+      hint: 'Fais tourner l’algorithme à la main en notant $u$ et $n$ à chaque tour.',
+      correction: [`L'algorithme s'arrête dès que $u ${baisse ? '\\leq' : '\\geq'} ${S}$, ici pour $u = ${dec(u)}$ : $n = ${n}$.`],
+    };
+  }),
+  variant('doublement', (rng) => {
+    const t = rng.pick([5, 10, 15, 20, 25, 30, 50]);
+    let n = 0;
+    while ((1 + t / 100) ** n <= 2) n++;
+    return {
+      prompt: `Un capital est placé à intérêts composés au taux annuel de $${t}\\,\\%$. Au bout de combien d'années aura-t-il plus que doublé ?`,
+      answer: { kind: 'number', value: frac(n) },
+      hint: `Cherche le plus petit entier $n$ tel que $${dec(1 + t / 100)}^n > 2$.`,
+      correction: [`$${dec(1 + t / 100)}^{${n - 1}} \\approx ${dec(Math.round((1 + t / 100) ** (n - 1) * 1000) / 1000)} \\leq 2$ et $${dec(1 + t / 100)}^{${n}} \\approx ${dec(Math.round((1 + t / 100) ** n * 1000) / 1000)} > 2$ : il faut $${n}$ ans.`],
+    };
+  }),
+];
+
 export const SUITES_NUMERIQUES: ChapterDef = {
   id: '1re-suites-numeriques',
   title: 'Suites numériques',
   region: 'Prairie des Suites',
   theme: 'prairie',
   terrain: 'lac',
-  skills: [explicite, recurrente, suivant, variation, seuil],
+  skills: [
+    enrich(explicite, expliciteVariantes),
+    enrich(recurrente, recurrenteVariantes),
+    enrich(suivant, suivantVariantes),
+    enrich(variation, variationVariantes),
+    enrich(seuil, seuilVariantes),
+  ],
   creatures: [
     {
       id: '1re-suivanou',
