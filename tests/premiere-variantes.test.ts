@@ -482,3 +482,92 @@ describe('variantes de 1re : probabilités conditionnelles', () => {
     }
   });
 });
+
+describe('variantes de 1re : produit scalaire', () => {
+  const vecs = (s: string) => [...s.matchAll(/\\begin\{pmatrix\} (-?\w+) \\\\ (-?\d+) \\end\{pmatrix\}/g)].map((m) => [Number(m[1]), Number(m[2])]);
+  const pts = (s: string) => Object.fromEntries([...s.matchAll(/([A-Z])\((-?\d+)\\,;\\,(-?\d+)\)/g)].map((m) => [m[1], [Number(m[2]), Number(m[3])]]));
+  const egalites = (s: string) => Object.fromEntries([...s.matchAll(/\$([^$]+?) = (-?\d+)\$/g)].map((m) => [m[1], Number(m[2])]));
+  const dot = (u: number[], v: number[]) => u[0] * v[0] + u[1] * v[1] + 0;
+  const sub = (p: number[], q: number[]) => [q[0] - p[0], q[1] - p[1]];
+  const nature = (d: number) => (d > 0 ? 'aigu' : d === 0 ? 'droit' : 'obtus');
+  const U = '\\|\\vec{u}\\|';
+  const V = '\\|\\vec{v}\\|';
+  const UV = '\\vec{u} \\cdot \\vec{v}';
+
+  it('calcule avec les coordonnées', () => {
+    for (const ex of t('1re-ps-coordonnees', 'points')) {
+      const { A, B, C } = pts(ex.prompt);
+      expect(valeur(ex)).toBe(dot(sub(A, B), sub(A, C)));
+    }
+    for (const ex of t('1re-ps-coordonnees', 'norme-somme')) {
+      const [u, v] = vecs(ex.prompt);
+      const w = ex.prompt.includes('\\vec{u} -') ? [u[0] - v[0], u[1] - v[1]] : [u[0] + v[0], u[1] + v[1]];
+      expect(valeur(ex)).toBe(dot(w, w));
+    }
+    for (const ex of t('1re-ps-coordonnees', 'vrai-faux-orthogonaux')) {
+      const [u, v] = vecs(ex.prompt);
+      expect(optionJuste(ex)).toBe(dot(u, v) === 0 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('1re-ps-orthogonal', 'triangle-rectangle')) {
+      const { A, B, C } = pts(ex.prompt);
+      expect(optionJuste(ex)).toBe(dot(sub(A, B), sub(A, C)) === 0 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('1re-ps-orthogonal', 'deux-valeurs')) {
+      const [[, a], [, b]] = vecs(ex.prompt);
+      if (ex.answer.kind !== 'set') throw new Error('ensemble attendu');
+      const ms = ex.answer.values.map((v) => v.n / v.d);
+      for (const m of ms) expect(m * m + a * b).toBe(0);
+      expect(ms.length).toBe(2);
+    }
+  });
+
+  it('utilise normes, angles et Al-Kashi', () => {
+    for (const ex of t('1re-ps-norme-angle', 'nature-angle')) expect(optionJuste(ex)).toBe(nature(egalites(ex.prompt)[UV]));
+    for (const ex of t('1re-ps-norme-angle', 'cosinus')) {
+      const e = egalites(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo(e[UV] / (e[U] * e[V]), 12);
+    }
+    for (const ex of t('1re-ps-norme-angle', 'norme-inconnue')) {
+      const nv = egalites(ex.prompt)[V];
+      const angle = texEval(/mesure \$(.+?)\$/.exec(ex.prompt)![1], 0);
+      const d = texEval(/\\cdot \\vec\{v\} = (.+?)\$/.exec(ex.prompt)![1], 0);
+      expect(valeur(ex) * nv * Math.cos(angle)).toBeCloseTo(d, 9);
+    }
+    const cotes = (s: string) => /AB = (\d+)\$, \$AC = (\d+)\$ et \$BC = (\d+)/.exec(s)!.slice(1).map(Number);
+    for (const ex of t('1re-ps-al-kashi', 'cosinus-angle')) {
+      const [c, b, a] = cotes(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo((b * b + c * c - a * a) / (2 * b * c), 12);
+      expect(a < b + c && b < a + c && c < a + b).toBe(true);
+    }
+    for (const ex of t('1re-ps-al-kashi', 'nature-triangle')) {
+      const [c, b, a] = cotes(ex.prompt);
+      expect(optionJuste(ex)).toBe(nature(b * b + c * c - a * a));
+    }
+    for (const ex of t('1re-ps-polarisation', 'somme-et-difference')) {
+      const e = egalites(ex.prompt);
+      expect(valeur(ex)).toBe((e['\\|\\vec{u} + \\vec{v}\\|^2'] - e['\\|\\vec{u} - \\vec{v}\\|^2']) / 4);
+    }
+    for (const ex of t('1re-ps-polarisation', 'norme-de-la-somme')) {
+      const e = egalites(ex.prompt);
+      const s = ex.prompt.includes('\\vec{u} - \\vec{v}') ? -1 : 1;
+      expect(valeur(ex)).toBe(e[U] ** 2 + e[V] ** 2 + 2 * s * e[UV]);
+    }
+  });
+
+  it('calcule dans des figures', () => {
+    const produit = (ex: Exercise, P: Record<string, number[]>) => {
+      const [p, q] = [...ex.prompt.matchAll(/\\overrightarrow\{(\w\w)\}/g)].map((m) => sub(P[m[1][0]], P[m[1][1]]));
+      return dot(p, q);
+    };
+    for (const ex of t('1re-ps-figure', 'triangle-equilateral')) {
+      const a = Number(/de côté \$(\d+)\$/.exec(ex.prompt)![1]);
+      const P = { A: [0, 0], B: [a, 0], C: [a / 2, (a * Math.sqrt(3)) / 2] };
+      expect(valeur(ex)).toBeCloseTo(produit(ex, P), 9);
+    }
+    for (const ex of t('1re-ps-figure', 'milieu')) {
+      const [L, l] = /AB = (\d+)\$ et \$AD = (\d+)/.exec(ex.prompt)!.slice(1).map(Number);
+      const P = { A: [0, 0], B: [L, 0], C: [L, l], D: [0, l], I: [L / 2, l] };
+      expect(valeur(ex)).toBe(produit(ex, P));
+    }
+  });
+});

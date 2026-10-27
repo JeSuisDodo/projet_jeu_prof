@@ -1,6 +1,7 @@
 import { frac, fracLatex } from '../../exercises/fraction';
 import { paren } from '../../exercises/latex';
-import { type Skill, makeChoice } from '../../exercises/types';
+import { type Answer, type Skill, makeChoice } from '../../exercises/types';
+import { enrich, variant } from '../../exercises/variantes';
 import type { ChapterDef } from '../types';
 import { piTex } from './trigonometrie';
 
@@ -176,13 +177,231 @@ const figure: Skill = {
   },
 };
 
+const vraiFaux = (b: boolean): Answer => ({ kind: 'choice', options: ['Vrai', 'Faux'], correct: b ? 0 : 1 });
+const pt = (name: string, x: number, y: number) => `${name}(${x}\\,;\\,${y})`;
+const NATURE = ['aigu', 'droit', 'obtus'];
+const nature = (dot: number) => (dot > 0 ? 0 : dot === 0 ? 1 : 2);
+
+const coordonneesVariantes = [
+  variant('points', (rng, level) => {
+    const r = level === 1 ? 4 : 7;
+    const [ax, ay, bx, by, cx, cy] = Array.from({ length: 6 }, () => rng.int(-r, r));
+    const [u, v] = [[bx - ax, by - ay], [cx - ax, cy - ay]];
+    const value = u[0] * v[0] + u[1] * v[1];
+    return {
+      prompt: `Dans un repère orthonormé, $${pt('A', ax, ay)}$, $${pt('B', bx, by)}$ et $${pt('C', cx, cy)}$. Calcule $\\overrightarrow{AB} \\cdot \\overrightarrow{AC}$.`,
+      answer: { kind: 'number', value: frac(value) },
+      hint: 'Calcule d’abord les coordonnées des deux vecteurs.',
+      correction: [`$\\overrightarrow{AB}${coords(u[0], u[1])}$ et $\\overrightarrow{AC}${coords(v[0], v[1])}$.`, `$\\overrightarrow{AB} \\cdot \\overrightarrow{AC} = ${u[0]} \\times ${paren(v[0])} + ${paren(u[1])} \\times ${paren(v[1])} = ${value}$`],
+    };
+  }),
+  variant('norme-somme', (rng) => {
+    const [a, b, c, d] = [rng.int(-5, 5), rng.int(-5, 5), rng.int(-5, 5), rng.int(-5, 5)];
+    const minus = rng.next() < 0.5;
+    const [x, y] = minus ? [a - c, b - d] : [a + c, b + d];
+    return {
+      prompt: `Dans un repère orthonormé, $${vec('u')}${coords(a, b)}$ et $${vec('v')}${coords(c, d)}$. Calcule $\\|${vec('u')} ${minus ? '-' : '+'} ${vec('v')}\\|^2$.`,
+      answer: { kind: 'number', value: frac(x * x + y * y) },
+      hint: 'Calcule les coordonnées du vecteur, puis la somme des carrés.',
+      correction: [`$${vec('u')} ${minus ? '-' : '+'} ${vec('v')}${coords(x, y)}$, donc $\\|${vec('u')} ${minus ? '-' : '+'} ${vec('v')}\\|^2 = ${paren(x)}^2 + ${paren(y)}^2 = ${x * x + y * y}$.`],
+    };
+  }),
+  variant('vrai-faux-orthogonaux', (rng) => {
+    const a = rng.int(-6, 6);
+    const b = rng.nonZero(-6, 6);
+    const k = rng.nonZero(-2, 2);
+    const ok = rng.next() < 0.5;
+    const [c, d] = ok ? [-k * b, k * a] : [-k * b + rng.nonZero(-2, 2), k * a];
+    const dot = a * c + b * d;
+    return {
+      prompt: `Vrai ou faux : les vecteurs $${vec('u')}${coords(a, b)}$ et $${vec('v')}${coords(c, d)}$ sont orthogonaux.`,
+      answer: vraiFaux(dot === 0),
+      hint: 'Calcule leur produit scalaire.',
+      correction: [`$${vec('u')} \\cdot ${vec('v')} = ${a} \\times ${paren(c)} + ${paren(b)} \\times ${paren(d)} = ${dot}$ : c'est ${dot === 0 ? 'vrai' : 'faux'}.`],
+    };
+  }),
+];
+
+const normeAngleVariantes = [
+  variant('nature-angle', (rng) => {
+    const nu = rng.int(1, 9);
+    const nv = rng.int(1, 9);
+    const dot = rng.next() < 0.25 ? 0 : rng.int(-nu * nv + 1, nu * nv - 1);
+    return {
+      prompt: `On sait que $\\|${vec('u')}\\| = ${nu}$, $\\|${vec('v')}\\| = ${nv}$ et $${vec('u')} \\cdot ${vec('v')} = ${dot}$. L'angle géométrique entre $${vec('u')}$ et $${vec('v')}$ est :`,
+      answer: { kind: 'choice', options: NATURE, correct: nature(dot) },
+      hint: 'Le produit scalaire a le signe du cosinus de l’angle.',
+      correction: [`$\\cos(${vec('u')}, ${vec('v')}) = \\frac{${dot}}{${nu * nv}}$ est ${dot > 0 ? 'positif : l’angle est aigu' : dot === 0 ? 'nul : l’angle est droit' : 'négatif : l’angle est obtus'}.`],
+    };
+  }),
+  variant('cosinus', (rng) => {
+    const nu = rng.int(1, 9);
+    const nv = rng.int(1, 9);
+    const dot = rng.int(-nu * nv, nu * nv);
+    const value = frac(dot, nu * nv);
+    return {
+      prompt: `On sait que $\\|${vec('u')}\\| = ${nu}$, $\\|${vec('v')}\\| = ${nv}$ et $${vec('u')} \\cdot ${vec('v')} = ${dot}$. Calcule $\\cos(${vec('u')}, ${vec('v')})$ (fraction).`,
+      answer: { kind: 'number', value },
+      hint: '$\\cos(\\vec{u}, \\vec{v}) = \\frac{\\vec{u} \\cdot \\vec{v}}{\\|\\vec{u}\\| \\times \\|\\vec{v}\\|}$.',
+      correction: [`$\\cos(${vec('u')}, ${vec('v')}) = \\frac{${dot}}{${nu} \\times ${nv}} = ${fracLatex(value)}$`],
+    };
+  }),
+  variant('norme-inconnue', (rng) => {
+    const nu = rng.int(1, 9);
+    const nv = rng.int(1, 9);
+    const [k, cos] = rng.pick([ANGLES[0], ANGLES[1], ANGLES[3], ANGLES[4]]);
+    const dot = frac(nu * nv * cos * 2, 2);
+    return {
+      prompt: `On sait que $\\|${vec('v')}\\| = ${nv}$, que l'angle $(${vec('u')}, ${vec('v')})$ mesure $${piTex(k, 12)}$ et que $${vec('u')} \\cdot ${vec('v')} = ${fracLatex(dot)}$. Calcule $\\|${vec('u')}\\|$.`,
+      answer: { kind: 'number', value: frac(nu) },
+      hint: 'Isole $\\|\\vec{u}\\|$ dans $\\vec{u} \\cdot \\vec{v} = \\|\\vec{u}\\| \\times \\|\\vec{v}\\| \\times \\cos(\\vec{u}, \\vec{v})$.',
+      correction: [`$${fracLatex(dot)} = \\|${vec('u')}\\| \\times ${nv} \\times ${cosTex(cos)}$, donc $\\|${vec('u')}\\| = ${nu}$.`],
+    };
+  }),
+];
+
+const orthogonalVariantes = [
+  variant('triangle-rectangle', (rng) => {
+    const [ax, ay] = [rng.int(-5, 5), rng.int(-5, 5)];
+    let [dx, dy] = [rng.int(-4, 4), rng.int(-4, 4)];
+    if (dx === 0 && dy === 0) dx = 1;
+    const k = rng.pick([-2, -1, 1, 2]);
+    const ok = rng.next() < 0.5;
+    const [ex, ey] = ok ? [-k * dy, k * dx] : [-k * dy + rng.nonZero(-2, 2), k * dx];
+    const dot = dx * ex + dy * ey;
+    return {
+      prompt: `Vrai ou faux : le triangle de sommets $${pt('A', ax, ay)}$, $${pt('B', ax + dx, ay + dy)}$ et $${pt('C', ax + ex, ay + ey)}$ est rectangle en $A$.`,
+      answer: vraiFaux(dot === 0),
+      hint: 'Il est rectangle en $A$ si et seulement si $\\overrightarrow{AB} \\cdot \\overrightarrow{AC} = 0$.',
+      correction: [`$\\overrightarrow{AB}${coords(dx, dy)}$, $\\overrightarrow{AC}${coords(ex, ey)}$ et $\\overrightarrow{AB} \\cdot \\overrightarrow{AC} = ${dot}$ : c'est ${dot === 0 ? 'vrai' : 'faux'}.`],
+    };
+  }),
+  variant('deux-valeurs', (rng) => {
+    const k = rng.int(1, 6);
+    const a = rng.pick([1, k, k * k].filter((v, i, t) => t.indexOf(v) === i));
+    const b = -(k * k) / a;
+    const values = [frac(-k), frac(k)];
+    return {
+      prompt: `Dans un repère orthonormé, $${vec('u')}\\begin{pmatrix} m \\\\ ${a} \\end{pmatrix}$ et $${vec('v')}\\begin{pmatrix} m \\\\ ${b} \\end{pmatrix}$. Pour quelles valeurs de $m$ ces vecteurs sont-ils orthogonaux ?`,
+      answer: { kind: 'set', values },
+      hint: 'Écris que le produit scalaire est nul : on obtient une équation du second degré.',
+      correction: [`$${vec('u')} \\cdot ${vec('v')} = m^2 ${a * b < 0 ? '-' : '+'} ${Math.abs(a * b)}$`, `$m^2 = ${k * k} \\iff m = -${k}$ ou $m = ${k}$`],
+    };
+  }),
+];
+
+const alKashiVariantes = [
+  variant('cosinus-angle', (rng) => {
+    const b = rng.int(2, 9);
+    const c = rng.int(2, 9);
+    const a = rng.int(Math.abs(b - c) + 1, b + c - 1);
+    const value = frac(b * b + c * c - a * a, 2 * b * c);
+    return {
+      prompt: `Dans le triangle $ABC$, $AB = ${c}$, $AC = ${b}$ et $BC = ${a}$. Calcule $\\cos\\widehat{BAC}$ (fraction).`,
+      answer: { kind: 'number', value },
+      hint: 'Isole le cosinus dans la formule d’Al-Kashi.',
+      correction: [`$\\cos\\widehat{BAC} = \\frac{AB^2 + AC^2 - BC^2}{2 \\times AB \\times AC} = \\frac{${c * c} + ${b * b} - ${a * a}}{${2 * b * c}} = ${fracLatex(value)}$`],
+    };
+  }),
+  variant('nature-triangle', (rng) => {
+    let [a, b, c]: number[] = [];
+    if (rng.next() < 0.3) {
+      const [p, q, r] = rng.pick([[3, 4, 5], [5, 12, 13], [6, 8, 10], [8, 15, 17]]);
+      [b, c, a] = rng.next() < 0.5 ? [p, q, r] : [q, p, r];
+    } else {
+      b = rng.int(2, 9);
+      c = rng.int(2, 9);
+      a = rng.int(Math.abs(b - c) + 1, b + c - 1);
+    }
+    const d = b * b + c * c - a * a;
+    return {
+      prompt: `Dans le triangle $ABC$, $AB = ${c}$, $AC = ${b}$ et $BC = ${a}$. L'angle $\\widehat{BAC}$ est :`,
+      answer: { kind: 'choice', options: NATURE, correct: nature(d) },
+      hint: 'Avec Al-Kashi, le signe de $\\cos\\widehat{BAC}$ est celui de $AB^2 + AC^2 - BC^2$.',
+      correction: [`$AB^2 + AC^2 - BC^2 = ${c * c} + ${b * b} - ${a * a} = ${d}$ : l'angle est ${NATURE[nature(d)]}.`],
+    };
+  }),
+];
+
+const polarisationVariantes = [
+  variant('somme-et-difference', (rng) => {
+    const nu = rng.int(1, 8);
+    const nv = rng.int(1, 8);
+    const p = rng.int(-nu * nv + 1, nu * nv - 1);
+    const s2 = nu * nu + nv * nv;
+    return {
+      prompt: `On sait que $\\|${vec('u')} + ${vec('v')}\\|^2 = ${s2 + 2 * p}$ et $\\|${vec('u')} - ${vec('v')}\\|^2 = ${s2 - 2 * p}$. Calcule $${vec('u')} \\cdot ${vec('v')}$.`,
+      answer: { kind: 'number', value: frac(p) },
+      hint: 'Soustrais les deux développements : $\\|\\vec{u} + \\vec{v}\\|^2 - \\|\\vec{u} - \\vec{v}\\|^2 = 4\\,\\vec{u} \\cdot \\vec{v}$.',
+      correction: [`$4\\,${vec('u')} \\cdot ${vec('v')} = ${s2 + 2 * p} - ${paren(s2 - 2 * p)} = ${4 * p}$, donc $${vec('u')} \\cdot ${vec('v')} = ${p}$.`],
+    };
+  }),
+  variant('norme-de-la-somme', (rng) => {
+    const nu = rng.int(1, 8);
+    const nv = rng.int(1, 8);
+    const p = rng.int(-nu * nv + 1, nu * nv - 1);
+    const minus = rng.next() < 0.5;
+    const op = minus ? '-' : '+';
+    const value = nu * nu + nv * nv + (minus ? -2 : 2) * p;
+    return {
+      prompt: `On sait que $\\|${vec('u')}\\| = ${nu}$, $\\|${vec('v')}\\| = ${nv}$ et $${vec('u')} \\cdot ${vec('v')} = ${p}$. Calcule $\\|${vec('u')} ${op} ${vec('v')}\\|^2$.`,
+      answer: { kind: 'number', value: frac(value) },
+      hint: `$\\|\\vec{u} ${op} \\vec{v}\\|^2 = \\|\\vec{u}\\|^2 ${op} 2\\,\\vec{u} \\cdot \\vec{v} + \\|\\vec{v}\\|^2$.`,
+      correction: [`$\\|${vec('u')} ${op} ${vec('v')}\\|^2 = ${nu * nu} ${op} 2 \\times ${paren(p)} + ${nv * nv} = ${value}$`],
+    };
+  }),
+];
+
+/** Sommets d'un triangle équilatéral, en unités (a/2 ; a√3/2). */
+const EQUI: Record<string, [number, number]> = { A: [0, 0], B: [2, 0], C: [1, 1] };
+
+const figureVariantes = [
+  variant('triangle-equilateral', (rng) => {
+    const a = 2 * rng.int(1, 5);
+    const names = ['AB', 'AC', 'BC', 'BA', 'CA', 'CB'];
+    const [p, q] = rng.shuffle(names).slice(0, 2);
+    const v = (n: string) => [EQUI[n[1]][0] - EQUI[n[0]][0], EQUI[n[1]][1] - EQUI[n[0]][1]];
+    const [u, w] = [v(p), v(q)];
+    const value = ((u[0] * w[0] + 3 * u[1] * w[1]) * a * a) / 4;
+    return {
+      prompt: `$ABC$ est un triangle équilatéral de côté $${a}$. Calcule $\\overrightarrow{${p}} \\cdot \\overrightarrow{${q}}$.`,
+      answer: { kind: 'number', value: frac(value) },
+      hint: 'Utilise $\\vec{u} \\cdot \\vec{v} = \\|\\vec{u}\\| \\times \\|\\vec{v}\\| \\times \\cos(\\vec{u}, \\vec{v})$, en faisant attention au sens des vecteurs.',
+      correction: [`Les deux vecteurs ont pour norme $${a}$ ; l'angle qu'ils forment a pour cosinus $${cosTex(value / (a * a))}$.`, `$\\overrightarrow{${p}} \\cdot \\overrightarrow{${q}} = ${a} \\times ${a} \\times ${cosTex(value / (a * a))} = ${value}$`],
+    };
+  }),
+  variant('milieu', (rng) => {
+    const L = 2 * rng.int(1, 4);
+    const l = rng.int(2, 8);
+    const P: Record<string, [number, number]> = { A: [0, 0], B: [L, 0], C: [L, l], D: [0, l], I: [L / 2, l] };
+    const names = ['AI', 'IB', 'AB', 'AD', 'BI', 'IC', 'DI', 'AC'];
+    const [p, q] = rng.shuffle(names).slice(0, 2);
+    const v = (n: string) => [P[n[1]][0] - P[n[0]][0], P[n[1]][1] - P[n[0]][1]];
+    const [u, w] = [v(p), v(q)];
+    const value = u[0] * w[0] + u[1] * w[1];
+    return {
+      prompt: `$ABCD$ est un rectangle avec $AB = ${L}$ et $AD = ${l}$, et $I$ est le milieu de $[CD]$. Calcule $\\overrightarrow{${p}} \\cdot \\overrightarrow{${q}}$.`,
+      answer: { kind: 'number', value: frac(value) },
+      hint: 'Place-toi dans le repère d’origine $A$, d’axes $(AB)$ et $(AD)$.',
+      correction: [`$A(0\\,;\\,0)$, $B(${L}\\,;\\,0)$, $C(${L}\\,;\\,${l})$, $D(0\\,;\\,${l})$ et $I(${L / 2}\\,;\\,${l})$.`, `$\\overrightarrow{${p}}${coords(u[0], u[1])}$, $\\overrightarrow{${q}}${coords(w[0], w[1])}$, produit scalaire : $${value}$.`],
+    };
+  }),
+];
+
 export const PRODUIT_SCALAIRE: ChapterDef = {
   id: '1re-produit-scalaire',
   title: 'Produit scalaire',
   region: 'Grottes de Cristal',
   theme: 'cristal',
   terrain: 'canyon',
-  skills: [coordonnees, normeAngle, orthogonal, alKashi, polarisation, figure],
+  skills: [
+    enrich(coordonnees, coordonneesVariantes),
+    enrich(normeAngle, normeAngleVariantes),
+    enrich(orthogonal, orthogonalVariantes),
+    enrich(alKashi, alKashiVariantes),
+    enrich(polarisation, polarisationVariantes),
+    enrich(figure, figureVariantes),
+  ],
   creatures: [
     {
       id: '1re-scalaron',
