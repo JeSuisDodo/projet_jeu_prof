@@ -989,3 +989,156 @@ describe('variantes de Terminale : géométrie dans l’espace', () => {
     }
   });
 });
+
+describe('variantes de Terminale : probabilités', () => {
+  const fact = (n: number): number => (n <= 1 ? 1 : n * fact(n - 1));
+  const C = (n: number, k: number) => fact(n) / (fact(k) * fact(n - k));
+  const pB = (n: number, p: number, k: number) => C(n, k) * p ** k * (1 - p) ** (n - k);
+  /** Paramètres d'une loi \mathcal{B}(n ; p) écrite dans un texte. */
+  const loi = (s: string) => {
+    const m = /\\mathcal\{B\}\\left\((\d+)\\,;\\,(.+?)\\right\)/.exec(s)!;
+    return { n: Number(m[1]), p: texEval(m[2], 0) };
+  };
+  const ev = (s: string) => texEval(s.replace('{,}', '.'), 0);
+  const nb = (s: string, re: RegExp) => ev(re.exec(s)![1]);
+
+  it('loi binomiale', () => {
+    for (const ex of t('tle-binomiale-proba', 'au-plus-un')) {
+      const { n, p } = loi(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo(pB(n, p, 0) + pB(n, p, 1), 12);
+    }
+    for (const ex of t('tle-binomiale-proba', 'de', 30)) {
+      const [n, k] = [/lance (\d+) fois/, /exactement (\d+) fois/].map((r) => Number(r.exec(ex.prompt)![1]));
+      // Énumération de tous les lancers.
+      let favorables = 0;
+      for (let code = 0; code < 6 ** n; code++) {
+        const faces = Array.from({ length: n }, (_, i) => Math.floor(code / 6 ** i) % 6);
+        if (faces.filter((f) => f === 0).length === k) favorables++;
+      }
+      expect(valeur(ex)).toBeCloseTo(favorables / 6 ** n, 12);
+    }
+    for (const ex of t('tle-binomiale-esperance', 'retrouver-n')) {
+      const p = nb(ex.prompt, /p = (.+?)\$/);
+      expect(valeur(ex) * p).toBeCloseTo(nb(ex.prompt, /E\(X\) = (.+?)\$/), 9);
+    }
+    for (const ex of t('tle-binomiale-esperance', 'ecart-type')) {
+      const { n, p } = loi(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo(Math.sqrt(n * p * (1 - p)), 9);
+    }
+    for (const ex of t('tle-au-moins-un', 'seuil-n')) {
+      const p = nb(ex.prompt, /probabilité \$(.+?)\$/);
+      const c = nb(ex.prompt, /dépasse \$(.+?)\$/);
+      const n = valeur(ex);
+      expect(1 - (1 - p) ** n).toBeGreaterThanOrEqual(c);
+      expect(1 - (1 - p) ** (n - 1)).toBeLessThan(c);
+    }
+    for (const ex of t('tle-au-moins-un', 'au-moins-deux')) {
+      const n = Number(/répète (\d+) fois/.exec(ex.prompt)![1]);
+      const p = nb(ex.prompt, /succès \$(.+?)\$/);
+      let s = 0;
+      for (let k = 2; k <= n; k++) s += pB(n, p, k);
+      expect(valeur(ex)).toBeCloseTo(s, 12);
+    }
+    for (const ex of t('tle-binomiale-modele', 'parametres')) {
+      const { n, p } = loi(optionJuste(ex));
+      const s = ex.prompt;
+      const entiers = [...s.matchAll(/(\d+)/g)].map((m) => Number(m[1]));
+      if (s.includes('urne')) expect([n, p]).toEqual([entiers[0], entiers[1] / (entiers[1] + entiers[2])]);
+      else if (s.includes('QCM')) expect([n, p]).toEqual([entiers[0], 1 / entiers[1]]);
+      else if (s.includes('pairs')) expect([n, p]).toEqual([entiers[0], 1 / 2]);
+      else expect([n, p]).toEqual([entiers[0], (7 - entiers[1]) / 6]);
+    }
+    for (const ex of t('tle-binomiale-modele', 'vrai-faux')) {
+      const { n, p } = loi(ex.prompt);
+      const affirmation = /faux : \$(.+?)\$/.exec(ex.prompt)![1];
+      const i = affirmation.lastIndexOf(' = ');
+      const [lhs, rhs] = [affirmation.slice(0, i), affirmation.slice(i + 3)];
+      const annonce = texEval(rhs, 0);
+      const k = /P\(X = (\d+)\)/.exec(lhs);
+      const vrai = k ? pB(n, p, Number(k[1])) : lhs.includes('geq 1') ? 1 - pB(n, p, 0) : lhs === 'E(X)' ? n * p : n * p * (1 - p);
+      expect(optionJuste(ex), ex.prompt).toBe(Math.abs(vrai - annonce) < 1e-12 ? 'Vrai' : 'Faux');
+    }
+    for (const ex of t('tle-binomiale-cumul', 'strictement-plus')) expect(valeur(ex)).toBeCloseTo(1 - nb(ex.prompt, /\\approx (.+?)\$/), 12);
+    for (const ex of t('tle-binomiale-cumul', 'egalite')) {
+      const [a, b] = [...ex.prompt.matchAll(/\\approx (.+?)\$/g)].map((m) => ev(m[1]));
+      expect(valeur(ex)).toBeCloseTo(b - a, 12);
+    }
+    for (const ex of t('tle-epreuves-independantes', 'aucune')) {
+      const [p1, p2] = [...ex.prompt.matchAll(/\$(\\frac\{\d+\}\{\d+\})\$/g)].map((m) => ev(m[1]));
+      expect(valeur(ex)).toBeCloseTo((1 - p1) * (1 - p2), 12);
+    }
+    for (const ex of t('tle-epreuves-independantes', 'trois-epreuves')) {
+      const p = nb(ex.prompt, /succès \$(.+?)\$/);
+      const k = ex.prompt.includes('deux succès') ? 2 : 1;
+      let s = 0;
+      for (let m = 0; m < 8; m++) {
+        const r = [0, 1, 2].map((i) => (m >> i) & 1);
+        if (r.filter(Boolean).length === k) s += r.reduce((v, x) => v * (x ? p : 1 - p), 1);
+      }
+      expect(valeur(ex)).toBeCloseTo(s, 12);
+    }
+  });
+
+  it('espérance, variance et concentration', () => {
+    for (const ex of t('tle-esperance-loi', 'jeu')) {
+      const [mise, gain] = [/misé? ?(\d+) €|On mise (\d+) €/, /reçoit (\d+) €/].map((r) => Number(r.exec(ex.prompt)!.slice(1).find(Boolean)));
+      const faces = ex.prompt.includes('un 6') ? 1 : 7 - Number(/au moins (\d)/.exec(ex.prompt)![1]);
+      const E = (gain * faces) / 6 - mise;
+      expect(optionJuste(ex)).toBe(Math.abs(E) < 1e-12 ? 'Équitable' : E > 0 ? 'Favorable' : 'Défavorable');
+    }
+    for (const ex of t('tle-esperance-loi', 'probabilite-manquante')) {
+      const autres = [...ex.prompt.matchAll(/\) = (\d\{,\}\d)/g)].map((m) => ev(m[1]));
+      expect(valeur(ex) + autres.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 12);
+    }
+    for (const ex of t('tle-esperance-lineaire', 'retrouver-b')) {
+      const EX = nb(ex.prompt, /E\(X\) = (-?\d+)\$/);
+      const m = /E\((-?\d*)X \+ b\) = (-?\d+)\$/.exec(ex.prompt)!;
+      const a = m[1] === '' ? 1 : m[1] === '-' ? -1 : Number(m[1]);
+      expect(a * EX + valeur(ex)).toBe(Number(m[2]));
+    }
+    for (const ex of t('tle-esperance-lineaire', 'difference')) {
+      const [EX, EY] = [/E\(X\) = (-?\d+)/, /E\(Y\) = (-?\d+)/].map((r) => nb(ex.prompt, r));
+      const m = /E\((\d*)X - (\d*)Y\)/.exec(ex.prompt)!;
+      expect(valeur(ex)).toBe(Number(m[1] || 1) * EX - Number(m[2] || 1) * EY);
+    }
+    for (const ex of t('tle-variance-somme', 'ecart-type')) {
+      const s = nb(ex.prompt, /\\sigma\(X\) = (\d+)/);
+      const m = /\\sigma\((-?\d*)X/.exec(ex.prompt.split('Calcule')[1])!;
+      const a = m[1] === '' ? 1 : m[1] === '-' ? -1 : Number(m[1]);
+      expect(valeur(ex)).toBe(Math.abs(a) * s);
+    }
+    for (const ex of t('tle-variance-somme', 'difference')) expect(valeur(ex)).toBe(nb(ex.prompt, /V\(X\) = (\d+)/) + nb(ex.prompt, /V\(Y\) = (\d+)/));
+    for (const ex of t('tle-moyenne-echantillon', 'somme')) {
+      const n = Number(/X_\{(\d+)\}/.exec(ex.prompt)![1]);
+      const [E, V] = [/E\(X\) = (-?\d+)/, /V\(X\) = (\d+)/].map((r) => nb(ex.prompt, r));
+      expect(valeur(ex)).toBe(ex.prompt.includes('Calcule $V(S)$') ? n * V : n * E);
+    }
+    for (const ex of t('tle-moyenne-echantillon', 'ecart-type')) {
+      const n = Number(/X_\{(\d+)\}/.exec(ex.prompt)![1]);
+      expect(valeur(ex)).toBeCloseTo(nb(ex.prompt, /\\sigma\(X\) = (\d+)/) / Math.sqrt(n), 12);
+    }
+    for (const ex of t('tle-bienayme-tchebychev', 'minorant')) {
+      const [E, V] = [/E\(X\) = (-?\d+)/, /V\(X\) = (\d+)/].map((r) => nb(ex.prompt, r));
+      const [a, b] = /P\((-?\d+) < X < (-?\d+)\)/.exec(ex.prompt)!.slice(1).map(Number);
+      expect(E - a).toBe(b - E);
+      expect(valeur(ex)).toBeCloseTo(1 - V / (b - E) ** 2, 12);
+    }
+    for (const ex of t('tle-bienayme-tchebychev', 'ecart')) {
+      const s = nb(ex.prompt, /\\sigma\(X\) = (\d+)/);
+      const delta = nb(ex.prompt, /\\geq (\d+)\)/);
+      expect(valeur(ex)).toBeCloseTo((s * s) / delta ** 2, 12);
+    }
+    for (const ex of t('tle-concentration', 'majorant')) {
+      const [V, n] = [/V\(X\) = (\d+)/, /n = (\d+)/].map((r) => nb(ex.prompt, r));
+      const delta = nb(ex.prompt, /\\geq (.+?)\)\$/);
+      expect(valeur(ex)).toBeCloseTo(V / (n * delta ** 2), 12);
+    }
+    for (const ex of t('tle-concentration', 'frequence')) {
+      const delta = nb(ex.prompt, /\\geq (.+?)\) \\leq/);
+      const alpha = nb(ex.prompt, /\\geq .+?\) \\leq (.+?)\$ \?/);
+      const n = valeur(ex);
+      expect(1 / (4 * n * delta ** 2)).toBeLessThanOrEqual(alpha + 1e-12);
+      expect(1 / (4 * (n - 1) * delta ** 2)).toBeGreaterThan(alpha + 1e-12);
+    }
+  });
+});
