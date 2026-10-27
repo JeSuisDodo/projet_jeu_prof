@@ -824,3 +824,98 @@ describe('variantes de 1re : trigonométrie', () => {
     for (const ex of t('1re-trigo-parite', 'symetrie')) expect(optionJuste(ex)).toBe(ex.prompt.includes('impaire') ? 'l’origine du repère' : 'l’axe des ordonnées');
   });
 });
+
+describe('variantes de 1re : variables aléatoires', () => {
+  /** Lignes d'un tableau de loi : valeurs et probabilités (textes LaTeX). */
+  const loi = (s: string) => {
+    const m = /x_i & (.+?) \\\\ \\hline P\(X = x_i\) & (.+?) \\\\/.exec(s)!;
+    return [m[1].split(' & '), m[2].split(' & ')];
+  };
+  const euros = (s: string) => [...s.matchAll(/\$(-?\d+)\$ €/g)].map((m) => Number(m[1]));
+
+  it('complète des lois et calcule des probabilités', () => {
+    for (const ex of t('1re-va-loi-manquante', 'valeur-inconnue')) {
+      const [xs, ps] = loi(ex.prompt);
+      const e = lireNombre(/E\(X\) = (-?[\d{},]+)\$/.exec(ex.prompt)![1]);
+      const esp = xs.reduce((s, x, i) => s + (x === 'a' ? valeur(ex) : Number(x)) * lireNombre(ps[i]), 0);
+      expect(esp).toBeCloseTo(e, 10);
+    }
+    for (const ex of t('1re-va-loi-manquante', 'proportionnelles')) {
+      const [, ps] = loi(ex.prompt);
+      const total = ps.reduce((s, p) => s + (p === 'p' ? 1 : Number(p.replace('p', ''))), 0);
+      expect(valeur(ex) * total).toBeCloseTo(1, 12);
+    }
+    for (const ex of t('1re-va-probabilite', 'somme-de-deux-des')) {
+      const [op, k] = /P\(S (=|\\geq|\\leq) (\d+)\)/.exec(ex.prompt)!.slice(1);
+      let n = 0;
+      for (let a = 1; a <= 6; a++)
+        for (let b = 1; b <= 6; b++) {
+          const s = a + b;
+          if (op === '=' ? s === Number(k) : op === '\\geq' ? s >= Number(k) : s <= Number(k)) n++;
+        }
+      expect(valeur(ex)).toBeCloseTo(n / 36, 12);
+    }
+    for (const ex of t('1re-va-probabilite', 'pieces')) {
+      const n = Number(/lance (\d) fois/.exec(ex.prompt)![1]);
+      const [op, k] = /P\(X (=|\\geq) (\d)\)/.exec(ex.prompt)!.slice(1);
+      let c = 0;
+      for (let m = 0; m < 2 ** n; m++) {
+        const piles = m.toString(2).split('').filter((b) => b === '1').length;
+        if (op === '=' ? piles === Number(k) : piles >= Number(k)) c++;
+      }
+      expect(valeur(ex)).toBeCloseTo(c / 2 ** n, 12);
+    }
+  });
+
+  it('calcule espérances et variances', () => {
+    for (const ex of t('1re-va-esperance', 'de')) {
+      const [g, h, a] = euros(ex.prompt);
+      const gains = [-a, -a, -a, h, h, g];
+      expect(valeur(ex)).toBeCloseTo(gains.reduce((s, x) => s + x, 0) / 6, 12);
+    }
+    for (const ex of t('1re-va-esperance', 'assurance')) {
+      const [prime, c1, c2] = euros(ex.prompt);
+      const [p1, p2] = [...ex.prompt.matchAll(/\$(\d+)\\,\\%\$/g)].map((m) => Number(m[1]) / 100);
+      expect(valeur(ex)).toBeCloseTo(prime - p1 * c1 - p2 * c2, 9);
+    }
+    for (const ex of t('1re-va-variance', 'ecart-type')) {
+      const [a, b] = nombres(ex.prompt);
+      const m = (a + b) / 2;
+      expect(valeur(ex)).toBeCloseTo(Math.sqrt(((a - m) ** 2 + (b - m) ** 2) / 2), 12);
+    }
+    for (const ex of t('1re-va-variance', 'koenig')) {
+      const [e, e2] = [/E\(X\) = (-?\d+)/, /E\(X\^2\) = (-?\d+)/].map((r) => Number(r.exec(ex.prompt)![1]));
+      expect(valeur(ex)).toBe(e2 - e * e);
+    }
+    for (const ex of t('1re-va-linearite', 'retrouver-a')) {
+      const [e, ey] = [/E\(X\) = (-?\d+)/, /E\(Y\) = (-?\d+)/].map((r) => Number(r.exec(ex.prompt)![1]));
+      const b = texEval(/Y = aX (.+?)\$/.exec(ex.prompt)![1], 0);
+      expect(valeur(ex) * e + b).toBe(ey);
+    }
+    for (const ex of t('1re-va-linearite', 'temperatures')) {
+      const [e, v] = nombres(ex.prompt);
+      expect(valeur(ex)).toBeCloseTo(ex.prompt.includes('V(F)') ? 1.8 ** 2 * v : 1.8 * e + 32, 9);
+    }
+  });
+
+  it('étudie des jeux', () => {
+    const urne = (s: string) => {
+      const n = Number(/contient (\d+) boules/.exec(s)![1]);
+      const r = Number(/: (\d+) rouges?/.exec(s)![1]);
+      const v = Number(/(\d+) vertes/.exec(s)![1]);
+      return { n, r, v };
+    };
+    for (const ex of t('1re-va-jeu', 'gain-equitable')) {
+      const { n, r, v } = urne(ex.prompt);
+      const g2 = Number(/verte rapporte \$(\d+)\$/.exec(ex.prompt)![1]);
+      const mise = texEval(/coûte \$(.+?)\$/.exec(ex.prompt)![1], 0);
+      expect((r * valeur(ex) + v * g2) / n).toBeCloseTo(mise, 12);
+    }
+    for (const ex of t('1re-va-jeu', 'favorable')) {
+      const { n, r, v } = urne(ex.prompt);
+      const [g1, g2, mise] = euros(ex.prompt);
+      const e = (r * g1 + v * g2) / n - mise;
+      expect(optionJuste(ex)).toBe(Math.abs(e) < 1e-12 ? 'équitable' : e > 0 ? 'favorable au joueur' : 'défavorable au joueur');
+    }
+  });
+});
