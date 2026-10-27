@@ -77,3 +77,8 @@ générateur d'origine et brancher directement `enrich(compétence, variantes)` 
 acceptée, mauvaise refusée). La justesse se teste à part en recalculant la réponse depuis l'énoncé,
 avec `variantOf(compétence, nom)` (modèle : `tests/troisieme-variantes.test.ts`). Les tests qui relisent
 l'énoncé de la forme d'origine passent par `baseOf(compétence)`.
+
+En Licence, chaque chapitre fournit une table « identifiant → fonctions `(rng, level) => Draft` » ;
+`catalogue` (dans `src/exercises/licenceVariantes.ts`) les réunit en variantes nommées `forme-2`,
+`forme-3`… et peut appliquer un nettoyage des textes (la L2 passe par `tidy`). Le même fichier
+fournit les vrai/faux et QCM tirés d'une banque d'affirmations de cours (`vraiFauxBanque`, `qcmBanque`).
