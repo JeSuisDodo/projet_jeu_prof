@@ -5,6 +5,7 @@ import { decFrac } from '../src/exercises/cinquieme/outils';
 import { divisors, isPrime } from '../src/exercises/cinquieme/divisibilite';
 import { frac } from '../src/exercises/fraction';
 import { Rng } from '../src/exercises/rng';
+import { baseOf } from '../src/exercises/variantes';
 import { type Answer, type Exercise, type Level, type Response, checkAnswer } from '../src/exercises/types';
 
 /** Vérifications propres à la 5e, en plus des tests communs de tests/content.test.ts. */
@@ -13,7 +14,7 @@ const skills = CINQUIEME.chapters.flatMap((c) => c.skills);
 const skill = (id: string) => {
   const s = skills.find((x) => x.id === id);
   if (!s) throw new Error(`Compétence inconnue : ${id}`);
-  return s;
+  return baseOf(s);
 };
 
 function* draws(id: string, count = 120): Generator<Exercise> {

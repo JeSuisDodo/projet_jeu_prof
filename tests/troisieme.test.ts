@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { TROISIEME } from '../src/content/troisieme';
 import { frac, fracEq } from '../src/exercises/fraction';
 import { Rng } from '../src/exercises/rng';
+import { baseOf } from '../src/exercises/variantes';
 import { median } from '../src/exercises/troisieme/statistiques';
 import { type Answer, type Exercise, type Level, type Response, checkAnswer } from '../src/exercises/types';
 
@@ -12,7 +13,7 @@ const skills = TROISIEME.chapters.flatMap((c) => c.skills);
 const skill = (id: string) => {
   const s = skills.find((x) => x.id === id);
   if (!s) throw new Error(`Compétence absente : ${id}`);
-  return s;
+  return baseOf(s);
 };
 
 function* draws(id: string, count = 100): Generator<Exercise> {

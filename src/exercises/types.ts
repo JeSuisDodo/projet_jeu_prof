@@ -26,6 +26,8 @@ export interface Skill {
   id: string;
   name: string;
   generate: (rng: Rng, level: Level) => Exercise;
+  /** Formes d'exercice entre lesquelles `generate` tire au sort (voir `variantes.ts`), la première étant la forme d'origine. */
+  variants?: { name: string; from: Level; generate: (rng: Rng, level: Level) => Exercise }[];
 }
 
 /** Une réponse saisie : texte libre, ou index de l'option choisie pour un QCM. */
